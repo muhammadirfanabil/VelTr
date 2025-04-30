@@ -13,19 +13,19 @@ class UserForm extends StatefulWidget {
 
 class _UserFormState extends State<UserForm> {
   final _formKey = GlobalKey<FormState>();
-  late String _name;
+  late String _emailAdress;
   late String _password;
   final UserService _userService = UserService();
 
-  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailAdressController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _name = widget.user?.name ?? '';
+    _emailAdress = widget.user?.emailAdress ?? '';
     _password = widget.user?.password ?? '';
-    _nameController.text = _name;
+    _emailAdressController.text = _emailAdress;
     _passwordController.text = _password;
   }
 
@@ -39,7 +39,7 @@ class _UserFormState extends State<UserForm> {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextFormField(
-              controller: _nameController,
+              controller: _emailAdressController,
               decoration: InputDecoration(labelText: 'Nama'),
               validator:
                   (value) =>
@@ -67,7 +67,7 @@ class _UserFormState extends State<UserForm> {
               final now = DateTime.now();
               final user = UserInformation(
                 id: widget.user?.id,
-                name: _nameController.text.trim(),
+                emailAdress: _emailAdressController.text.trim(),
                 password: _passwordController.text.trim(),
                 createdAt: widget.user?.createdAt ?? now,
                 updatedAt: now,

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/users_info.dart';
 import '../widgets/users_form.dart';
 
@@ -11,11 +12,26 @@ class UsersListScreen extends StatelessWidget {
     final usersRef = FirebaseFirestore.instance.collection('users_information');
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Data Pengguna')),
+      appBar: AppBar(
+        title: const Text('Data Pengguna'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Logout',
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              Navigator.pushReplacementNamed(context, '/login');
+            },
+          ),
+        ],
+      ),
       body: StreamBuilder<QuerySnapshot>(
         stream: usersRef.snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.hasError) return const Center(child: Text("Error"));
+          if (snapshot.hasError) {
+            print('Error: ${snapshot.error}');
+            return const Center(child: Text("Terjadi kesalahan"));
+          }
           if (!snapshot.hasData)
             return const Center(child: CircularProgressIndicator());
 
@@ -44,9 +60,9 @@ class UsersListScreen extends StatelessWidget {
                                 user: UserInformation(
                                   id: doc.id,
                                   name: data['name'],
+                                  emailAdress: data['emailAdress'],
                                   password: data['password'],
-                                  createdAt:
-                                      DateTime.now(), // Optional, kamu bisa skip
+                                  createdAt: DateTime.now(),
                                   updatedAt: DateTime.now(),
                                 ),
                               ),
@@ -62,7 +78,7 @@ class UsersListScreen extends StatelessWidget {
                               (_) => AlertDialog(
                                 title: const Text('Hapus Data'),
                                 content: Text(
-                                  'Yakin ingin menghapus ${data['name']}?',
+                                  'Yakin ingin menghapus ${data['emailAdress']}?',
                                 ),
                                 actions: [
                                   TextButton(

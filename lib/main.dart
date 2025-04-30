@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'firebase_options.dart'; // file hasil flutterfire configure
-import '../screens/users_list_screen.dart'; // halaman awal aplikasi kamu
+import 'package:firebase_auth/firebase_auth.dart';
+import '../models/users_info.dart';
+import '../firebase_options.dart';
+import '../screens/users_list_screen.dart';
+import '../screens/login_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,7 +21,24 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Aplikasi Pengguna',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: UsersListScreen(),
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          // Jika pengguna belum login, tampilkan layar login
+          if (snapshot.connectionState == ConnectionState.active) {
+            if (snapshot.data == null) {
+              return const LoginScreen();
+            } else {
+              return const UsersListScreen();
+            }
+          }
+
+          // Tampilkan indikator loading saat memeriksa status login
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        },
+      ),
     );
   }
 }
