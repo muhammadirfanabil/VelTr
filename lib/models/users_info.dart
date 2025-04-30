@@ -2,14 +2,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UserInformation {
   String? id;
-  String name;
+  String? name;
+  String emailAdress;
   String password;
   DateTime createdAt;
   DateTime updatedAt;
 
   UserInformation({
     this.id,
-    required this.name,
+    this.name,
+    required this.emailAdress,
     required this.password,
     required this.createdAt,
     required this.updatedAt,
@@ -22,6 +24,7 @@ class UserInformation {
     return UserInformation(
       id: documentId,
       name: data['name'],
+      emailAdress: data['emailAdress'],
       password: data['password'],
       createdAt: (data['created_at'] as Timestamp).toDate(),
       updatedAt: (data['updated_at'] as Timestamp).toDate(),
@@ -31,6 +34,7 @@ class UserInformation {
   Map<String, dynamic> toMap() {
     return {
       'name': name,
+      'emailAdress': emailAdress,
       'password': password,
       'created_at': Timestamp.fromDate(
         createdAt,

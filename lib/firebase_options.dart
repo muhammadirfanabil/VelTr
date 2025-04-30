@@ -41,48 +41,53 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBQ1-waNq7Vc09dxi-qECAJOHYh2ZQOHOQ',
-    appId: '1:309512527573:web:076b83d1ea0b66346c4c5c',
-    messagingSenderId: '309512527573',
-    projectId: 'gps-app-6712c',
-    authDomain: 'gps-app-6712c.firebaseapp.com',
-    storageBucket: 'gps-app-6712c.firebasestorage.app',
-    measurementId: 'G-1QW2C9ZCR3',
+    apiKey: 'AIzaSyCprGyIVbsc-Yv3zGvhPSpH0uqiX3OVcbc',
+    appId: '1:1025991041896:web:60caae73384a8fdc502cdd',
+    messagingSenderId: '1025991041896',
+    projectId: 'gps-project-a5c9a',
+    authDomain: 'gps-project-a5c9a.firebaseapp.com',
+    databaseURL: 'https://gps-project-a5c9a-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket: 'gps-project-a5c9a.firebasestorage.app',
+    measurementId: 'G-L7KF4C3QXS',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBwnp9iOwhIhIVpDHBvJRhFy7Hleft1NE8',
-    appId: '1:309512527573:android:d9db07c5fab3f6bc6c4c5c',
-    messagingSenderId: '309512527573',
-    projectId: 'gps-app-6712c',
-    storageBucket: 'gps-app-6712c.firebasestorage.app',
+    apiKey: 'AIzaSyBrq9LlADChQHZ3K8f0Je5ZfMACNo8DDp8',
+    appId: '1:1025991041896:android:a1fa7840e74527eb502cdd',
+    messagingSenderId: '1025991041896',
+    projectId: 'gps-project-a5c9a',
+    databaseURL: 'https://gps-project-a5c9a-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket: 'gps-project-a5c9a.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBHVMMxt0xEB1ovKPpPyY7elzEnpw5D274',
-    appId: '1:309512527573:ios:58960081936000236c4c5c',
-    messagingSenderId: '309512527573',
-    projectId: 'gps-app-6712c',
-    storageBucket: 'gps-app-6712c.firebasestorage.app',
+    apiKey: 'AIzaSyDbTQNQxiZ8LeRoSZmTKerOZL5u83MpD68',
+    appId: '1:1025991041896:ios:e42edeecab41a87e502cdd',
+    messagingSenderId: '1025991041896',
+    projectId: 'gps-project-a5c9a',
+    databaseURL: 'https://gps-project-a5c9a-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket: 'gps-project-a5c9a.firebasestorage.app',
     iosBundleId: 'com.example.gpsApp',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyBHVMMxt0xEB1ovKPpPyY7elzEnpw5D274',
-    appId: '1:309512527573:ios:58960081936000236c4c5c',
-    messagingSenderId: '309512527573',
-    projectId: 'gps-app-6712c',
-    storageBucket: 'gps-app-6712c.firebasestorage.app',
+    apiKey: 'AIzaSyDbTQNQxiZ8LeRoSZmTKerOZL5u83MpD68',
+    appId: '1:1025991041896:ios:e42edeecab41a87e502cdd',
+    messagingSenderId: '1025991041896',
+    projectId: 'gps-project-a5c9a',
+    databaseURL: 'https://gps-project-a5c9a-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket: 'gps-project-a5c9a.firebasestorage.app',
     iosBundleId: 'com.example.gpsApp',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyBQ1-waNq7Vc09dxi-qECAJOHYh2ZQOHOQ',
-    appId: '1:309512527573:web:338c1d479509e98e6c4c5c',
-    messagingSenderId: '309512527573',
-    projectId: 'gps-app-6712c',
-    authDomain: 'gps-app-6712c.firebaseapp.com',
-    storageBucket: 'gps-app-6712c.firebasestorage.app',
-    measurementId: 'G-NEPECDCCX7',
+    apiKey: 'AIzaSyCprGyIVbsc-Yv3zGvhPSpH0uqiX3OVcbc',
+    appId: '1:1025991041896:web:0e9e27c2f7196107502cdd',
+    messagingSenderId: '1025991041896',
+    projectId: 'gps-project-a5c9a',
+    authDomain: 'gps-project-a5c9a.firebaseapp.com',
+    databaseURL: 'https://gps-project-a5c9a-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket: 'gps-project-a5c9a.firebasestorage.app',
+    measurementId: 'G-K71RL8QTHP',
   );
 }
