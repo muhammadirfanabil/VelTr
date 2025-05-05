@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../models/users_info.dart';
+import 'models/User/UserInformation.dart';
 import '../firebase_options.dart';
-import '../screens/users_list_screen.dart';
-import '../screens/login_screen.dart';
+import 'screens/Users/Index.dart';
+import 'screens/Auth/Login.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,7 +29,7 @@ class MyApp extends StatelessWidget {
             if (snapshot.data == null) {
               return const LoginScreen();
             } else {
-              return const UsersListScreen();
+              return const UsersListScreen(); //Go to Main menu or Index
             }
           }
 
