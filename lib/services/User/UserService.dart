@@ -1,9 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/users_info.dart';
+import '../../models/User/UserInformation.dart';
+
+//Handle CRUD for User
 
 class UserService {
   final CollectionReference usersRef = FirebaseFirestore.instance.collection(
-    'users_information',
+    'users_information', // Name of the collection Firestore
   );
 
   Future<void> addUser(UserInformation user) {
