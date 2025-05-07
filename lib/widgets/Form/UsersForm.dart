@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../models/users_info.dart';
-import '../services/users_services.dart';
+import '../../models/User/UserInformation.dart';
+import '../../services/User/UserService.dart';
 
 class UserForm extends StatefulWidget {
   final UserInformation? user;
@@ -13,19 +13,19 @@ class UserForm extends StatefulWidget {
 
 class _UserFormState extends State<UserForm> {
   final _formKey = GlobalKey<FormState>();
-  late String _emailAdress;
+  late String _emailAddress;
   late String _password;
   final UserService _userService = UserService();
 
-  final TextEditingController _emailAdressController = TextEditingController();
+  final TextEditingController _emailAddressController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _emailAdress = widget.user?.emailAdress ?? '';
+    _emailAddress = widget.user?.emailAddress ?? '';
     _password = widget.user?.password ?? '';
-    _emailAdressController.text = _emailAdress;
+    _emailAddressController.text = _emailAddress;
     _passwordController.text = _password;
   }
 
@@ -39,7 +39,7 @@ class _UserFormState extends State<UserForm> {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextFormField(
-              controller: _emailAdressController,
+              controller: _emailAddressController,
               decoration: InputDecoration(labelText: 'Nama'),
               validator:
                   (value) =>
@@ -67,7 +67,7 @@ class _UserFormState extends State<UserForm> {
               final now = DateTime.now();
               final user = UserInformation(
                 id: widget.user?.id,
-                emailAdress: _emailAdressController.text.trim(),
+                emailAddress: _emailAddressController.text.trim(),
                 password: _passwordController.text.trim(),
                 createdAt: widget.user?.createdAt ?? now,
                 updatedAt: now,

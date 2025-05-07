@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../models/users_info.dart';
-import '../widgets/users_form.dart';
+import '../../models/User/UserInformation.dart';
+import '../../widgets/Form/UsersForm.dart';
 
 class UsersListScreen extends StatelessWidget {
   const UsersListScreen({super.key});
@@ -60,7 +60,7 @@ class UsersListScreen extends StatelessWidget {
                                 user: UserInformation(
                                   id: doc.id,
                                   name: data['name'],
-                                  emailAdress: data['emailAdress'],
+                                  emailAddress: data['emailAddress'],
                                   password: data['password'],
                                   createdAt: DateTime.now(),
                                   updatedAt: DateTime.now(),
