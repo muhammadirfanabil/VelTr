@@ -3,13 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/User/UserInformation.dart';
 import '../../widgets/Form/UsersForm.dart';
+import '../../services/User/UserService.dart';
 
 class UsersListScreen extends StatelessWidget {
   const UsersListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final usersRef = FirebaseFirestore.instance.collection('users_information');
+    final UserService userService = UserService();
 
     return Scaffold(
       appBar: AppBar(
@@ -25,28 +26,30 @@ class UsersListScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: usersRef.snapshots(),
+      body: StreamBuilder<List<UserInformation>>(
+        stream: userService.getUsers(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             print('Error: ${snapshot.error}');
             return const Center(child: Text("Terjadi kesalahan"));
           }
-          if (!snapshot.hasData)
+          if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
+          }
 
-          final docs = snapshot.data!.docs;
+          final users = snapshot.data!;
 
-          if (docs.isEmpty) return const Center(child: Text("Belum ada data"));
+          if (users.isEmpty) {
+            return const Center(child: Text("Belum ada data"));
+          }
 
           return ListView.builder(
-            itemCount: docs.length,
+            itemCount: users.length,
             itemBuilder: (context, index) {
-              final doc = docs[index];
-              final data = doc.data() as Map<String, dynamic>;
+              final user = users[index];
               return ListTile(
-                title: Text(data['name']),
-                subtitle: Text("Password: ${data['password']}"),
+                title: Text(user.name),
+                subtitle: Text("Email: ${user.emailAddress}"),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -55,17 +58,7 @@ class UsersListScreen extends StatelessWidget {
                       onPressed: () {
                         showDialog(
                           context: context,
-                          builder:
-                              (_) => UserForm(
-                                user: UserInformation(
-                                  id: doc.id,
-                                  name: data['name'],
-                                  emailAddress: data['emailAddress'],
-                                  password: data['password'],
-                                  createdAt: DateTime.now(),
-                                  updatedAt: DateTime.now(),
-                                ),
-                              ),
+                          builder: (_) => UserForm(user: user),
                         );
                       },
                     ),
@@ -78,7 +71,7 @@ class UsersListScreen extends StatelessWidget {
                               (_) => AlertDialog(
                                 title: const Text('Hapus Data'),
                                 content: Text(
-                                  'Yakin ingin menghapus ${data['emailAdress']}?',
+                                  'Yakin ingin menghapus ${user.emailAddress}?',
                                 ),
                                 actions: [
                                   TextButton(
@@ -96,10 +89,18 @@ class UsersListScreen extends StatelessWidget {
                         );
 
                         if (confirm == true) {
-                          await usersRef.doc(doc.id).delete();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("Data dihapus")),
-                          );
+                          try {
+                            await userService.deleteUser(user.id);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Data dihapus")),
+                            );
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text("Gagal menghapus data: $e"),
+                              ),
+                            );
+                          }
                         }
                       },
                     ),

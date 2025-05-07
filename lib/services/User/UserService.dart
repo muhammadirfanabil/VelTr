@@ -1,17 +1,23 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/User/UserInformation.dart';
 
-//Handle CRUD for User
-
+// Handle CRUD for User
 class UserService {
   final CollectionReference usersRef = FirebaseFirestore.instance.collection(
-    'users_information', // Name of the collection Firestore
+    'users_information', // Name of the collection in Firestore
   );
 
-  Future<void> addUser(UserInformation user) {
-    return usersRef.add(user.toMap());
+  /// Add a new user to Firestore
+  Future<void> addUser(UserInformation user) async {
+    try {
+      final docRef = usersRef.doc(); // Auto-generates ID
+      await docRef.set(user.copyWith(id: docRef.id).toMap());
+    } catch (e) {
+      throw Exception('Failed to add user: $e');
+    }
   }
 
+  /// Get a stream of all users
   Stream<List<UserInformation>> getUsers() {
     return usersRef.snapshots().map(
       (snapshot) =>
@@ -26,11 +32,37 @@ class UserService {
     );
   }
 
-  Future<void> updateUser(UserInformation user) {
-    return usersRef.doc(user.id).update(user.toMap());
+  /// Update an existing user
+  Future<void> updateUser(UserInformation user) async {
+    try {
+      await usersRef.doc(user.id).update(user.toMap());
+    } catch (e) {
+      throw Exception('Failed to update user: $e');
+    }
   }
 
-  Future<void> deleteUser(String id) {
-    return usersRef.doc(id).delete();
+  /// Delete a user by ID
+  Future<void> deleteUser(String id) async {
+    try {
+      await usersRef.doc(id).delete();
+    } catch (e) {
+      throw Exception('Failed to delete user: $e');
+    }
+  }
+
+  /// Fetch a single user by ID
+  Future<UserInformation?> getUserById(String id) async {
+    try {
+      final doc = await usersRef.doc(id).get();
+      if (doc.exists) {
+        return UserInformation.fromMap(
+          doc.data() as Map<String, dynamic>,
+          doc.id,
+        );
+      }
+      return null;
+    } catch (e) {
+      throw Exception('Failed to fetch user: $e');
+    }
   }
 }
