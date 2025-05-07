@@ -45,8 +45,10 @@ class UsersListScreen extends StatelessWidget {
               final doc = docs[index];
               final data = doc.data() as Map<String, dynamic>;
               return ListTile(
-                title: Text(data['name']),
-                subtitle: Text("Password: ${data['password']}"),
+                title: Text(data['emailAddress']),
+                subtitle: Text(
+                  "Password: ${data['password'] ?? 'Tidak ada data'}",
+                ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -59,9 +61,9 @@ class UsersListScreen extends StatelessWidget {
                               (_) => UserForm(
                                 user: UserInformation(
                                   id: doc.id,
-                                  name: data['name'],
-                                  emailAddress: data['emailAddress'],
-                                  password: data['password'],
+                                  name: data['name'] ?? '',
+                                  emailAddress: data['emailAddress'] ?? '',
+                                  password: data['password'] ?? '',
                                   createdAt: DateTime.now(),
                                   updatedAt: DateTime.now(),
                                 ),

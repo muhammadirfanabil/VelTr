@@ -5,12 +5,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'models/User/UserInformation.dart';
 import '../firebase_options.dart';
 import 'screens/Users/Index.dart';
-import 'screens/Auth/Login.dart';
+import '../screens/Auth/Login.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -21,23 +23,31 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Aplikasi Pengguna',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (context, snapshot) {
-          // Jika pengguna belum login, tampilkan layar login
-          if (snapshot.connectionState == ConnectionState.active) {
-            if (snapshot.data == null) {
-              return const LoginScreen();
-            } else {
-              return const UsersListScreen(); //Go to Main menu or Index
-            }
-          }
+      debugShowCheckedModeBanner: false,
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const OSMFlutterMap(),
+        // '/map': (context) => const OSMFlutterMap(),
+      },
+    );
+  }
+}
 
-          // Tampilkan indikator loading saat memeriksa status login
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        },
+class OSMFlutterMap extends StatelessWidget {
+  const OSMFlutterMap({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Peta OpenStreetMap")),
+      body: FlutterMap(
+        options: MapOptions(),
+        children: [
+          TileLayer(
+            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            userAgentPackageName: 'com.example.gps_app',
+          ),
+        ],
       ),
     );
   }
