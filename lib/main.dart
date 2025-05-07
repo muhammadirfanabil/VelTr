@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_database/firebase_database.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'models/User/UserInformation.dart';
 import '../firebase_options.dart';
-import 'screens/Users/Index.dart';
-import 'screens/Auth/Login.dart';
+import 'widgets/MapWidget.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -21,24 +17,21 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Aplikasi Pengguna',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (context, snapshot) {
-          // Jika pengguna belum login, tampilkan layar login
-          if (snapshot.connectionState == ConnectionState.active) {
-            if (snapshot.data == null) {
-              return const LoginScreen();
-            } else {
-              return const UsersListScreen(); //Go to Main menu or Index
-            }
-          }
+      debugShowCheckedModeBanner: false,
+      initialRoute: '/',
+      routes: {'/': (context) => const GPSMapScreen()},
+    );
+  }
+}
 
-          // Tampilkan indikator loading saat memeriksa status login
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        },
-      ),
+class GPSMapScreen extends StatelessWidget {
+  const GPSMapScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Peta OpenStreetMap")),
+      body: const MapWidget(),
     );
   }
 }

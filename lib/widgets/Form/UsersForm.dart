@@ -40,7 +40,7 @@ class _UserFormState extends State<UserForm> {
           children: [
             TextFormField(
               controller: _emailAddressController,
-              decoration: InputDecoration(labelText: 'Nama'),
+              decoration: InputDecoration(labelText: 'Email'),
               validator:
                   (value) =>
                       value == null || value.isEmpty ? 'Wajib diisi' : null,
