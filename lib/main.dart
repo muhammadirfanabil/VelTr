@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import '../firebase_options.dart';
 import 'widgets/MapWidget.dart';
+import '../screens/Users/Index.dart';
+import '../screens/Maps/MapView.dart';
+import '../screens/Index.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,19 +22,10 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(primarySwatch: Colors.blue),
       debugShowCheckedModeBanner: false,
       initialRoute: '/',
-      routes: {'/': (context) => const GPSMapScreen()},
-    );
-  }
-}
-
-class GPSMapScreen extends StatelessWidget {
-  const GPSMapScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Peta OpenStreetMap")),
-      body: const MapWidget(),
+      routes: {
+        '/': (context) => IndexScreen(),
+        '/map': (context) => const GPSMapScreen(),
+      },
     );
   }
 }

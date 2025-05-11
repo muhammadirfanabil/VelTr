@@ -23,6 +23,13 @@ class UsersListScreen extends StatelessWidget {
               Navigator.pushReplacementNamed(context, '/login');
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.map_sharp),
+            tooltip: 'Lihat Peta',
+            onPressed: () {
+              Navigator.pushReplacementNamed(context, '/map');
+            },
+          ),
         ],
       ),
       body: StreamBuilder<QuerySnapshot>(
@@ -46,9 +53,7 @@ class UsersListScreen extends StatelessWidget {
               final data = doc.data() as Map<String, dynamic>;
               return ListTile(
                 title: Text(data['emailAddress']),
-                subtitle: Text(
-                  "Password: ${data['password'] ?? 'Tidak ada data'}",
-                ),
+                subtitle: Text("Password: ${data['password']}"),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -61,9 +66,9 @@ class UsersListScreen extends StatelessWidget {
                               (_) => UserForm(
                                 user: UserInformation(
                                   id: doc.id,
-                                  name: data['name'] ?? '',
-                                  emailAddress: data['emailAddress'] ?? '',
-                                  password: data['password'] ?? '',
+                                  name: data['name'],
+                                  emailAddress: data['emailAddress'],
+                                  password: data['password'],
                                   createdAt: DateTime.now(),
                                   updatedAt: DateTime.now(),
                                 ),
