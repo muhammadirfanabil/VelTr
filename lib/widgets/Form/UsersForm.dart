@@ -111,9 +111,6 @@ class _UserFormState extends State<UserForm> {
                     if (value == null || value.isEmpty) {
                       return 'Nama wajib diisi';
                     }
-                    // if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-                    //   return 'Format nama tidak valid';
-                    // }
                     return null;
                   },
                 ),
@@ -158,12 +155,11 @@ class _UserFormState extends State<UserForm> {
         ),
         ElevatedButton(
           onPressed: _loading ? null : _saveUser,
-          child:
-              _loading
-                  ? const CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  )
-                  : const Text('Simpan'),
+          child: _loading
+              ? const CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          )
+              : const Text('Simpan'),
         ),
       ],
     );

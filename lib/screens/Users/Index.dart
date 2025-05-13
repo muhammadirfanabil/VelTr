@@ -24,6 +24,13 @@ class UsersListScreen extends StatelessWidget {
               Navigator.pushReplacementNamed(context, '/login');
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.map_sharp),
+            tooltip: 'Lihat Peta',
+            onPressed: () {
+              Navigator.pushReplacementNamed(context, '/map');
+            },
+          ),
         ],
       ),
       body: StreamBuilder<List<UserInformation>>(
