@@ -111,9 +111,9 @@ class _UserFormState extends State<UserForm> {
                     if (value == null || value.isEmpty) {
                       return 'Nama wajib diisi';
                     }
-                    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-                      return 'Format nama tidak valid';
-                    }
+                    // if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
+                    //   return 'Format nama tidak valid';
+                    // }
                     return null;
                   },
                 ),
