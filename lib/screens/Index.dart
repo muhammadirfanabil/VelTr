@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../services/Auth/AuthService.dart';
+
 
 class IndexScreen extends StatelessWidget {
   const IndexScreen({super.key});
@@ -6,29 +8,40 @@ class IndexScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // Navbar
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 255, 255, 255),
         elevation: 4,
         shadowColor: Colors.black.withAlpha(02),
-        title: Row(
-          children: [
-            Image.asset('assets/images/appicon.png', height: 24, width: 24),
-            const Spacer(),
-            Row(
-              children: [
-                const Text(
-                  "Username",
-                  style: TextStyle(color: Colors.black, fontSize: 15),
-                ),
-                const SizedBox(width: 10),
-                CircleAvatar(
-                  backgroundColor: Colors.white,
-                  child: Icon(Icons.person, color: Colors.blue),
-                ),
-              ],
-            ),
-          ],
-        ),
+        title: const Text('Dashboard'), // or whatever title you want
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) async {
+              if (value == 'profile') {
+                Navigator.pushNamed(context, '/profile');
+              } else if (value == 'settings') {
+                Navigator.pushNamed(context, '/settings');
+              } else if (value == 'logout') {
+                await AuthService.signOut();
+                Navigator.pushReplacementNamed(context, '/login');
+              }
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: 'profile',
+                child: Text('Profile'),
+              ),
+              PopupMenuItem(
+                value: 'settings',
+                child: Text('Settings'),
+              ),
+              PopupMenuItem(
+                value: 'logout',
+                child: Text('Logout'),
+              ),
+            ],
+          ),
+        ],
       ),
       body: Stack(
         children: [

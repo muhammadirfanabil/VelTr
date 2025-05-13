@@ -160,7 +160,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                         label: const Text('Navigate the distance from you'),
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size(160, 50),
-                          primary: Colors.blue.shade700,
+                          backgroundColor: Colors.blue.shade700,
                         ),
                       ),
                       ElevatedButton.icon(
@@ -175,7 +175,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                         label: const Text('Turn off your vehicle'),
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size(160, 50),
-                          primary: Colors.red.shade600,
+                          backgroundColor: Colors.red.shade600,
                         ),
                       ),
                       ElevatedButton.icon(
@@ -186,7 +186,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                         label: const Text('Go Back'),
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size(160, 50),
-                          primary: Colors.grey.shade600,
+                          backgroundColor: Colors.grey.shade600,
                         ),
                       ),
                     ],
