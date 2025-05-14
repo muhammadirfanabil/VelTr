@@ -13,7 +13,20 @@
           "package_name": "com.example.gps_app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1025991041896-pivkkqpjstf8edr88v3cprcif9m8qcbo.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.gps_app",
+            "certificate_hash": "e83d5dec73cd3df47dc07f5c155c3be1c9e32458"
+          }
+        },
+        {
+          "client_id": "1025991041896-8cq0r0ipjg07cmlspjp0redeudv6ejro.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBrq9LlADChQHZ3K8f0Je5ZfMACNo8DDp8"
@@ -21,7 +34,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1025991041896-8cq0r0ipjg07cmlspjp0redeudv6ejro.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1025991041896-biobpcvvpcrsb36hj5317ddj8vqmvnfe.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.gpsApp"
+              }
+            }
+          ]
         }
       }
     }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import '../../services/Auth/AuthService.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -24,13 +23,13 @@ class _LoginScreenState extends State<LoginScreen> {
         _error = null;
       });
       try {
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text.trim(),
+        await AuthService.loginWithEmail(
+          _emailController.text.trim(),
+          _passwordController.text.trim(),
         );
-        // TODO: navigate to home
-      } on FirebaseAuthException catch (e) {
-        setState(() => _error = e.message);
+        Navigator.pushReplacementNamed(context, '/home');
+      } catch (e) {
+        setState(() => _error = 'Gagal login: ${e.toString()}');
       } finally {
         setState(() => _loading = false);
       }
@@ -43,22 +42,10 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
     try {
-      final googleUser = await GoogleSignIn().signIn();
-      if (googleUser == null) {
-        throw FirebaseAuthException(
-          code: 'ERROR_ABORTED_BY_USER',
-          message: 'Login dibatalkan',
-        );
-      }
-      final googleAuth = await googleUser.authentication;
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-      await FirebaseAuth.instance.signInWithCredential(credential);
-      // TODO: navigate to home
-    } on FirebaseAuthException catch (e) {
-      setState(() => _error = e.message);
+      await AuthService.loginWithGoogle();
+      Navigator.pushReplacementNamed(context, '/home');
+    } catch (e) {
+      setState(() => _error = 'Gagal login dengan Google: ${e.toString()}');
     } finally {
       setState(() => _loading = false);
     }
@@ -98,9 +85,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     validator:
                         (value) =>
-                            value == null || value.isEmpty
-                                ? 'Wajib diisi'
-                                : null,
+                    value == null || value.isEmpty
+                        ? 'Wajib diisi'
+                        : null,
                     keyboardType: TextInputType.emailAddress,
                   ),
                   const SizedBox(height: 16),
@@ -113,32 +100,32 @@ class _LoginScreenState extends State<LoginScreen> {
                     obscureText: true,
                     validator:
                         (value) =>
-                            value == null || value.isEmpty
-                                ? 'Wajib diisi'
-                                : null,
+                    value == null || value.isEmpty
+                        ? 'Wajib diisi'
+                        : null,
                   ),
                   const SizedBox(height: 24),
                   _loading
                       ? const CircularProgressIndicator()
                       : ElevatedButton.icon(
-                        icon: const Icon(Icons.login),
-                        onPressed: _login,
-                        label: const Text('Login dengan Email'),
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(50),
-                        ),
-                      ),
+                    icon: const Icon(Icons.login),
+                    onPressed: _login,
+                    label: const Text('Login dengan Email'),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(50),
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   _loading
                       ? const SizedBox.shrink()
                       : OutlinedButton.icon(
-                        icon: const Icon(Icons.account_circle),
-                        onPressed: _loginWithGoogle,
-                        label: const Text('Login dengan Google'),
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(50),
-                        ),
-                      ),
+                    icon: const Icon(Icons.account_circle),
+                    onPressed: _loginWithGoogle,
+                    label: const Text('Login dengan Google'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(50),
+                    ),
+                  ),
                 ],
               ),
             ),
