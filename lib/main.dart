@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:gps_app/screens/Auth/RegisterOne.dart';
+import 'package:gps_app/screens/Auth/RegisterTwo.dart';
 
 import 'firebase_options.dart';
 import 'screens/Auth/Login.dart';
@@ -24,6 +26,8 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(primarySwatch: Colors.blue, fontFamily: 'PlusJakarta'),
       debugShowCheckedModeBanner: false,
       routes: {
+        '/registertwo': (context) => const RegisterTwo(),
+        '/registerone': (context) => const RegisterOne(),
         '/home': (context) => const IndexScreen(),
         '/map': (context) => const GPSMapScreen(),
         '/users': (context) => const UsersListScreen(),
