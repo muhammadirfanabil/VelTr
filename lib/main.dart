@@ -10,9 +10,7 @@ import 'screens/Index.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const MyApp());
 }
 
@@ -23,10 +21,10 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Aplikasi Pengguna',
-      theme: ThemeData(primarySwatch: Colors.blue),
+      theme: ThemeData(primarySwatch: Colors.blue, fontFamily: 'PlusJakarta'),
       debugShowCheckedModeBanner: false,
       routes: {
-        // '/': (context) => const IndexScreen(),
+        '/home': (context) => const IndexScreen(),
         '/map': (context) => const GPSMapScreen(),
         '/users': (context) => const UsersListScreen(),
       },
