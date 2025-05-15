@@ -1,12 +1,33 @@
+import 'dart:developer' as developer;
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../services/Auth/AuthService.dart';
-
+import '../../models/User/UserInformation.dart';
 
 class IndexScreen extends StatelessWidget {
   const IndexScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    Future.microtask(() async {
+      if (FirebaseAuth.instance.currentUser != null) {
+        try {
+          final User user = FirebaseAuth.instance.currentUser!;
+          await UserInformation.ensureUserExistsAfterLogin();
+          developer.log(
+            'User existence verified: ${user.email}',
+            name: 'IndexScreen',
+          );
+        } catch (e) {
+          developer.log('Error ensuring user exists: $e', name: 'IndexScreen');
+        }
+      } else {
+        developer.log('User not logged in', name: 'IndexScreen');
+        Navigator.pushReplacementNamed(context, '/login');
+      }
+    });
+
     return Scaffold(
       // Navbar
       appBar: AppBar(
@@ -26,20 +47,12 @@ class IndexScreen extends StatelessWidget {
                 Navigator.pushReplacementNamed(context, '/login');
               }
             },
-            itemBuilder: (context) => const [
-              PopupMenuItem(
-                value: 'profile',
-                child: Text('Profile'),
-              ),
-              PopupMenuItem(
-                value: 'settings',
-                child: Text('Settings'),
-              ),
-              PopupMenuItem(
-                value: 'logout',
-                child: Text('Logout'),
-              ),
-            ],
+            itemBuilder:
+                (context) => const [
+                  PopupMenuItem(value: 'profile', child: Text('Profile')),
+                  PopupMenuItem(value: 'settings', child: Text('Settings')),
+                  PopupMenuItem(value: 'logout', child: Text('Logout')),
+                ],
           ),
         ],
       ),
@@ -77,6 +90,14 @@ class IndexScreen extends StatelessWidget {
                   subtitle: "See your vehicle’s recent activities.",
                   routeName: "/history",
                   icon: Icons.history,
+                ),
+                const SizedBox(height: 16),
+                _buildCard(
+                  context,
+                  title: "Vehicle Management",
+                  subtitle: "Manage your vehicles.",
+                  routeName: "/vehicle",
+                  icon: Icons.directions_car,
                 ),
                 const Spacer(),
                 const Text(

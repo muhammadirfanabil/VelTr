@@ -17,7 +17,7 @@ class _UserFormState extends State<UserForm> {
 
   final TextEditingController _emailAddressController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  // final TextEditingController _passwordController = TextEditingController();
 
   bool _loading = false;
   String? _error;
@@ -27,7 +27,7 @@ class _UserFormState extends State<UserForm> {
     super.initState();
     _emailAddressController.text = widget.user?.emailAddress ?? '';
     _nameController.text = widget.user?.name ?? '';
-    _passwordController.text = widget.user?.password ?? '';
+    // _passwordController.text = widget.user?.password ?? '';
   }
 
   Future<void> _saveUser() async {
@@ -42,7 +42,7 @@ class _UserFormState extends State<UserForm> {
         id: widget.user?.id ?? '',
         emailAddress: _emailAddressController.text.trim(),
         name: _nameController.text.trim(),
-        password: _passwordController.text.trim(),
+        // password: _passwordController.text.trim(),
         createdAt: widget.user?.createdAt ?? now,
         updatedAt: now,
       );
@@ -115,27 +115,27 @@ class _UserFormState extends State<UserForm> {
                   },
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: TextFormField(
-                  controller: _passwordController,
-                  decoration: const InputDecoration(
-                    labelText: 'Password',
-                    prefixIcon: Icon(Icons.lock),
-                    border: OutlineInputBorder(),
-                  ),
-                  obscureText: true,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Password wajib diisi';
-                    }
-                    if (value.length < 6) {
-                      return 'Password minimal 6 karakter';
-                    }
-                    return null;
-                  },
-                ),
-              ),
+              // Padding(
+              //   padding: const EdgeInsets.symmetric(vertical: 8.0),
+              //   child: TextFormField(
+              //     controller: _passwordController,
+              //     decoration: const InputDecoration(
+              //       labelText: 'Password',
+              //       prefixIcon: Icon(Icons.lock),
+              //       border: OutlineInputBorder(),
+              //     ),
+              //     obscureText: true,
+              //     validator: (value) {
+              //       if (value == null || value.isEmpty) {
+              //         return 'Password wajib diisi';
+              //       }
+              //       if (value.length < 6) {
+              //         return 'Password minimal 6 karakter';
+              //       }
+              //       return null;
+              //     },
+              //   ),
+              // ),
               if (_error != null)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8.0),

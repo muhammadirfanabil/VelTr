@@ -5,12 +5,23 @@ import '../../models/User/UserInformation.dart';
 import '../../widgets/Form/UsersForm.dart';
 import '../../services/User/UserService.dart';
 
+import 'dart:developer' as developer;
+
+
 class UsersListScreen extends StatelessWidget {
   const UsersListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final UserService userService = UserService();
+
+    Future.microtask(() async {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        // await UserInformation.ensureUserExistsAfterLogin(user);
+        developer.log('User logged in: ${user.email}');
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(
