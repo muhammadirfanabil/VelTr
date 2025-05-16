@@ -14,7 +14,7 @@ class AuthService {
   /// Login using Google Sign-In
   static Future<UserCredential> loginWithGoogle() async {
     final googleUser = await GoogleSignIn().signIn();
-    if (googleUser == null) throw Exception("Login dibatalkan");
+    if (googleUser == null) throw Exception("Login canceled.");
 
     final googleAuth = await googleUser.authentication;
 
@@ -23,7 +23,22 @@ class AuthService {
       idToken: googleAuth.idToken,
     );
 
-    return FirebaseAuth.instance.signInWithCredential(credential);
+    final userCredential = await FirebaseAuth.instance.signInWithCredential(
+      credential,
+    );
+
+    final uid = userCredential.user!.uid;
+    final userDoc =
+        await FirebaseFirestore.instance
+            .collection('user_information')
+            .doc(uid)
+            .get();
+
+    if (!userDoc.exists) {
+      throw Exception("not_registered");
+    }
+
+    return userCredential;
   }
 
   /// Register with email and password, and save extra info to Firestore
@@ -39,13 +54,16 @@ class AuthService {
 
     final uid = userCredential.user!.uid;
 
-    await FirebaseFirestore.instance.collection('user_information').doc(uid).set({
-      'name': name,
-      'email': email,
-      'address': address,
-      'phone_number': phoneNumber,
-      'created_at': FieldValue.serverTimestamp(),
-    });
+    await FirebaseFirestore.instance
+        .collection('user_information')
+        .doc(uid)
+        .set({
+          'name': name,
+          'email': email,
+          'address': address,
+          'phone_number': phoneNumber,
+          'created_at': FieldValue.serverTimestamp(),
+        });
 
     return userCredential;
   }

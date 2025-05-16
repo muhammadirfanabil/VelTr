@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -139,7 +140,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                 ),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.92),
-                  borderRadius: BorderRadius.circular(32),
+                  borderRadius: BorderRadius.circular(50),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.08),
@@ -153,7 +154,10 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                   children: [
                     Row(
                       children: [
-                        Image.asset('assets/images/appicon.png', height: 30),
+                        SvgPicture.asset(
+                          'assets/icons/appicon1.svg',
+                          height: 25,
+                        ),
                         const SizedBox(width: 10),
                       ],
                     ),
@@ -260,14 +264,31 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Text(
-                        (latitude != null && longitude != null)
-                            ? 'Lat: ${latitude!.toStringAsFixed(5)}\nLng: ${longitude!.toStringAsFixed(5)}'
-                            : 'Unavailable',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: Colors.black87,
-                        ),
-                      ),
+                      (latitude != null && longitude != null)
+                          ? Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Lat: ${latitude!.toStringAsFixed(5)}',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Lng: ${longitude!.toStringAsFixed(5)}',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
+                          )
+                          : Text(
+                            'Unavailable',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: Colors.black87,
+                            ),
+                          ),
                     ],
                   ),
                   const SizedBox(height: 6),
@@ -351,7 +372,9 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                             ),
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size(400, 45),
-                          backgroundColor: const Color(0xFF888888),
+                          backgroundColor: const Color(
+                            0xFF888888,
+                          ).withOpacity(0.7),
                           foregroundColor: Colors.white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
