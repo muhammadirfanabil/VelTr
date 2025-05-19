@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
-import '../../widgets/MapWidget.dart';
+import '../../widgets/mapWidget.dart';
 import 'package:intl/intl.dart';
 
 class GPSMapScreen extends StatefulWidget {

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../services/Auth/AuthService.dart'; // adjust this path as needed
+import '../../services/Auth/authService.dart'; // adjust this path as needed
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});

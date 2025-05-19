@@ -2,19 +2,19 @@ import 'dart:developer' as developer;
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../../services/Auth/AuthService.dart';
-import '../../models/User/UserInformation.dart';
+import '../../services/Auth/authService.dart';
+import '../../models/User/userInformation.dart';
 
 class IndexScreen extends StatelessWidget {
   const IndexScreen({super.key});
-
   @override
   Widget build(BuildContext context) {
-    Future.microtask(() async {
+    // Use addPostFrameCallback instead of microtask to ensure context is still valid
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (FirebaseAuth.instance.currentUser != null) {
         try {
           final User user = FirebaseAuth.instance.currentUser!;
-          await UserInformation.ensureUserExistsAfterLogin();
+          await userInformation.ensureUserExistsAfterLogin();
           developer.log(
             'User existence verified: ${user.email}',
             name: 'IndexScreen',
@@ -24,7 +24,7 @@ class IndexScreen extends StatelessWidget {
         }
       } else {
         developer.log('User not logged in', name: 'IndexScreen');
-        Navigator.pushReplacementNamed(context, '/login');
+        // No manual navigation needed here - StreamBuilder will handle it
       }
     });
 
@@ -42,9 +42,10 @@ class IndexScreen extends StatelessWidget {
                 Navigator.pushNamed(context, '/profile');
               } else if (value == 'settings') {
                 Navigator.pushNamed(context, '/settings');
-              } else if (value == 'logout') {
+              }              else if (value == 'logout') {
                 await AuthService.signOut();
-                Navigator.pushReplacementNamed(context, '/login');
+                // Navigation is handled by the StreamBuilder in main.dart
+                // No need to navigate manually here
               }
             },
             itemBuilder:
@@ -70,7 +71,7 @@ class IndexScreen extends StatelessWidget {
               children: [
                 _buildCard(
                   context,
-                  title: "Track Your Vehicle",
+                  title: "Track Your vehicle",
                   subtitle: "Keep track to where your vehicle is right now!",
                   routeName: "/map",
                   icon: Icons.map_outlined,
@@ -94,7 +95,7 @@ class IndexScreen extends StatelessWidget {
                 const SizedBox(height: 16),
                 _buildCard(
                   context,
-                  title: "Vehicle Management",
+                  title: "vehicle Management",
                   subtitle: "Manage your vehicles.",
                   routeName: "/vehicle",
                   icon: Icons.directions_car,

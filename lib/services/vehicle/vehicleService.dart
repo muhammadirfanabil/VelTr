@@ -1,24 +1,23 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../models/Vehicle/Vehicle.dart';
+import '../../models/Vehicle/vehicle.dart';
 
-/// Service class for handling Vehicle-related operations
-class VehicleService {
+/// Service class for handling vehicle-related operations
+class vehicleService {
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
 
   /// Creates a new VehicleService instance
-  VehicleService({FirebaseFirestore? firestore, FirebaseAuth? auth})
+  vehicleService({FirebaseFirestore? firestore, FirebaseAuth? auth})
     : _firestore = firestore ?? FirebaseFirestore.instance,
       _auth = auth ?? FirebaseAuth.instance;
 
   /// Returns a stream of vehicles for the current user
-  Stream<List<Vehicle>> getVehiclesStream() {
+  Stream<List<vehicle>> getVehiclesStream() {
     final currentUser = _auth.currentUser;
     if (currentUser == null) {
       return Stream.value([]);
     }
-
     return _firestore
         .collection('vehicles')
         .where('user_id', isEqualTo: currentUser.uid)
@@ -26,7 +25,7 @@ class VehicleService {
         .map(
           (snapshot) =>
               snapshot.docs
-                  .map((doc) => Vehicle.fromMap(doc.data(), doc.id))
+                  .map((doc) => vehicle.fromMap(doc.data(), doc.id))
                   .toList(),
         );
   }
@@ -75,11 +74,11 @@ class VehicleService {
   }
 
   /// Gets a single vehicle by ID
-  Future<Vehicle?> getVehicleById(String id) async {
+  Future<vehicle?> getVehicleById(String id) async {
     final doc = await _firestore.collection('vehicles').doc(id).get();
     if (!doc.exists || doc.data() == null) {
       return null;
     }
-    return Vehicle.fromMap(doc.data()!, doc.id);
+    return vehicle.fromMap(doc.data()!, doc.id);
   }
 }

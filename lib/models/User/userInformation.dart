@@ -1,14 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-class UserInformation {
+class userInformation {
   String id;
   String name;
   String emailAddress;
   DateTime createdAt;
   DateTime updatedAt;
 
-  UserInformation({
+  userInformation({
     required this.id,
     required this.name,
     required this.emailAddress,
@@ -16,14 +16,14 @@ class UserInformation {
     required this.updatedAt,
   });
 
-  UserInformation copyWith({
+  userInformation copyWith({
     String? id,
     String? name,
     String? emailAddress,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
-    return UserInformation(
+    return userInformation(
       id: id ?? this.id,
       name: name ?? this.name,
       emailAddress: emailAddress ?? this.emailAddress,
@@ -32,11 +32,11 @@ class UserInformation {
     );
   }
 
-  factory UserInformation.fromMap(
+  factory userInformation.fromMap(
     Map<String, dynamic> data,
     String documentId,
   ) {
-    return UserInformation(
+    return userInformation(
       id: documentId,
       name: data['name'] ?? '',
       emailAddress: data['emailAddress'] ?? '',
@@ -61,7 +61,7 @@ class UserInformation {
   }
 
   /// Register user in Firebase Authentication and Firestore
-  static Future<UserInformation> registerUser({
+  static Future<userInformation> registerUser({
     required String name,
     required String email,
     required String password,
@@ -75,7 +75,7 @@ class UserInformation {
       String userId = userCredential.user!.uid;
 
       // Create a UserInformation object
-      UserInformation userInformation = UserInformation(
+      userInformation UserInformation = userInformation(
         id: userId,
         name: name,
         emailAddress: email,
@@ -87,16 +87,16 @@ class UserInformation {
       await FirebaseFirestore.instance
           .collection('users_information')
           .doc(userId)
-          .set(userInformation.toMap());
+          .set(UserInformation.toMap());
 
-      return userInformation;
+      return UserInformation;
     } catch (e) {
       throw Exception('Failed to register user: $e');
     }
   }
 
   /// Ensure user data exists in Firestore after login
-  static Future<UserInformation> ensureUserExistsAfterLogin() async {
+  static Future<userInformation> ensureUserExistsAfterLogin() async {
     final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
@@ -112,7 +112,7 @@ class UserInformation {
 
       if (!docSnapshot.exists) {
         // If the document doesn't exist, create it
-        UserInformation userInformation = UserInformation(
+        userInformation UserInformation = userInformation(
           id: user.uid,
           name: user.displayName ?? 'No Name',
           emailAddress: user.email ?? 'No Email',
@@ -120,11 +120,11 @@ class UserInformation {
           updatedAt: DateTime.now(),
         );
 
-        await userDoc.set(userInformation.toMap());
-        return userInformation;
+        await userDoc.set(UserInformation.toMap());
+        return UserInformation;
       } else {
         // Return existing user information
-        return UserInformation.fromMap(
+        return userInformation.fromMap(
           docSnapshot.data() as Map<String, dynamic>,
           user.uid,
         );
@@ -135,7 +135,7 @@ class UserInformation {
   }
 
   /// Get user information from Firestore
-  static Future<UserInformation?> getUserInformation(String userId) async {
+  static Future<userInformation?> getUserInformation(String userId) async {
     try {
       DocumentSnapshot docSnapshot =
           await FirebaseFirestore.instance
@@ -144,7 +144,7 @@ class UserInformation {
               .get();
 
       if (docSnapshot.exists) {
-        return UserInformation.fromMap(
+        return userInformation.fromMap(
           docSnapshot.data() as Map<String, dynamic>,
           userId,
         );

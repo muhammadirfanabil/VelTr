@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Represents a vehicle entity with its properties and database interactions.
-class Vehicle {
+class vehicle {
   final String id;
   final String name;
   final String vehicleTypes;
@@ -9,8 +9,8 @@ class Vehicle {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  /// Creates a new Vehicle instance.
-  const Vehicle({
+  /// Creates a new vehicle instance.
+  const vehicle({
     required this.id,
     required this.name,
     required this.vehicleTypes,
@@ -19,12 +19,12 @@ class Vehicle {
     required this.updatedAt,
   });
 
-  /// Creates a Vehicle instance from Firestore data.
-  factory Vehicle.fromMap(
+  /// Creates a vehicle instance from Firestore data.
+  factory vehicle.fromMap(
     Map<String, dynamic> data,
     String documentId,
   ) {
-    return Vehicle(
+    return vehicle(
       id: documentId,
       name: data['name'] ?? '',
       vehicleTypes: data['vehicle_types'] ?? '',
@@ -34,7 +34,7 @@ class Vehicle {
     );
   }
 
-  /// Converts this Vehicle to a map for Firestore storage.
+  /// Converts this vehicle to a map for Firestore storage.
   Map<String, dynamic> toMap() {
     return {
       'name': name,
@@ -46,7 +46,7 @@ class Vehicle {
   }
 
   /// Creates a copy with modified fields.
-  Vehicle copyWith({
+  vehicle copyWith({
     String? id,
     String? name,
     String? vehicleTypes,
@@ -54,7 +54,7 @@ class Vehicle {
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
-    return Vehicle(
+    return vehicle(
       id: id ?? this.id,
       name: name ?? this.name,
       vehicleTypes: vehicleTypes ?? this.vehicleTypes,
@@ -65,12 +65,12 @@ class Vehicle {
   }
 
   @override
-  String toString() => 'Vehicle(id: $id, name: $name, vehicleTypes: $vehicleTypes, plateNumber: $plateNumber)';
+  String toString() => 'vehicle(id: $id, name: $name, vehicleTypes: $vehicleTypes, plateNumber: $plateNumber)';
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is Vehicle &&
+      other is vehicle &&
           other.id == id &&
           other.name == name &&
           other.vehicleTypes == vehicleTypes &&

@@ -3,11 +3,11 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'firebase_options.dart';
-import 'screens/Auth/Login.dart';
-import 'screens/Users/Index.dart';
-import 'screens/Vehicle/Index.dart';
-import 'screens/Maps/MapView.dart';
-import 'screens/Index.dart';
+import 'screens/Auth/login.dart';
+// import 'screens/Users/index.dart';
+import 'screens/Vehicle/index.dart';
+import 'screens/Maps/mapView.dart';
+import 'screens/index.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,9 +26,11 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       routes: {
         // '/': (context) => const IndexScreen(),
+        '/home': (context) => const IndexScreen(),
         '/map': (context) => const GPSMapScreen(),
-        '/users': (context) => const UsersListScreen(),
+        // '/users': (context) => const UsersListScreen(),
         '/vehicle': (context) => const VehicleIndexScreen(),
+        '/login': (context) => const LoginScreen(),
       },
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),

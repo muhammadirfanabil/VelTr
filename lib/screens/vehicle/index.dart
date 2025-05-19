@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../models/Vehicle/Vehicle.dart';
-import '../../services/Vehicle/VehicleService.dart';
+// import 'package:gps_app/models/Vehicle/Vehicle.dart' as VehicleModel;
+
+import '../../models/vehicle/vehicle.dart';
+import '../../services/vehicle/vehicleService.dart';
 
 class VehicleIndexScreen extends StatefulWidget {
   const VehicleIndexScreen({Key? key}) : super(key: key);
@@ -10,7 +12,7 @@ class VehicleIndexScreen extends StatefulWidget {
 }
 
 class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
-  final VehicleService _vehicleService = VehicleService();
+  final vehicleService _vehicleService = vehicleService();
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -23,7 +25,7 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
           ),
         ],
       ),
-      body: StreamBuilder<List<Vehicle>>(
+      body: StreamBuilder<List<vehicle>>(
         stream: _vehicleService.getVehiclesStream(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -61,7 +63,7 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
               final vehicle = vehicles[index];
 
               return VehicleCard(
-                vehicle: vehicle,
+                vehicleModel: vehicle,
                 onEdit: () => _showEditVehicleDialog(context, vehicle),
                 onDelete: () => _deleteVehicle(vehicle.id),
               );
@@ -85,7 +87,7 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Add New Vehicle'),
+            title: const Text('Add New vehicle'),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -99,7 +101,7 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
                   TextField(
                     controller: vehicleTypesController,
                     decoration: const InputDecoration(
-                      labelText: 'Vehicle Type',
+                      labelText: 'vehicle Type',
                     ),
                   ),
                   TextField(
@@ -132,7 +134,7 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
     );
   }
 
-  void _showEditVehicleDialog(BuildContext context, Vehicle vehicle) {
+  void _showEditVehicleDialog(BuildContext context, vehicle vehicle) {
     final nameController = TextEditingController(text: vehicle.name);
     final vehicleTypesController = TextEditingController(
       text: vehicle.vehicleTypes,
@@ -145,7 +147,7 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Edit Vehicle'),
+            title: const Text('Edit vehicle'),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -159,7 +161,7 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
                   TextField(
                     controller: vehicleTypesController,
                     decoration: const InputDecoration(
-                      labelText: 'Vehicle Type',
+                      labelText: 'vehicle Type',
                     ),
                   ),
                   TextField(
@@ -209,7 +211,7 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vehicle added successfully')),
+        const SnackBar(content: Text('vehicle added successfully')),
       );
     } catch (e) {
       ScaffoldMessenger.of(
@@ -233,7 +235,7 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vehicle updated successfully')),
+        const SnackBar(content: Text('vehicle updated successfully')),
       );
     } catch (e) {
       ScaffoldMessenger.of(
@@ -247,7 +249,7 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
       await _vehicleService.deleteVehicle(id);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vehicle deleted successfully')),
+        const SnackBar(content: Text('vehicle deleted successfully')),
       );
     } catch (e) {
       ScaffoldMessenger.of(
@@ -258,13 +260,13 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
 }
 
 class VehicleCard extends StatelessWidget {
-  final Vehicle vehicle;
+  final vehicle vehicleModel;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const VehicleCard({
     Key? key,
-    required this.vehicle,
+    required this.vehicleModel,
     required this.onEdit,
     required this.onDelete,
   }) : super(key: key);
@@ -282,7 +284,7 @@ class VehicleCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  vehicle.name,
+                  vehicleModel.name,
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -302,7 +304,7 @@ class VehicleCard extends StatelessWidget {
                           builder:
                               (context) => AlertDialog(
                                 title: const Text('Confirm Deletion'),
-                                content: Text('Delete ${vehicle.name}?'),
+                                content: Text('Delete ${vehicleModel.name}?'),
                                 actions: [
                                   TextButton(
                                     onPressed: () => Navigator.pop(context),
@@ -325,10 +327,10 @@ class VehicleCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            Text('Type: ${vehicle.vehicleTypes}'),
-            Text('License Plate: ${vehicle.plateNumber}'),
-            Text('Created: ${_formatDate(vehicle.createdAt)}'),
-            Text('Last Updated: ${_formatDate(vehicle.updatedAt)}'),
+            Text('Type: ${vehicleModel.vehicleTypes}'),
+            Text('License Plate: ${vehicleModel.plateNumber}'),
+            Text('Created: ${_formatDate(vehicleModel.createdAt)}'),
+            Text('Last Updated: ${_formatDate(vehicleModel.updatedAt)}'),
           ],
         ),
       ),
