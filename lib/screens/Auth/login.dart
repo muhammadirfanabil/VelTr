@@ -184,7 +184,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   colors: [
                                     Color(0xFF11468F),
                                     Color(0xFFDA1212),
-                                  ], // Biru ke Cyan, contoh
+                                  ],
                                   begin: Alignment.centerLeft,
                                   end: Alignment.centerRight,
                                 ),
@@ -243,25 +243,41 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
 
                       const SizedBox(height: 24),
-                      GestureDetector(
-                        onTap:
-                            () => Navigator.pushNamed(context, '/registerone'),
-                        child: ShaderMask(
-                          shaderCallback:
-                              (bounds) => const LinearGradient(
-                                colors: [Color(0xFF11468F), Color(0xFFDA1212)],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                              ).createShader(bounds),
-                          child: const Text(
-                            'Or Make Your Account',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                              fontSize: 15,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            "Don't Have an Account?",
+                            style: TextStyle(color: Colors.black38),
+                          ),
+                          const SizedBox(width: 5),
+                          GestureDetector(
+                            onTap:
+                                () => Navigator.pushNamed(
+                                  context,
+                                  '/registerone',
+                                ),
+                            child: ShaderMask(
+                              shaderCallback:
+                                  (bounds) => const LinearGradient(
+                                    colors: [
+                                      Color(0xFF11468F),
+                                      Color(0xFFDA1212),
+                                    ],
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                  ).createShader(bounds),
+                              child: const Text(
+                                'Register Here',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
 
                       if (_error != null) ...[

@@ -32,11 +32,9 @@ class MyApp extends StatelessWidget {
         '/registertwo': (context) => const RegisterTwo(),
         '/registerone': (context) => const RegisterOne(),
         '/login': (context) => const LoginScreen(),
-        '/home': (context) => const IndexScreen(),
-        // '/': (context) => const IndexScreen(),
-        '/map': (context) => const GPSMapScreen(),
+        // '/home': (context) => const IndexScreen(),
+        '/home': (context) => const GPSMapScreen(),
         // '/users': (context) => const UsersListScreen(),
-        '/vehicle': (context) => const VehicleIndexScreen(),
         '/profile': (context) => const ProfilePage(),
       },
       home: StreamBuilder<User?>(
