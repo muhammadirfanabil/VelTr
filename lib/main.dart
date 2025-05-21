@@ -6,13 +6,15 @@ import 'package:gps_app/screens/Auth/RegisterTwo.dart';
 import 'package:gps_app/screens/Users/Profile.dart';
 
 import 'firebase_options.dart';
-import 'screens/Auth/Login.dart';
-import 'screens/Users/Index.dart';
-import 'screens/Maps/MapView.dart';
-import 'screens/Index.dart';
+import 'screens/Auth/login.dart';
+// import 'screens/Users/index.dart';
+import 'screens/Vehicle/index.dart';
+import 'screens/Maps/mapView.dart';
+import 'screens/index.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const MyApp());
 }
@@ -32,7 +34,7 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginScreen(),
         // '/home': (context) => const IndexScreen(),
         '/home': (context) => const GPSMapScreen(),
-        '/users': (context) => const UsersListScreen(),
+        // '/users': (context) => const UsersListScreen(),
         '/profile': (context) => const ProfilePage(),
       },
       home: StreamBuilder<User?>(

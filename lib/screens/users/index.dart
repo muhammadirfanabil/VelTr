@@ -1,9 +1,11 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
+import 'dart:developer' as developer;
+
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../models/User/UserInformation.dart';
-import '../../widgets/Form/UsersForm.dart';
-import '../../services/User/UserService.dart';
+import 'package:flutter/material.dart';
+
+import '../../models/User/userInformation.dart';
+import '../../services/User/userService.dart';
+import '../../widgets/Form/usersForm.dart';
 
 class UsersListScreen extends StatelessWidget {
   const UsersListScreen({super.key});
@@ -11,6 +13,14 @@ class UsersListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final UserService userService = UserService();
+
+    Future.microtask(() async {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        // await UserInformation.ensureUserExistsAfterLogin(user);
+        developer.log('User logged in: ${user.email}');
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -33,7 +43,7 @@ class UsersListScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: StreamBuilder<List<UserInformation>>(
+      body: StreamBuilder<List<userInformation>>(
         stream: userService.getUsers(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
