@@ -3,7 +3,7 @@ import '../../models/User/userInformation.dart';
 import '../../services/User/userService.dart';
 
 class UserForm extends StatefulWidget {
-  final UserInformation? user;
+  final userInformation? user;
 
   const UserForm({super.key, this.user});
 
@@ -38,7 +38,7 @@ class _UserFormState extends State<UserForm> {
       });
 
       final now = DateTime.now();
-      final user = UserInformation(
+      final user = userInformation(
         id: widget.user?.id ?? '',
         emailAddress: _emailAddressController.text.trim(),
         name: _nameController.text.trim(),
@@ -155,11 +155,12 @@ class _UserFormState extends State<UserForm> {
         ),
         ElevatedButton(
           onPressed: _loading ? null : _saveUser,
-          child: _loading
-              ? const CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-          )
-              : const Text('Simpan'),
+          child:
+              _loading
+                  ? const CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  )
+                  : const Text('Simpan'),
         ),
       ],
     );

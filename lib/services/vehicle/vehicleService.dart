@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../models/Vehicle/vehicle.dart';
+import '../../models/vehicle/vehicle.dart';
 
 /// Service class for handling vehicle-related operations
 class vehicleService {
