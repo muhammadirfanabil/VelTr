@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../services/Auth/AuthService.dart';
+import '../../services/Auth/authService.dart';
+// import '../../services/Auth/AuthService.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -17,9 +18,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _loading = false;
   String? _error;
-
   void _login() async {
     if (_formKey.currentState!.validate()) {
+      if (!mounted) return;
       setState(() {
         _loading = true;
         _error = null;
@@ -29,24 +30,29 @@ class _LoginScreenState extends State<LoginScreen> {
           _emailController.text.trim(),
           _passwordController.text.trim(),
         );
+        if (!mounted) return;
         Navigator.pushReplacementNamed(context, '/home');
       } catch (e) {
+        if (!mounted) return;
         setState(() => _error = 'Gagal login: ${e.toString()}');
       } finally {
-        setState(() => _loading = false);
+        if (mounted) setState(() => _loading = false);
       }
     }
   }
-
   void _loginWithGoogle() async {
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
       await AuthService.loginWithGoogle();
+      if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = 'Gagal login dengan Google: ${e.toString()}');
       setState(() {
         if (e.toString().contains("not_registered")) {
           _error = "Looks like your account is not registered.";
@@ -55,8 +61,15 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       });
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
+  }
+  @override
+  void dispose() {
+    // Clean up controllers to prevent memory leaks
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   @override
