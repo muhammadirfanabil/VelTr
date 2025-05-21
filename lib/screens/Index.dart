@@ -9,7 +9,7 @@ class IndexScreen extends StatelessWidget {
     return Scaffold(
       // Navbar
       appBar: AppBar(
-        backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+        backgroundColor: Color(0xFFFFFFFF),
         elevation: 4,
         shadowColor: Colors.black.withAlpha(02),
         title: const Text('Dashboard'),
@@ -85,7 +85,7 @@ class IndexScreen extends StatelessWidget {
                   context,
                   title: "Track Your Vehicle",
                   subtitle: "Keep track to where your vehicle is right now!",
-                  routeName: "/map",
+                  routeName: "/home",
                   icon: Icons.map_outlined,
                 ),
                 const SizedBox(height: 16),

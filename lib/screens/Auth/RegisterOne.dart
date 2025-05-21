@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class RegisterOne extends StatefulWidget {
   const RegisterOne({super.key});
@@ -20,35 +21,102 @@ class _RegisterOneState extends State<RegisterOne> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
-  void _goToStep2({bool fromGoogle = false}) {
-    Navigator.pushNamed(
-      context,
-      '/registertwo',
-      arguments: {
-        'name': _nameController.text.trim(),
-        'email': _emailController.text.trim(),
-        'password': fromGoogle ? null : _passwordController.text.trim(),
-        'fromGoogle': fromGoogle,
-      },
-    );
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  Future<bool> _isEmailOrUsernameTaken(String email, String username) async {
+    final query = await _firestore.collection('users_information').get();
+    for (var doc in query.docs) {
+      final data = doc.data();
+      if (data['emailAddress'] == email || data['name'] == username) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Future<bool> _registerUserToFirestore({bool fromGoogle = false}) async {
+    final email = _emailController.text.trim();
+    final username = _nameController.text.trim();
+
+    if (await _isEmailOrUsernameTaken(email, username)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Email or Username already registered')),
+      );
+      return false;
+    }
+
+    final userData = {
+      'name': username,
+      'emailAddress': email,
+      'password': fromGoogle ? null : _passwordController.text.trim(),
+      'created_at': DateTime.now(),
+      'updated_at': DateTime.now(),
+    };
+
+    final docRef = _firestore.collection('users_information').doc(email);
+    await docRef.set(userData);
+    return true;
+  }
+
+  void _goToStep2({bool fromGoogle = false}) async {
+    if (!fromGoogle) {
+      final success = await _registerUserToFirestore();
+      if (!success) return;
+    }
+    Navigator.pushReplacementNamed(context, '/login');
   }
 
   Future<void> _loginWithGoogle() async {
-    final googleSignIn = GoogleSignIn();
-    final user = await googleSignIn.signIn();
-    if (user != null) {
+    try {
+      final googleSignIn = GoogleSignIn();
+      final googleUser = await googleSignIn.signIn();
+
+      if (googleUser == null) {
+        // User cancelled sign-in
+        return;
+      }
+
+      final email = googleUser.email;
+      final displayName = googleUser.displayName ?? 'No Name';
+
+      final usersCollection = _firestore.collection('users_information');
+
+      // Query Firestore for existing user by email
+      final querySnapshot =
+          await usersCollection
+              .where('emailAddress', isEqualTo: email)
+              .limit(1)
+              .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        // User not found, create new doc
+        await usersCollection.add({
+          'name': displayName,
+          'emailAddress': email,
+          'created_at': DateTime.now(),
+          'updated_at': DateTime.now(),
+          // You can add more fields as needed here
+        });
+      }
+
+      // Update local state for UI if you want
       setState(() {
-        _nameController.text = user.displayName ?? '';
-        _emailController.text = user.email;
+        _nameController.text = displayName;
+        _emailController.text = email;
       });
-      _goToStep2(fromGoogle: true);
+
+      // Navigate forward after sign-in
+      Navigator.pushReplacementNamed(context, '/login');
+    } catch (e) {
+      print('Google sign-in error: $e');
+      // You can show an error dialog/snackbar here if you want
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // putih polosan kayak login
+      backgroundColor: Colors.white,
       appBar: AppBar(backgroundColor: Colors.white, elevation: 0),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -58,10 +126,7 @@ class _RegisterOneState extends State<RegisterOne> {
               const SizedBox(height: 40),
               SvgPicture.asset('assets/icons/appicon1.svg', height: 90),
               const SizedBox(height: 10),
-              const Text(
-                'Track to Safety.',
-                style: TextStyle(fontSize: 20, letterSpacing: -0.5),
-              ),
+              const Text('Track to Safety.', style: TextStyle(fontSize: 20)),
               const SizedBox(height: 24),
               Container(
                 constraints: const BoxConstraints(maxWidth: 450),
@@ -81,207 +146,101 @@ class _RegisterOneState extends State<RegisterOne> {
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          letterSpacing: -0.5,
                         ),
                       ),
                       const SizedBox(height: 24),
-                      TextFormField(
+
+                      // Username
+                      _buildTextField(
                         controller: _nameController,
-                        decoration: InputDecoration(
-                          labelText: 'Username',
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: const BorderSide(
-                              color: Colors.blueAccent,
-                              width: 2,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Colors.grey.shade400),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
+                        label: 'Username',
                         validator:
-                            (value) =>
-                                value == null || value.isEmpty
-                                    ? 'This Field is Required'
+                            (val) =>
+                                val == null || val.isEmpty
+                                    ? 'This field is required'
                                     : null,
                       ),
                       const SizedBox(height: 16),
-                      TextFormField(
+
+                      // Email
+                      _buildTextField(
                         controller: _emailController,
-                        decoration: InputDecoration(
-                          labelText: 'Email',
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: const BorderSide(
-                              color: Colors.blueAccent,
-                              width: 2,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Colors.grey.shade400),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        validator:
-                            (value) =>
-                                value == null || value.isEmpty
-                                    ? 'This Field is Required'
-                                    : null,
+                        label: 'Email',
                         keyboardType: TextInputType.emailAddress,
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _passwordController,
-                        obscureText: _obscurePassword,
-                        decoration: InputDecoration(
-                          labelText: 'Password',
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: const BorderSide(
-                              color: Colors.blueAccent,
-                              width: 2,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Colors.grey.shade400),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                              color: Colors.grey,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _obscurePassword = !_obscurePassword;
-                              });
-                            },
-                          ),
-                        ),
                         validator:
-                            (value) =>
-                                value == null || value.isEmpty
-                                    ? 'This Field is Required'
+                            (val) =>
+                                val == null || val.isEmpty
+                                    ? 'This field is required'
                                     : null,
                       ),
                       const SizedBox(height: 16),
-                      TextFormField(
+
+                      // Password
+                      _buildTextField(
+                        controller: _passwordController,
+                        label: 'Password',
+                        obscureText: _obscurePassword,
+                        toggleVisibility:
+                            () => setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
+                        validator:
+                            (val) =>
+                                val == null || val.isEmpty
+                                    ? 'This field is required'
+                                    : null,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Confirm Password
+                      _buildTextField(
                         controller: _confirmPasswordController,
+                        label: 'Confirm Password',
                         obscureText: _obscureConfirmPassword,
-                        decoration: InputDecoration(
-                          labelText: 'Confirm Password',
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: const BorderSide(
-                              color: Colors.blueAccent,
-                              width: 2,
+                        toggleVisibility:
+                            () => setState(
+                              () =>
+                                  _obscureConfirmPassword =
+                                      !_obscureConfirmPassword,
                             ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Colors.grey.shade400),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscureConfirmPassword
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                              color: Colors.grey,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _obscureConfirmPassword =
-                                    !_obscureConfirmPassword;
-                              });
-                            },
-                          ),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty)
-                            return 'This Field is Required';
-                          if (value != _passwordController.text)
+                        validator: (val) {
+                          if (val == null || val.isEmpty)
+                            return 'This field is required';
+                          if (val != _passwordController.text)
                             return 'Passwords do not match';
                           return null;
                         },
                       ),
                       const SizedBox(height: 32),
+
+                      // NEXT Button
                       _loading
-                          ? const Center(child: CircularProgressIndicator())
+                          ? const CircularProgressIndicator()
                           : GestureDetector(
-                            onTap: () {
-                              if (_formKey.currentState!.validate())
+                            onTap: () async {
+                              if (_formKey.currentState!.validate()) {
+                                setState(() => _loading = true);
+                                await _registerUserToFirestore();
+                                setState(() => _loading = false);
                                 _goToStep2();
+                              }
                             },
-                            child: Container(
-                              width: double.infinity,
-                              height: 50,
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFF11468F),
-                                    Color(0xFFDA1212),
-                                  ],
-                                  begin: Alignment.centerLeft,
-                                  end: Alignment.centerRight,
-                                ),
-                                borderRadius: BorderRadius.circular(50),
-                              ),
-                              alignment: Alignment.center,
-                              child: const Text(
-                                'Next',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                  letterSpacing: -0.5,
-                                ),
-                              ),
-                            ),
+                            child: _buildGradientButton('Sign Up'),
                           ),
                       const SizedBox(height: 16),
-                      _loading
-                          ? const SizedBox.shrink()
-                          : GestureDetector(
-                            onTap: _loginWithGoogle,
-                            child: Container(
-                              width: double.infinity,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey.shade300),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  SvgPicture.asset(
-                                    'assets/icons/google_icon.svg',
-                                    height: 24,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  const Text(
-                                    'Sign in with Google',
-                                    style: TextStyle(
-                                      color: Colors.black87,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
 
+                      // Google Sign-in
+                      GestureDetector(
+                        onTap: _loginWithGoogle,
+                        child: _buildGoogleButton(),
+                      ),
                       const SizedBox(height: 24),
 
+                      // Already have account?
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(
+                          const Text(
                             'Already Have an Account?',
                             style: TextStyle(color: Colors.black38),
                           ),
@@ -295,8 +254,6 @@ class _RegisterOneState extends State<RegisterOne> {
                                       Color(0xFF11468F),
                                       Color(0xFFDA1212),
                                     ],
-                                    begin: Alignment.centerLeft,
-                                    end: Alignment.centerRight,
                                   ).createShader(bounds),
                               child: const Text(
                                 'Log In',
@@ -317,6 +274,92 @@ class _RegisterOneState extends State<RegisterOne> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    bool obscureText = false,
+    TextInputType? keyboardType,
+    VoidCallback? toggleVisibility,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        labelText: label,
+        focusedBorder: OutlineInputBorder(
+          borderSide: const BorderSide(color: Colors.blueAccent, width: 2),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: Colors.grey.shade400),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        suffixIcon:
+            toggleVisibility != null
+                ? IconButton(
+                  icon: Icon(
+                    obscureText ? Icons.visibility : Icons.visibility_off,
+                    color: Colors.grey,
+                  ),
+                  onPressed: toggleVisibility,
+                )
+                : null,
+      ),
+      validator: validator,
+    );
+  }
+
+  Widget _buildGradientButton(String text) {
+    return Container(
+      width: double.infinity,
+      height: 50,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF11468F), Color(0xFFDA1212)],
+        ),
+        borderRadius: BorderRadius.circular(50),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 18,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGoogleButton() {
+    return Container(
+      width: double.infinity,
+      height: 40,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SvgPicture.asset('assets/icons/google_icon.svg', height: 24),
+          const SizedBox(width: 10),
+          const Text(
+            'Sign in with Google',
+            style: TextStyle(
+              color: Colors.black87,
+              fontWeight: FontWeight.w600,
+              fontSize: 16,
+            ),
+          ),
+        ],
       ),
     );
   }
