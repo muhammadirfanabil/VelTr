@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:gps_app/screens/Auth/RegisterOne.dart';
+import 'package:gps_app/screens/Auth/RegisterTwo.dart';
+import 'package:gps_app/screens/Users/Profile.dart';
 
 import 'firebase_options.dart';
 import 'screens/Auth/login.dart';
@@ -12,6 +15,7 @@ import 'screens/index.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const MyApp());
 }
 
@@ -22,15 +26,18 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Aplikasi Pengguna',
-      theme: ThemeData(primarySwatch: Colors.blue),
+      theme: ThemeData(primarySwatch: Colors.blue, fontFamily: 'PlusJakarta'),
       debugShowCheckedModeBanner: false,
       routes: {
-        // '/': (context) => const IndexScreen(),
+        '/registertwo': (context) => const RegisterTwo(),
+        '/registerone': (context) => const RegisterOne(),
+        '/login': (context) => const LoginScreen(),
         '/home': (context) => const IndexScreen(),
+        // '/': (context) => const IndexScreen(),
         '/map': (context) => const GPSMapScreen(),
         // '/users': (context) => const UsersListScreen(),
         '/vehicle': (context) => const VehicleIndexScreen(),
-        '/login': (context) => const LoginScreen(),
+        '/profile': (context) => const ProfilePage(),
       },
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),

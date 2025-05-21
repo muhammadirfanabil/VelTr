@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
-import '../../widgets/mapWidget.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+import '../../services/Auth/AuthService.dart';
+import '../../widgets/MapWidget.dart';
 
 class GPSMapScreen extends StatefulWidget {
   const GPSMapScreen({super.key});
@@ -14,11 +19,45 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   String lastUpdated = '-';
   double? latitude;
   double? longitude;
+  String? locationName = 'Loading Location...';
+  bool isVehicleOn = false; // Menyimpan status kendaraan
 
   @override
   void initState() {
     super.initState();
     fetchLastLocation();
+    fetchVehicleStatus(); // Memanggil fungsi untuk memantau status kendaraan
+    fetchRelayStatus();
+  }
+
+  Future<void> fetchLocationName(double lat, double lon) async {
+    final url = Uri.parse(
+      'https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lon&zoom=18&addressdetails=1',
+    );
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'User-Agent': 'FlutterApp', // User-Agent wajib diisi
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          locationName = data['display_name'] ?? 'Location Not Found';
+        });
+      } else {
+        setState(() {
+          locationName = 'Failed to Load Location';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        locationName = 'Error: ${e.toString()}';
+      });
+    }
   }
 
   void fetchLastLocation() {
@@ -29,6 +68,14 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       setState(() {
         latitude = double.tryParse(data['latitude'].toString());
         longitude = double.tryParse(data['longitude'].toString());
+
+        if (latitude != null && longitude != null) {
+          fetchLocationName(
+            latitude!,
+            longitude!,
+          ); // Pemanggilan API untuk mendapatkan nama lokasi
+        }
+
         final timestamp = data['timestamp'];
         if (timestamp != null) {
           final dt = DateTime.fromMillisecondsSinceEpoch(
@@ -36,9 +83,42 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
           );
           lastUpdated = DateFormat('yyyy-MM-dd HH:mm:ss').format(dt);
         } else {
-          lastUpdated = 'Waktu tidak tersedia';
+          lastUpdated = 'Unavailable';
         }
       });
+    });
+  }
+
+  void fetchVehicleStatus() {
+    final ref = FirebaseDatabase.instance.ref('GPS/status_kendaraan');
+    ref.onValue.listen((event) {
+      final data = event.snapshot.value;
+      setState(() {
+        isVehicleOn = data == true; // Asumsikan status kendaraan adalah boolean
+      });
+    });
+  }
+
+  void toggleVehicleStatus() {
+    final ref = FirebaseDatabase.instance.ref('GPS/status_kendaraan');
+    final relayRef = FirebaseDatabase.instance.ref(
+      'GPS/relay',
+    ); // Menambahkan referensi untuk relay
+
+    // Toggle status kendaraan dan relay
+    ref.set(!isVehicleOn); // Toggle status kendaraan
+    relayRef.set(isVehicleOn ? true : false); // Kirimkan status relay
+
+    setState(() {
+      isVehicleOn = !isVehicleOn; // Update status lokal
+    });
+  }
+
+  void fetchRelayStatus() {
+    final ref = FirebaseDatabase.instance.ref('GPS/relay');
+    ref.onValue.listen((event) {
+      final data = event.snapshot.value;
+      setState(() {});
     });
   }
 
@@ -50,7 +130,6 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       body: Stack(
         children: [
           const MapWidget(), // Menampilkan Peta
-          // Top Bar: Logo & Profil
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -61,7 +140,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                 ),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.92),
-                  borderRadius: BorderRadius.circular(32),
+                  borderRadius: BorderRadius.circular(50),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.08),
@@ -75,7 +154,10 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                   children: [
                     Row(
                       children: [
-                        Image.asset('assets/images/appicon.png', height: 30),
+                        SvgPicture.asset(
+                          'assets/icons/appicon1.svg',
+                          height: 25,
+                        ),
                         const SizedBox(width: 10),
                       ],
                     ),
@@ -87,16 +169,60 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                             fetchLastLocation();
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Memuat ulang lokasi...'),
+                                content: Text('Loading Location...'),
                               ),
                             );
                           },
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.person),
-                          onPressed: () {
-                            // Tampilkan profil user
+                        PopupMenuButton<String>(
+                          icon: const Icon(Icons.person, color: Colors.black),
+                          offset: const Offset(0, 45),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: 8,
+                          color: Colors.white,
+                          shadowColor: Colors.black.withOpacity(0.2),
+                          onSelected: (value) async {
+                            if (value == 'profile') {
+                              Navigator.pushNamed(context, '/profile');
+                            } else if (value == 'settings') {
+                              Navigator.pushNamed(context, '/settings');
+                            } else if (value == 'logout') {
+                              await AuthService.signOut();
+                              Navigator.pushReplacementNamed(context, '/login');
+                            }
                           },
+                          itemBuilder:
+                              (context) => [
+                                PopupMenuItem(
+                                  value: 'profile',
+                                  child: Row(
+                                    children: const [
+                                      SizedBox(width: 8),
+                                      Text('Profile'),
+                                    ],
+                                  ),
+                                ),
+                                PopupMenuItem(
+                                  value: 'settings',
+                                  child: Row(
+                                    children: const [
+                                      SizedBox(width: 8),
+                                      Text('Settings'),
+                                    ],
+                                  ),
+                                ),
+                                PopupMenuItem(
+                                  value: 'logout',
+                                  child: Row(
+                                    children: const [
+                                      SizedBox(width: 8),
+                                      Text('Logout'),
+                                    ],
+                                  ),
+                                ),
+                              ],
                         ),
                       ],
                     ),
@@ -105,12 +231,12 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
               ),
             ),
           ),
-
-          // Bottom Panel
           Align(
             alignment: Alignment.bottomCenter,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.95),
                 borderRadius: const BorderRadius.vertical(
@@ -118,8 +244,8 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
-                    blurRadius: 10,
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 12,
                     offset: const Offset(0, -4),
                   ),
                 ],
@@ -129,64 +255,138 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Lokasi Terakhir:',
-                    style: theme.textTheme.labelLarge?.copyWith(
+                    locationName ?? 'Loading...',
+                    style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
+                      color: Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    (latitude != null && longitude != null)
-                        ? 'Lat: $latitude\nLng: $longitude'
-                        : 'Belum tersedia',
-                    style: theme.textTheme.bodyMedium,
+                  Row(
+                    children: [
+                      (latitude != null && longitude != null)
+                          ? Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Lat: ${latitude!.toStringAsFixed(5)}',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Lng: ${longitude!.toStringAsFixed(5)}',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
+                          )
+                          : Text(
+                            'Unavailable',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: Colors.black87,
+                            ),
+                          ),
+                    ],
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Update: $lastUpdated',
+                    lastUpdated != null
+                        ? 'Last Active: $lastUpdated'
+                        : 'Waiting...',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.grey[600],
+                      color: Colors.green[300],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  const SizedBox(height: 20),
+                  Wrap(
+                    spacing: 50,
+                    runSpacing: 10,
+                    alignment: WrapAlignment.start,
                     children: [
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          // Tambahkan fungsi hitung jarak
-                        },
-                        icon: const Icon(Icons.navigation),
-                        label: const Text('Navigate the distance from you'),
+                      ElevatedButton(
+                        onPressed:
+                            (latitude != null && longitude != null)
+                                ? () {}
+                                : null,
                         style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(160, 50),
-                          backgroundColor: Colors.blue.shade700,
+                          minimumSize: const Size(400, 45),
+                          backgroundColor: const Color(
+                            0xFF7DAEFF,
+                          ).withOpacity(0.25),
+                          foregroundColor: const Color(0xFF11468F),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Kendaraan dimatikan!'),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Transform.rotate(
+                              angle: 0.45, // Mengatur rotasi ikon ke kanan
+                              child: const Icon(Icons.navigation, size: 25),
                             ),
-                          );
-                        },
-                        icon: const Icon(Icons.power_settings_new),
-                        label: const Text('Turn off your vehicle'),
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(160, 50),
-                          backgroundColor: Colors.red.shade600,
+                            const Text('Navigate the Distance From You'),
+                          ],
                         ),
                       ),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.pushReplacementNamed(context, '/');
-                        },
-                        icon: const Icon(Icons.arrow_back),
-                        label: const Text('Go Back'),
+                      ElevatedButton(
+                        onPressed: toggleVehicleStatus,
                         style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(160, 50),
-                          backgroundColor: Colors.grey.shade600,
+                          minimumSize: const Size(400, 45),
+                          backgroundColor:
+                              isVehicleOn
+                                  ? Colors.green.shade600
+                                  : Colors.red.shade600,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Icon(
+                              isVehicleOn
+                                  ? Icons.power_settings_new
+                                  : Icons.power_settings_new_outlined,
+                              size: 25,
+                            ),
+                            Text(
+                              isVehicleOn
+                                  ? 'Turn Off Vehicle'
+                                  : 'Turn On Vehicle',
+                            ),
+                          ],
+                        ),
+                      ),
+                      ElevatedButton(
+                        onPressed:
+                            () => Navigator.pushReplacementNamed(
+                              context,
+                              '/home',
+                            ),
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(400, 45),
+                          backgroundColor: const Color(
+                            0xFF888888,
+                          ).withOpacity(0.7),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: const [
+                            Icon(Icons.arrow_back, size: 25),
+                            Text('Go Back'),
+                          ],
                         ),
                       ),
                     ],

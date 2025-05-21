@@ -34,9 +34,17 @@ class IndexScreen extends StatelessWidget {
         backgroundColor: const Color.fromARGB(255, 255, 255, 255),
         elevation: 4,
         shadowColor: Colors.black.withAlpha(02),
-        title: const Text('Dashboard'), // or whatever title you want
+        title: const Text('Dashboard'),
         actions: [
           PopupMenuButton<String>(
+            icon: const Icon(Icons.person, color: Colors.black),
+            offset: const Offset(0, 45), // Jarak dari icon ke dropdown
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            elevation: 8,
+            color: Colors.white,
+            shadowColor: Colors.black.withOpacity(0.2),
             onSelected: (value) async {
               if (value == 'profile') {
                 Navigator.pushNamed(context, '/profile');
@@ -49,10 +57,37 @@ class IndexScreen extends StatelessWidget {
               }
             },
             itemBuilder:
-                (context) => const [
-                  PopupMenuItem(value: 'profile', child: Text('Profile')),
-                  PopupMenuItem(value: 'settings', child: Text('Settings')),
-                  PopupMenuItem(value: 'logout', child: Text('Logout')),
+                (context) => [
+                  PopupMenuItem(
+                    value: 'profile',
+                    child: Row(
+                      children: const [
+                        // Icon(Icons.person, size: 20),
+                        SizedBox(width: 8),
+                        Text('Profile'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'settings',
+                    child: Row(
+                      children: const [
+                        // Icon(Icons.settings, size: 20),
+                        SizedBox(width: 8),
+                        Text('Settings'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'logout',
+                    child: Row(
+                      children: const [
+                        // Icon(Icons.logout, size: 20),
+                        SizedBox(width: 8),
+                        Text('Logout'),
+                      ],
+                    ),
+                  ),
                 ],
           ),
         ],
