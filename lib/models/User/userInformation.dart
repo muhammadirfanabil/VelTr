@@ -39,7 +39,7 @@ class userInformation {
     return userInformation(
       id: documentId,
       name: data['name'] ?? '',
-      emailAddress: data['emailAddress'] ?? '',
+      emailAddress: data['email'] ?? data['emailAddress'] ?? '',
       createdAt:
           data['created_at'] != null
               ? (data['created_at'] as Timestamp).toDate()
@@ -50,11 +50,10 @@ class userInformation {
               : DateTime.now(),
     );
   }
-
   Map<String, dynamic> toMap() {
     return {
       'name': name,
-      'emailAddress': emailAddress,
+      'email': emailAddress,
       'created_at': Timestamp.fromDate(createdAt),
       'updated_at': Timestamp.fromDate(updatedAt),
     };
@@ -81,9 +80,7 @@ class userInformation {
         emailAddress: email,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
-      );
-
-      // Save user information to Firestore
+      ); // Save user information to Firestore
       await FirebaseFirestore.instance
           .collection('users_information')
           .doc(userId)
@@ -102,7 +99,6 @@ class userInformation {
     if (user == null) {
       throw Exception("No user is currently logged in.");
     }
-
     try {
       DocumentReference userDoc = FirebaseFirestore.instance
           .collection('users_information')

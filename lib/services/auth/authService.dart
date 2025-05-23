@@ -25,9 +25,7 @@ class AuthService {
 
     final userCredential = await FirebaseAuth.instance.signInWithCredential(
       credential,
-    );
-
-    final uid = userCredential.user!.uid;
+    );    final uid = userCredential.user!.uid;
     final userDoc =
         await FirebaseFirestore.instance
             .collection('user_information')
@@ -50,9 +48,7 @@ class AuthService {
     required String phoneNumber,
   }) async {
     final userCredential = await FirebaseAuth.instance
-        .createUserWithEmailAndPassword(email: email, password: password);
-
-    final uid = userCredential.user!.uid;
+        .createUserWithEmailAndPassword(email: email, password: password);    final uid = userCredential.user!.uid;
 
     await FirebaseFirestore.instance
         .collection('user_information')
@@ -65,6 +61,47 @@ class AuthService {
           'created_at': FieldValue.serverTimestamp(),
         });
 
+    return userCredential;
+  }
+  /// Register Google user in Firestore with additional info
+  static Future<UserCredential> registerGoogleUser({
+    required String email,
+    required String name,
+    required String address,
+    required String phoneNumber,
+  }) async {
+    // First, perform the Google sign-in
+    final googleSignIn = GoogleSignIn();
+    final googleUser = await googleSignIn.signIn();
+    if (googleUser == null) throw Exception("Login canceled.");
+
+    final googleAuth = await googleUser.authentication;
+
+    final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+
+    // Sign in with Firebase Auth
+    final userCredential = await FirebaseAuth.instance.signInWithCredential(
+      credential,
+    );
+
+    final uid = userCredential.user!.uid;
+
+    // Save user information to Firestore
+    await FirebaseFirestore.instance
+        .collection('user_information')
+        .doc(uid)
+        .set({
+          'name': name,
+          'email': email,
+          'address': address,
+          'phone_number': phoneNumber,
+          'created_at': FieldValue.serverTimestamp(),
+          'google_signin': true,
+        });
+        
     return userCredential;
   }
 
