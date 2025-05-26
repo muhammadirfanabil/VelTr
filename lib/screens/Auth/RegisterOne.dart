@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../services/auth/authService.dart';
 
 class RegisterOne extends StatefulWidget {
   const RegisterOne({super.key});
@@ -21,95 +23,116 @@ class _RegisterOneState extends State<RegisterOne> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
-  Future<bool> _isEmailOrUsernameTaken(String email, String username) async {
-    final query = await _firestore.collection('users_information').get();
-    for (var doc in query.docs) {
-      final data = doc.data();
-      if (data['emailAddress'] == email || data['name'] == username) {
-        return true;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;  Future<bool> _isEmailOrUsernameTaken(String email, String name) async {
+    try {
+      // Check if email already exists in Firebase Auth
+      final methods = await FirebaseAuth.instance.fetchSignInMethodsForEmail(
+        email,
+      );
+      if (methods.isNotEmpty) {
+        return true; // Email already in use
+      }      // Check in Firestore as well
+      final query = await _firestore.collection('user_information').get();
+      for (var doc in query.docs) {
+        final data = doc.data();
+        if (data['email'] == email || data['name'] == name) {
+          return true;
+        }
       }
+      return false;
+    } catch (e) {
+      print('Error checking if email or username is taken: $e');
+      return false; // Default to allowing registration if check fails
     }
-    return false;
   }
 
-  Future<bool> _registerUserToFirestore({bool fromGoogle = false}) async {
-    final email = _emailController.text.trim();
-    final username = _nameController.text.trim();
+  Future<bool> _registerUserToFirestore() async {
+    setState(() {
+      _loading = true;
+    });    try {
+      final email = _emailController.text.trim();
+      final name = _nameController.text.trim();
+      final password = _passwordController.text.trim();
 
-    if (await _isEmailOrUsernameTaken(email, username)) {
+      if (await _isEmailOrUsernameTaken(email, name)) {
+        if (!mounted) return false;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Email or Username already registered')),
+        );
+        return false;
+      }      // Use the AuthService to register the user with Firebase Authentication
+      await AuthService.registerWithEmail(
+        email: email,
+        password: password,
+        name: name,
+        address: '', // We're skipping RegisterTwo
+        phoneNumber: '',
+      );
+
+      if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email or Username already registered')),
+        const SnackBar(content: Text('Registration successful! Please login.')),
+      );
+      return true;
+    } catch (e) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Registration failed: ${e.toString()}')),
       );
       return false;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
     }
-
-    final userData = {
-      'name': username,
-      'emailAddress': email,
-      'password': fromGoogle ? null : _passwordController.text.trim(),
-      'created_at': DateTime.now(),
-      'updated_at': DateTime.now(),
-    };
-
-    final docRef = _firestore.collection('users_information').doc(email);
-    await docRef.set(userData);
-    return true;
   }
 
-  void _goToStep2({bool fromGoogle = false}) async {
-    if (!fromGoogle) {
-      final success = await _registerUserToFirestore();
-      if (!success) return;
+  void _goToStep2() async {
+    final success = await _registerUserToFirestore();
+    if (!success) return;
+
+    // Check if mounted before navigating
+    if (mounted) {
+      // Navigate directly to login screen (skip RegisterTwo)
+      Navigator.pushReplacementNamed(context, '/login');
     }
-    Navigator.pushReplacementNamed(context, '/login');
   }
 
   Future<void> _loginWithGoogle() async {
+    setState(() {
+      _loading = true;
+    });
+
     try {
+      // Try to sign in with Google
       final googleSignIn = GoogleSignIn();
       final googleUser = await googleSignIn.signIn();
 
       if (googleUser == null) {
-        // User cancelled sign-in
-        return;
+        if (mounted) setState(() => _loading = false);
+        return; // User cancelled
       }
 
-      final email = googleUser.email;
-      final displayName = googleUser.displayName ?? 'No Name';
-
-      final usersCollection = _firestore.collection('users_information');
-
-      // Query Firestore for existing user by email
-      final querySnapshot =
-          await usersCollection
-              .where('emailAddress', isEqualTo: email)
-              .limit(1)
-              .get();
-
-      if (querySnapshot.docs.isEmpty) {
-        // User not found, create new doc
-        await usersCollection.add({
-          'name': displayName,
-          'emailAddress': email,
-          'created_at': DateTime.now(),
-          'updated_at': DateTime.now(),
-          // You can add more fields as needed here
-        });
+      // Navigate to Google signup screen with user info
+      if (mounted) {
+        Navigator.pushReplacementNamed(
+          context,
+          '/google-signup',
+          arguments: {
+            'email': googleUser.email,
+            'displayName': googleUser.displayName ?? 'No Name',
+          },
+        );
       }
-
-      // Update local state for UI if you want
-      setState(() {
-        _nameController.text = displayName;
-        _emailController.text = email;
-      });
-
-      // Navigate forward after sign-in
-      Navigator.pushReplacementNamed(context, '/login');
     } catch (e) {
-      print('Google sign-in error: $e');
-      // You can show an error dialog/snackbar here if you want
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Google sign-in error: ${e.toString()}')),
+        );
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -160,22 +183,25 @@ class _RegisterOneState extends State<RegisterOne> {
                                     ? 'This field is required'
                                     : null,
                       ),
-                      const SizedBox(height: 16),
-
-                      // Email
+                      const SizedBox(height: 16), // Email
                       _buildTextField(
                         controller: _emailController,
                         label: 'Email',
                         keyboardType: TextInputType.emailAddress,
-                        validator:
-                            (val) =>
-                                val == null || val.isEmpty
-                                    ? 'This field is required'
-                                    : null,
+                        validator: (val) {
+                          if (val == null || val.isEmpty) {
+                            return 'Email is required';
+                          }
+                          final emailRegex = RegExp(
+                            r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                          );
+                          if (!emailRegex.hasMatch(val)) {
+                            return 'Please enter a valid email';
+                          }
+                          return null;
+                        },
                       ),
-                      const SizedBox(height: 16),
-
-                      // Password
+                      const SizedBox(height: 16), // Password
                       _buildTextField(
                         controller: _passwordController,
                         label: 'Password',
@@ -184,11 +210,15 @@ class _RegisterOneState extends State<RegisterOne> {
                             () => setState(
                               () => _obscurePassword = !_obscurePassword,
                             ),
-                        validator:
-                            (val) =>
-                                val == null || val.isEmpty
-                                    ? 'This field is required'
-                                    : null,
+                        validator: (val) {
+                          if (val == null || val.isEmpty) {
+                            return 'Password is required';
+                          }
+                          if (val.length < 6) {
+                            return 'Password must be at least 6 characters';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 16),
 
@@ -211,17 +241,13 @@ class _RegisterOneState extends State<RegisterOne> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 32),
-
-                      // NEXT Button
+                      const SizedBox(height: 32), // NEXT Button
                       _loading
                           ? const CircularProgressIndicator()
                           : GestureDetector(
                             onTap: () async {
                               if (_formKey.currentState!.validate()) {
-                                setState(() => _loading = true);
-                                await _registerUserToFirestore();
-                                setState(() => _loading = false);
+                                if (!mounted) return;
                                 _goToStep2();
                               }
                             },
@@ -276,6 +302,15 @@ class _RegisterOneState extends State<RegisterOne> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
   }
 
   Widget _buildTextField({
