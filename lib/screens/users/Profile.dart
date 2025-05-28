@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../services/auth/authService.dart';
+import '../../models/User/userInformation.dart';
+import '../../services/User/userService.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -11,85 +10,31 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  bool _isLoading = true;
-  String _userName = 'Loading...';
-  String _userEmail = '';
-  String _userPhone = '';
-  String _userId = '';
-  DateTime? _userCreatedAt;
+  late Future<userInformation> _userFuture;
 
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    _userFuture = userInformation.ensureUserExistsAfterLogin();
   }
 
-  Future<void> _loadUserData() async {
-    try {
-      final currentUser = FirebaseAuth.instance.currentUser;
-      if (currentUser == null) {
-        setState(() {
-          _isLoading = false;
-          _userName = 'Not logged in';
-        });
-        return;
-      }
-
-      _userId = currentUser.uid;
-      _userEmail = currentUser.email ?? '';
-
-      // Get user information from Firestore
-      final userDoc = await FirebaseFirestore.instance
-          .collection('user_information')
-          .doc(_userId)
-          .get();
-
-      if (userDoc.exists) {
-        final userData = userDoc.data()!;
-        setState(() {
-          _userName = userData['name'] ?? 'No Name';
-          _userPhone = userData['phone_number'] ?? '-';
-          _userCreatedAt = userData['created_at'] != null
-              ? (userData['created_at'] as Timestamp).toDate()
-              : null;
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _userName = 'User data not found';
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _userName = 'Error loading data';
-        _isLoading = false;
-      });
-      print('Error loading user data: $e');
-    }
+  void _refreshUserData() {
+    setState(() {
+      _userFuture = userInformation.ensureUserExistsAfterLogin();
+    });
   }
 
-  String _formatJoinDate() {
-    if (_userCreatedAt == null) return 'Unknown join date';
-    
-    final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    
-    return 'Joined ${_userCreatedAt!.day} ${months[_userCreatedAt!.month - 1]} ${_userCreatedAt!.year}';
-  }
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFFFF),
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFFFFFFF),
-        toolbarHeight: 120,
+        backgroundColor: Colors.white,
+        toolbarHeight: 100,
         elevation: 1,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pushReplacementNamed(context, '/home');
-          },
+          onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
         ),
         title: Row(
           children: [
@@ -100,183 +45,263 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(width: 20),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    'Username',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  Text(
-                    'user@email.com',
-                    style: TextStyle(fontSize: 12, color: Colors.black54),
-                  ),
-                  Text(
-                    '083140249807',
-                    style: TextStyle(fontSize: 12, color: Colors.black54),
-                  ),
-                ],
+              child: FutureBuilder<userInformation>(
+                future: _userFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  } else if (snapshot.hasError) {
+                    return Text('Error: ${snapshot.error}');
+                  } else if (!snapshot.hasData) {
+                    return const Text('No user data found');
+                  }
+
+                  final user = snapshot.data!;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        user.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      Text(
+                        user.emailAddress,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.black54,
+                        ),
+                      ),
+                      Text(
+                        'Phone Number',
+                        // user.phoneNumber ?? 'No phone number',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
             IconButton(
-              onPressed: () {
-                // handle edit
+              icon: const Icon(Icons.edit),
+              onPressed: () async {
+                final currentUser =
+                    await userInformation.ensureUserExistsAfterLogin();
+
+                final nameController = TextEditingController(
+                  text: currentUser.name,
+                );
+                final emailController = TextEditingController(
+                  text: currentUser.emailAddress,
+                );
+
+                showDialog(
+                  context: context,
+                  builder:
+                      (context) => AlertDialog(
+                        title: const Text('Edit Profile'),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextField(
+                              controller: nameController,
+                              decoration: const InputDecoration(
+                                labelText: 'Name',
+                              ),
+                            ),
+                            TextField(
+                              controller: emailController,
+                              decoration: const InputDecoration(
+                                labelText: 'Email',
+                              ),
+                            ),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Cancel'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () async {
+                              final updatedUser = currentUser.copyWith(
+                                name: nameController.text.trim(),
+                                emailAddress: emailController.text.trim(),
+                                updatedAt: DateTime.now(),
+                              );
+
+                              await UserService().updateUser(updatedUser);
+                              Navigator.pop(context); // close dialog
+                              _refreshUserData(); // 🔁 refresh FutureBuilder
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("User updated successfully"),
+                                ),
+                              );
+                            },
+                            child: const Text('Save'),
+                          ),
+                        ],
+                      ),
+                );
               },
-              icon: ShaderMask(
-                shaderCallback:
-                    (bounds) => const LinearGradient(
-                      colors: [Color(0xFF11468F), Color(0xFFDA1212)],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ).createShader(
-                      Rect.fromLTWH(0, 0, bounds.width, bounds.height),
-                    ),
-                child: const Icon(Icons.edit, color: Colors.white),
-              ),
             ),
           ],
         ),
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    // Profile Card
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Column(
-                        children: [
-                          const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'ID: user_1',
-                              style: TextStyle(color: Colors.black54),
-                            ),
+        child: FutureBuilder<userInformation>(
+          future: _userFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            } else if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
+            } else if (!snapshot.hasData) {
+              return const Center(child: Text('No user data found'));
+            }
+
+            final user = snapshot.data!;
+
+            return Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      children: [
+                        // info card
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.grey.shade300),
                           ),
-                          const SizedBox(height: 12),
-                          const Divider(height: 32),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: ElevatedButton.icon(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'ID: ${user.id}', // ✅ user ID loaded here
+                                style: const TextStyle(color: Colors.black54),
+                              ),
+                              const SizedBox(height: 12),
+                              const Divider(height: 32),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  Navigator.pushNamed(context, '/vehicle');
+                                },
+                                icon: const Icon(Icons.directions_bike),
+                                label: const Text('Vehicle Information'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF11468F),
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'Joined 7 Aug 2025',
+                                style: TextStyle(color: Colors.black45),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Column(
+                          children: [
+                            _buildFullWidthOutlinedButton(
+                              context,
+                              label: 'Track Your Vehicle',
+                              routeName: '/home',
+                              color: Colors.blue,
+                            ),
+                            _buildFullWidthOutlinedButton(
+                              context,
+                              label: 'Set Range',
+                              routeName: '/set-range',
+                              color: Colors.green,
+                            ),
+                            _buildFullWidthOutlinedButton(
+                              context,
+                              label: 'Driving History',
+                              routeName: '/history',
+                              color: Colors.orange,
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            ElevatedButton(
                               onPressed: () {
-                                Navigator.pushNamed(context, '/vehicle');
+                                // handle logout
                               },
-                              icon: const Icon(Icons.directions_bike),
-                              label: const Text('Vehicle Information'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF11468F),
-                                foregroundColor: Colors.white,
+                                backgroundColor: Colors.black,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 40,
+                                  vertical: 12,
+                                ),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text(
+                                'Log Out',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'Joined 7 Aug 2025',
-                              style: TextStyle(color: Colors.black45),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Column(
-                      children: [
-                        OutlinedButton(
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/home');
-                          },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.black,
-                            side: const BorderSide(color: Colors.black),
-                            minimumSize: const Size.fromHeight(
-                              48,
-                            ), // tinggi 48px, full width
-                            alignment: Alignment.center,
-                          ),
-                          child: const Text('Track Your Vehicle'),
-                        ),
-                        OutlinedButton(
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/set-range');
-                          },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.black,
-                            side: const BorderSide(color: Colors.black),
-                            minimumSize: const Size.fromHeight(48),
-                            alignment: Alignment.center,
-                          ),
-                          child: const Text('Set Range'),
-                        ),
-                        OutlinedButton(
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/history');
-                          },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.black,
-                            side: const BorderSide(color: Colors.black),
-                            minimumSize: const Size.fromHeight(
-                              48,
-                            ), // tinggi 48px, full width
-                            alignment: Alignment.center,
-                          ),
-                          child: const Text('Driving History'),
+                          ],
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 40,
-                              vertical: 12,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          onPressed: () {
-                            // handle log out
-                          },
-                          child: const Text(
-                            'Log Out',
-                            style: TextStyle(
-                              color: Color(0xFFFFFFFF),
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.only(bottom: 12.0, top: 12.0),
-              child: Text(
-                '© Poliban 2025',
-                style: TextStyle(color: Colors.black54),
-              ),
-            ),
-          ],
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12.0),
+                  child: Text(
+                    '\u00a9 Poliban 2025',
+                    style: TextStyle(color: Colors.black54),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
+      ),
+    );
+  }
+
+  Widget _buildFullWidthOutlinedButton(
+    BuildContext context, {
+    required String label,
+    required String routeName,
+    required Color color, // tambahin parameter warna
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: OutlinedButton(
+        onPressed: () => Navigator.pushNamed(context, routeName),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: color, // warna teks
+          side: BorderSide(color: color), // warna border
+          minimumSize: const Size.fromHeight(48),
+          alignment: Alignment.center,
+        ),
+        child: Text(label),
       ),
     );
   }

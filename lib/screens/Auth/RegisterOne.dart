@@ -23,7 +23,8 @@ class _RegisterOneState extends State<RegisterOne> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;  Future<bool> _isEmailOrUsernameTaken(String email, String name) async {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  Future<bool> _isEmailOrUsernameTaken(String email, String name) async {
     try {
       // Check if email already exists in Firebase Auth
       final methods = await FirebaseAuth.instance.fetchSignInMethodsForEmail(
@@ -31,8 +32,8 @@ class _RegisterOneState extends State<RegisterOne> {
       );
       if (methods.isNotEmpty) {
         return true; // Email already in use
-      }      // Check in Firestore as well
-      final query = await _firestore.collection('user_information').get();
+      } // Check in Firestore as well
+      final query = await _firestore.collection('users_information').get();
       for (var doc in query.docs) {
         final data = doc.data();
         if (data['email'] == email || data['name'] == name) {
@@ -49,7 +50,8 @@ class _RegisterOneState extends State<RegisterOne> {
   Future<bool> _registerUserToFirestore() async {
     setState(() {
       _loading = true;
-    });    try {
+    });
+    try {
       final email = _emailController.text.trim();
       final name = _nameController.text.trim();
       final password = _passwordController.text.trim();
@@ -60,7 +62,7 @@ class _RegisterOneState extends State<RegisterOne> {
           const SnackBar(content: Text('Email or Username already registered')),
         );
         return false;
-      }      // Use the AuthService to register the user with Firebase Authentication
+      } // Use the AuthService to register the user with Firebase Authentication
       await AuthService.registerWithEmail(
         email: email,
         password: password,
