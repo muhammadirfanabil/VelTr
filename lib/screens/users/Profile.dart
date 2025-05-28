@@ -1,7 +1,66 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../services/Auth/authService.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  bool _isLoading = true;
+  String _name = 'Loading...';
+  String _email = 'Loading...';
+  String _phoneNumber = '-';
+  String _userId = 'Loading...';
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+  
+  Future<void> _loadUserData() async {
+    try {
+      final User? currentUser = _auth.currentUser;
+      
+      if (currentUser != null) {
+        // Get user data from Firestore
+        final DocumentSnapshot userDoc = await _firestore
+            .collection('user_information')
+            .doc(currentUser.uid)
+            .get();
+        
+        if (userDoc.exists) {
+          final userData = userDoc.data() as Map<String, dynamic>;
+          
+          setState(() {
+            _name = userData['name'] ?? 'No name found';
+            _email = userData['email'] ?? currentUser.email ?? 'No email found';
+            _phoneNumber = userData['phone_number'] ?? '-';
+            _userId = currentUser.uid;
+            _isLoading = false;
+          });
+        } else {
+          setState(() {
+            _email = currentUser.email ?? 'No email found';
+            _userId = currentUser.uid;
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading user data: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +82,9 @@ class ProfilePage extends StatelessWidget {
         child: Column(
           children: [
             Expanded(
-              child: SingleChildScrollView(
+              child: _isLoading 
+                ? const Center(child: CircularProgressIndicator())
+                : SingleChildScrollView(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   children: [
@@ -36,11 +97,11 @@ class ProfilePage extends StatelessWidget {
                       ),
                       child: Column(
                         children: [
-                          const Align(
+                          Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
-                              'ID: user_1',
-                              style: TextStyle(color: Colors.black54),
+                              'ID: $_userId',
+                              style: const TextStyle(color: Colors.black54),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -78,20 +139,18 @@ class ProfilePage extends StatelessWidget {
                                               bounds.height,
                                             ),
                                           ),
-                                      child: const Text(
-                                        'Username',
-                                        style: TextStyle(
+                                      child: Text(
+                                        _name,
+                                        style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 18,
-                                          color:
-                                              Colors
-                                                  .white, // wajib: ShaderMask pakai warna putih sebagai base
+                                          color: Colors.white, // wajib: ShaderMask pakai warna putih sebagai base
                                         ),
                                       ),
                                     ),
                                     const SizedBox(height: 4),
-                                    const Text('user@email.com'),
-                                    const Text('083140249807'),
+                                    Text(_email),
+                                    Text(_phoneNumber),
                                   ],
                                 ),
                               ),
@@ -119,9 +178,7 @@ class ProfilePage extends StatelessWidget {
                                       ),
                                   child: const Icon(
                                     Icons.edit,
-                                    color:
-                                        Colors
-                                            .white, // warna dasar harus putih buat efek gradasi
+                                    color: Colors.white, // warna dasar harus putih buat efek gradasi
                                   ),
                                 ),
                               ),
