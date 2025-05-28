@@ -1,84 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../services/auth/authService.dart';
 
-class ProfilePage extends StatefulWidget {
+class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
   @override
-  State<ProfilePage> createState() => _ProfilePageState();
-}
-
-class _ProfilePageState extends State<ProfilePage> {
-  bool _isLoading = true;
-  String _userName = 'Loading...';
-  String _userEmail = '';
-  String _userPhone = '';
-  String _userId = '';
-  DateTime? _userCreatedAt;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadUserData();
-  }
-
-  Future<void> _loadUserData() async {
-    try {
-      final currentUser = FirebaseAuth.instance.currentUser;
-      if (currentUser == null) {
-        setState(() {
-          _isLoading = false;
-          _userName = 'Not logged in';
-        });
-        return;
-      }
-
-      _userId = currentUser.uid;
-      _userEmail = currentUser.email ?? '';
-
-      // Get user information from Firestore
-      final userDoc = await FirebaseFirestore.instance
-          .collection('user_information')
-          .doc(_userId)
-          .get();
-
-      if (userDoc.exists) {
-        final userData = userDoc.data()!;
-        setState(() {
-          _userName = userData['name'] ?? 'No Name';
-          _userPhone = userData['phone_number'] ?? '-';
-          _userCreatedAt = userData['created_at'] != null
-              ? (userData['created_at'] as Timestamp).toDate()
-              : null;
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _userName = 'User data not found';
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _userName = 'Error loading data';
-        _isLoading = false;
-      });
-      print('Error loading user data: $e');
-    }
-  }
-
-  String _formatJoinDate() {
-    if (_userCreatedAt == null) return 'Unknown join date';
-    
-    final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    
-    return 'Joined ${_userCreatedAt!.day} ${months[_userCreatedAt!.month - 1]} ${_userCreatedAt!.year}';
-  }
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFFFF),
       appBar: AppBar(
