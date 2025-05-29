@@ -25,7 +25,8 @@ class AuthService {
 
     final userCredential = await FirebaseAuth.instance.signInWithCredential(
       credential,
-    );    final uid = userCredential.user!.uid;
+    );
+    final uid = userCredential.user!.uid;
     final userDoc =
         await FirebaseFirestore.instance
             .collection('user_information')
@@ -48,10 +49,11 @@ class AuthService {
     required String phoneNumber,
   }) async {
     final userCredential = await FirebaseAuth.instance
-        .createUserWithEmailAndPassword(email: email, password: password);    final uid = userCredential.user!.uid;
+        .createUserWithEmailAndPassword(email: email, password: password);
+    final uid = userCredential.user!.uid;
 
     await FirebaseFirestore.instance
-        .collection('user_information')
+        .collection('users_information')
         .doc(uid)
         .set({
           'name': name,
@@ -63,6 +65,7 @@ class AuthService {
 
     return userCredential;
   }
+
   /// Register Google user in Firestore with additional info
   static Future<UserCredential> registerGoogleUser({
     required String email,
@@ -91,7 +94,7 @@ class AuthService {
 
     // Save user information to Firestore
     await FirebaseFirestore.instance
-        .collection('user_information')
+        .collection('users_information')
         .doc(uid)
         .set({
           'name': name,
@@ -101,7 +104,7 @@ class AuthService {
           'created_at': FieldValue.serverTimestamp(),
           'google_signin': true,
         });
-        
+
     return userCredential;
   }
 

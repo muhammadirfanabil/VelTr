@@ -31,8 +31,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/registerone': (context) => const RegisterOne(),
         '/login': (context) => const LoginScreen(),
-        '/home':
-            (context) => const GPSMapScreen(), // Now Maps are the home screen
+        '/home': (context) => const GPSMapScreen(),
         '/vehicle': (context) => const VehicleIndexScreen(),
         '/profile': (context) => const ProfilePage(),
         '/google-signup': (context) {
@@ -58,7 +57,7 @@ class MyApp extends StatelessWidget {
             return const LoginScreen();
           }
 
-          return const IndexScreen();
+          return const GPSMapScreen();
         },
       ),
     );

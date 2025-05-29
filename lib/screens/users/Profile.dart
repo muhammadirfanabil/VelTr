@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../services/Auth/authService.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -17,269 +16,377 @@ class _ProfilePageState extends State<ProfilePage> {
   String _name = 'Loading...';
   String _email = 'Loading...';
   String _phoneNumber = '-';
-  String _userId = 'Loading...';
-  
+
   @override
   void initState() {
     super.initState();
     _loadUserData();
   }
-  
+
   Future<void> _loadUserData() async {
     try {
       final User? currentUser = _auth.currentUser;
-      
+
       if (currentUser != null) {
         // Get user data from Firestore
-        final DocumentSnapshot userDoc = await _firestore
-            .collection('user_information')
-            .doc(currentUser.uid)
-            .get();
-        
+        final DocumentSnapshot userDoc =
+            await _firestore
+                .collection('user_information')
+                .doc(currentUser.uid)
+                .get();
         if (userDoc.exists) {
           final userData = userDoc.data() as Map<String, dynamic>;
-          
-          setState(() {
-            _name = userData['name'] ?? 'No name found';
-            _email = userData['email'] ?? currentUser.email ?? 'No email found';
-            _phoneNumber = userData['phone_number'] ?? '-';
-            _userId = currentUser.uid;
-            _isLoading = false;
-          });
+
+          if (mounted) {
+            setState(() {
+              _name = userData['name'] ?? 'No name found';
+              _email =
+                  userData['email'] ?? currentUser.email ?? 'No email found';
+              _phoneNumber = userData['phone_number'] ?? '-';
+              _isLoading = false;
+            });
+          }
         } else {
-          setState(() {
-            _email = currentUser.email ?? 'No email found';
-            _userId = currentUser.uid;
-            _isLoading = false;
-          });
+          if (mounted) {
+            setState(() {
+              _email = currentUser.email ?? 'No email found';
+              _isLoading = false;
+            });
+          }
         }
       }
     } catch (e) {
       print('Error loading user data: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _updateUserData(String name, String email) async {
+    try {
+      final User? currentUser = _auth.currentUser;
+
+      if (currentUser != null) {
+        await _firestore
+            .collection('user_information')
+            .doc(currentUser.uid)
+            .update({
+              'name': name,
+              'email': email,
+              'updated_at': FieldValue.serverTimestamp(),
+            });
+
+        if (mounted) {
+          setState(() {
+            _name = name;
+            _email = email;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error updating user data: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error updating profile: $e')));
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFFFF),
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFFFFFFF),
+        backgroundColor: Colors.white,
+        toolbarHeight: 100,
+        elevation: 1,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pushReplacementNamed(context, '/home');
-          },
+          onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
         ),
-        title: const Text('Profile'),
-        centerTitle: true,
-        elevation: 1,
-      ),
-      body: SafeArea(
-        child: Column(
+        title: Row(
           children: [
+            const CircleAvatar(
+              radius: 20,
+              backgroundColor: Colors.grey,
+              child: Icon(Icons.person, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 20),
             Expanded(
-              child: _isLoading 
-                ? const Center(child: CircularProgressIndicator())
-                : SingleChildScrollView(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    // Profile Card
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Column(
+              child:
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'ID: $_userId',
-                              style: const TextStyle(color: Colors.black54),
+                          Text(
+                            _name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const CircleAvatar(
-                                radius: 32,
-                                backgroundColor: Colors.grey,
-                                child: Icon(
-                                  Icons.person,
-                                  color: Colors.white,
-                                  size: 32,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    ShaderMask(
-                                      shaderCallback:
-                                          (bounds) => const LinearGradient(
-                                            colors: [
-                                              Color(0xFF11468F),
-                                              Color(0xFFDA1212),
-                                            ],
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                          ).createShader(
-                                            Rect.fromLTWH(
-                                              0,
-                                              0,
-                                              bounds.width,
-                                              bounds.height,
-                                            ),
-                                          ),
-                                      child: Text(
-                                        _name,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 18,
-                                          color: Colors.white, // wajib: ShaderMask pakai warna putih sebagai base
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(_email),
-                                    Text(_phoneNumber),
-                                  ],
-                                ),
-                              ),
-
-                              IconButton(
-                                onPressed: () {
-                                  // handle edit
-                                },
-                                icon: ShaderMask(
-                                  shaderCallback:
-                                      (bounds) => const LinearGradient(
-                                        colors: [
-                                          Color(0xFF11468F),
-                                          Color(0xFFDA1212),
-                                        ],
-                                        begin: Alignment.centerLeft,
-                                        end: Alignment.centerRight,
-                                      ).createShader(
-                                        Rect.fromLTWH(
-                                          0,
-                                          0,
-                                          bounds.width,
-                                          bounds.height,
-                                        ),
-                                      ),
-                                  child: const Icon(
-                                    Icons.edit,
-                                    color: Colors.white, // warna dasar harus putih buat efek gradasi
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 32),
-                          const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'Vehicle Information',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
+                          Text(
+                            _email,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.black54,
                             ),
                           ),
-                          const SizedBox(height: 16),
-                          Container(
-                            height: 120,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(8),
-                              color: Colors.grey.shade200,
-                            ),
-                            child: const Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.camera_alt, color: Colors.grey),
-                                  SizedBox(height: 8),
-                                  Text('Take a Photo of Your Vehicle.'),
-                                  Text('Just in case you didn’t remember it.'),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: const [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Yamaha V-ixion 2011'),
-                                  Text('DA 1030 TTV'),
-                                ],
-                              ),
-                              Text('Motorcycle'),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'Joined 7 Aug 2025',
-                              style: TextStyle(color: Colors.black45),
+                          Text(
+                            _phoneNumber,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.black54,
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 40,
-                              vertical: 12,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          onPressed: () {
-                            // handle log out
-                          },
-                          child: const Text(
-                            'Log Out',
-                            style: TextStyle(
-                              color: Color(0xFFFFFFFF),
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
             ),
-            const Padding(
-              padding: EdgeInsets.only(bottom: 12.0, top: 12.0),
-              child: Text(
-                '© Poliban 2025',
-                style: TextStyle(color: Colors.black54),
-              ),
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () async {
+                final nameController = TextEditingController(text: _name);
+                final emailController = TextEditingController(text: _email);
+
+                showDialog(
+                  context: context,
+                  builder:
+                      (context) => AlertDialog(
+                        title: const Text('Edit Profile'),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextField(
+                              controller: nameController,
+                              decoration: const InputDecoration(
+                                labelText: 'Name',
+                              ),
+                            ),
+                            TextField(
+                              controller: emailController,
+                              decoration: const InputDecoration(
+                                labelText: 'Email',
+                              ),
+                            ),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Cancel'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () async {
+                              await _updateUserData(
+                                nameController.text.trim(),
+                                emailController.text.trim(),
+                              );
+                              if (mounted) {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text("User updated successfully"),
+                                  ),
+                                );
+                              }
+                            },
+                            child: const Text('Save'),
+                          ),
+                        ],
+                      ),
+                );
+              },
             ),
           ],
         ),
+      ),
+      body: SafeArea(
+        child:
+            _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : Column(
+                  children: [
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          children: [
+                            // info card
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.grey.shade300),
+                              ),
+                              child: Row(
+                                children: [
+                                  const CircleAvatar(
+                                    radius: 32,
+                                    backgroundColor: Colors.grey,
+                                    child: Icon(
+                                      Icons.person,
+                                      color: Colors.white,
+                                      size: 32,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        ShaderMask(
+                                          shaderCallback:
+                                              (bounds) => const LinearGradient(
+                                                colors: [
+                                                  Color(0xFF11468F),
+                                                  Color(0xFFDA1212),
+                                                ],
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                              ).createShader(
+                                                Rect.fromLTWH(
+                                                  0,
+                                                  0,
+                                                  bounds.width,
+                                                  bounds.height,
+                                                ),
+                                              ),
+                                          child: Text(
+                                            _name,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 18,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(_email),
+                                        Text(_phoneNumber),
+                                        const SizedBox(height: 12),
+                                        const Text(
+                                          'Joined 7 Aug 2025',
+                                          style: TextStyle(
+                                            color: Colors.black45,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  ElevatedButton.icon(
+                                    onPressed: () {
+                                      Navigator.pushNamed(context, '/vehicle');
+                                    },
+                                    icon: const Icon(Icons.directions_bike),
+                                    label: const Text('Vehicle Info'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF11468F),
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Column(
+                              children: [
+                                _buildFullWidthOutlinedButton(
+                                  context,
+                                  label: 'Track Your Vehicle',
+                                  routeName: '/home',
+                                  color: Colors.blue,
+                                ),
+                                _buildFullWidthOutlinedButton(
+                                  context,
+                                  label: 'Set Range',
+                                  routeName: '/set-range',
+                                  color: Colors.green,
+                                ),
+                                _buildFullWidthOutlinedButton(
+                                  context,
+                                  label: 'Driving History',
+                                  routeName: '/history',
+                                  color: Colors.orange,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                ElevatedButton(
+                                  onPressed: () async {
+                                    await _auth.signOut();
+                                    if (mounted) {
+                                      Navigator.pushReplacementNamed(
+                                        context,
+                                        '/login',
+                                      );
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.black,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 40,
+                                      vertical: 12,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'Log Out',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12.0),
+                      child: Text(
+                        '\u00a9 Poliban 2025',
+                        style: TextStyle(color: Colors.black54),
+                      ),
+                    ),
+                  ],
+                ),
+      ),
+    );
+  }
+
+  Widget _buildFullWidthOutlinedButton(
+    BuildContext context, {
+    required String label,
+    required String routeName,
+    required Color color, // tambahin parameter warna
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: OutlinedButton(
+        onPressed: () => Navigator.pushNamed(context, routeName),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: color, // warna teks
+          side: BorderSide(color: color), // warna border
+          minimumSize: const Size.fromHeight(48),
+          alignment: Alignment.center,
+        ),
+        child: Text(label),
       ),
     );
   }

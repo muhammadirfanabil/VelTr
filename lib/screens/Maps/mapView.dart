@@ -31,6 +31,30 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     fetchRelayStatus();
   }
 
+  Future<bool> pingESP32(String ip) async {
+    try {
+      final response = await http
+          .get(Uri.parse('http://$ip/ping'))
+          .timeout(
+            const Duration(seconds: 3),
+            onTimeout: () => http.Response('Timeout', 408),
+          );
+
+      if (response.statusCode == 200) {
+        debugPrint("ESP32 responded: ${response.body}");
+        return true;
+      } else {
+        debugPrint(
+          "ESP32 not responding properly. Status: ${response.statusCode}",
+        );
+        return false;
+      }
+    } catch (e) {
+      debugPrint("Error pinging ESP32: $e");
+      return false;
+    }
+  }
+
   Future<void> fetchLocationName(double lat, double lon) async {
     final url = Uri.parse(
       'https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lon&zoom=18&addressdetails=1',
