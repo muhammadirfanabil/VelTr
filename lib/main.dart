@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:gps_app/screens/Auth/RegisterOne.dart';
-import 'package:gps_app/screens/Auth/RegisterTwo.dart';
+import 'package:gps_app/screens/Auth/GoogleSignupScreen.dart';
 import 'package:gps_app/screens/Users/Profile.dart';
 
 import 'firebase_options.dart';
@@ -29,13 +29,20 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(primarySwatch: Colors.blue, fontFamily: 'PlusJakarta'),
       debugShowCheckedModeBanner: false,
       routes: {
-        '/registertwo': (context) => const RegisterTwo(),
         '/registerone': (context) => const RegisterOne(),
         '/login': (context) => const LoginScreen(),
-        // '/home': (context) => const IndexScreen(),
         '/home': (context) => const GPSMapScreen(),
-        // '/users': (context) => const UsersListScreen(),
+        '/vehicle': (context) => const VehicleIndexScreen(),
         '/profile': (context) => const ProfilePage(),
+        '/google-signup': (context) {
+          // We'll pass the parameters when navigating to this route
+          final args =
+              ModalRoute.of(context)!.settings.arguments as Map<String, String>;
+          return GoogleSignupScreen(
+            email: args['email']!,
+            displayName: args['displayName']!,
+          );
+        },
       },
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
@@ -50,7 +57,7 @@ class MyApp extends StatelessWidget {
             return const LoginScreen();
           }
 
-          return const IndexScreen();
+          return const GPSMapScreen();
         },
       ),
     );

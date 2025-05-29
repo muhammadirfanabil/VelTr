@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/Auth/authService.dart';
-// import '../../services/Auth/AuthService.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -40,6 +40,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     }
   }
+
   void _loginWithGoogle() async {
     if (!mounted) return;
     setState(() {
@@ -52,18 +53,29 @@ class _LoginScreenState extends State<LoginScreen> {
       Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Gagal login dengan Google: ${e.toString()}');
-      setState(() {
-        if (e.toString().contains("not_registered")) {
-          _error = "Looks like your account is not registered.";
-        } else {
-          _error = "Failed to log in with Google: ${e.toString()}";
+      if (e.toString().contains("not_registered")) {
+        // Get Google user info to pass to signup screen
+        final googleUser = await GoogleSignIn().signIn();
+        if (googleUser != null && mounted) {
+          Navigator.pushReplacementNamed(
+            context,
+            '/google-signup',
+            arguments: {
+              'email': googleUser.email,
+              'displayName': googleUser.displayName ?? 'No Name',
+            },
+          );
         }
-      });
+      } else {
+        setState(
+          () => _error = "Failed to log in with Google: ${e.toString()}",
+        );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
+
   @override
   void dispose() {
     // Clean up controllers to prevent memory leaks
