@@ -146,9 +146,6 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     });
   }
 
-  class _LocationPinButtonState extends State<LocationPinButton> {
-  bool _isActive = false;  // Track active state
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -234,19 +231,13 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                   Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-IconButton(
-      onPressed: () {
-        setState(() {
-          _isActive = !_isActive;  // Toggle active state
-        });
-        // TODO: Add your location pin action
-      },
-      icon: Icon(
-        Icons.location_pin,
-        color: _isActive ? Colors.blue : Colors.black,  // Change color when active
-      ),
-      tooltip: 'Location Pin',
-    );
+                      IconButton(
+                        onPressed: () {
+                          // TODO: Add your location pin action
+                        },
+                        icon: Icon(Icons.location_pin, color: Colors.black),
+                        tooltip: 'Location Pin',
+                      ),
                       const Text('View', style: TextStyle(fontSize: 12)),
                     ],
                   ),
