@@ -146,6 +146,9 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     });
   }
 
+  class _LocationPinButtonState extends State<LocationPinButton> {
+  bool _isActive = false;  // Track active state
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -188,65 +191,20 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                     Row(
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.refresh),
+                          icon: const Icon(
+                            Icons.notifications,
+                            color: Colors.black,
+                          ),
                           onPressed: () {
-                            fetchLastLocation();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Loading Location...'),
-                              ),
-                            );
+                            Navigator.pushNamed(context, '/notification');
                           },
                         ),
-                        PopupMenuButton<String>(
+
+                        IconButton(
                           icon: const Icon(Icons.person, color: Colors.black),
-                          offset: const Offset(0, 45),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          elevation: 8,
-                          color: Colors.white,
-                          shadowColor: Colors.black.withOpacity(0.2),
-                          onSelected: (value) async {
-                            if (value == 'profile') {
-                              Navigator.pushNamed(context, '/profile');
-                            } else if (value == 'settings') {
-                              Navigator.pushNamed(context, '/settings');
-                            } else if (value == 'logout') {
-                              await AuthService.signOut();
-                              Navigator.pushReplacementNamed(context, '/login');
-                            }
+                          onPressed: () {
+                            Navigator.pushNamed(context, '/profile');
                           },
-                          itemBuilder:
-                              (context) => [
-                                PopupMenuItem(
-                                  value: 'profile',
-                                  child: Row(
-                                    children: const [
-                                      SizedBox(width: 8),
-                                      Text('Profile'),
-                                    ],
-                                  ),
-                                ),
-                                PopupMenuItem(
-                                  value: 'settings',
-                                  child: Row(
-                                    children: const [
-                                      SizedBox(width: 8),
-                                      Text('Settings'),
-                                    ],
-                                  ),
-                                ),
-                                PopupMenuItem(
-                                  value: 'logout',
-                                  child: Row(
-                                    children: const [
-                                      SizedBox(width: 8),
-                                      Text('Logout'),
-                                    ],
-                                  ),
-                                ),
-                              ],
                         ),
                       ],
                     ),
@@ -257,148 +215,238 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
           ),
           Align(
             alignment: Alignment.bottomCenter,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+            child: Container(
+              height: 70,
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.95),
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(32),
-                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.1),
-                    blurRadius: 12,
-                    offset: const Offset(0, -4),
+                    blurRadius: 8,
+                    offset: Offset(0, -2),
                   ),
                 ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  Text(
-                    locationName ?? 'Loading...',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
+                  // Location Pin Icon + Text
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      (latitude != null && longitude != null)
-                          ? Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Lat: ${latitude!.toStringAsFixed(5)}',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: Colors.black87,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Lng: ${longitude!.toStringAsFixed(5)}',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            ],
-                          )
-                          : Text(
-                            'Unavailable',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: Colors.black87,
-                            ),
-                          ),
+IconButton(
+      onPressed: () {
+        setState(() {
+          _isActive = !_isActive;  // Toggle active state
+        });
+        // TODO: Add your location pin action
+      },
+      icon: Icon(
+        Icons.location_pin,
+        color: _isActive ? Colors.blue : Colors.black,  // Change color when active
+      ),
+      tooltip: 'Location Pin',
+    );
+                      const Text('View', style: TextStyle(fontSize: 12)),
                     ],
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    lastUpdated != true
-                        ? 'Last Active: $lastUpdated'
-                        : 'Waiting...',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.green[300],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  SingleChildScrollView(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Wrap(
-                        spacing: 50,
-                        runSpacing: 10,
-                        alignment: WrapAlignment.start,
-                        children: [
-                          ElevatedButton(
-                            onPressed:
-                                (latitude != null && longitude != null)
-                                    ? () {}
-                                    : null,
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: const Size(5, 45),
-                              backgroundColor: const Color(
-                                0xFF7DAEFF,
-                              ).withOpacity(0.25),
-                              foregroundColor: const Color(0xFF11468F),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Transform.rotate(
-                                  angle: 0.45,
-                                  child: const Icon(Icons.navigation, size: 25),
-                                ),
-                                const Text('Navigate the Distance From You'),
-                              ],
-                            ),
-                          ),
-                          ElevatedButton(
-                            onPressed: toggleVehicleStatus,
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: const Size(5, 45),
-                              backgroundColor:
-                                  isVehicleOn
-                                      ? Colors.green.shade600
-                                      : Colors.red.shade600,
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Icon(
-                                  isVehicleOn
-                                      ? Icons.power_settings_new
-                                      : Icons.power_settings_new_outlined,
-                                  size: 25,
-                                ),
-                                Text(
-                                  isVehicleOn
-                                      ? 'Turn Off Vehicle'
-                                      : 'Turn On Vehicle',
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+
+                  // Location Searching Icon + Text
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        onPressed: () {
+                          // TODO: Add your location searching action
+                        },
+                        icon: Icon(
+                          Icons.location_searching,
+                          color: Colors.black,
+                        ),
+                        tooltip: 'Location Searching',
                       ),
-                    ),
+                      const Text('GeoFence', style: TextStyle(fontSize: 12)),
+                    ],
+                  ),
+
+                  // // Near Me Icon + Text
+                  // Column(
+                  //   mainAxisSize: MainAxisSize.min,
+                  //   children: [
+                  //     IconButton(
+                  //       onPressed: () {
+                  //         // TODO: Add your near me action
+                  //       },
+                  //       icon: Icon(Icons.near_me_outlined, color: Colors.black),
+                  //       tooltip: 'Near Me',
+                  //     ),
+                  //     const Text('Nearby', style: TextStyle(fontSize: 12)),
+                  //   ],
+                  // ),
+
+                  // Two Wheeler Icon + Text
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        onPressed: () {
+                          // TODO: Add your two wheeler action
+                        },
+                        icon: Icon(Icons.two_wheeler, color: Colors.black),
+                        tooltip: 'Two Wheeler',
+                      ),
+                      const Text('Vehicle', style: TextStyle(fontSize: 12)),
+                    ],
                   ),
                 ],
               ),
             ),
           ),
+
+          // Align(
+          //   alignment: Alignment.bottomCenter,
+          //   child: AnimatedContainer(
+          //     duration: const Duration(milliseconds: 300),
+          //     curve: Curves.easeOut,
+          //     padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+          //     decoration: BoxDecoration(
+          //       color: Colors.white.withOpacity(0.95),
+          //       borderRadius: const BorderRadius.vertical(
+          //         top: Radius.circular(32),
+          //       ),
+          //       boxShadow: [
+          //         BoxShadow(
+          //           color: Colors.black.withOpacity(0.1),
+          //           blurRadius: 12,
+          //           offset: const Offset(0, -4),
+          //         ),
+          //       ],
+          //     ),
+          //     child: Column(
+          //       crossAxisAlignment: CrossAxisAlignment.start,
+          //       mainAxisSize: MainAxisSize.min,
+          //       children: [
+          //         Text(
+          //           locationName ?? 'Loading...',
+          //           style: theme.textTheme.titleMedium?.copyWith(
+          //             fontWeight: FontWeight.bold,
+          //             color: Colors.black87,
+          //           ),
+          //         ),
+          //         const SizedBox(height: 8),
+          //         Row(
+          //           children: [
+          //             (latitude != null && longitude != null)
+          //                 ? Row(
+          //                   mainAxisAlignment: MainAxisAlignment.center,
+          //                   children: [
+          //                     Text(
+          //                       'Lat: ${latitude!.toStringAsFixed(5)}',
+          //                       style: theme.textTheme.bodyMedium?.copyWith(
+          //                         color: Colors.black87,
+          //                       ),
+          //                     ),
+          //                     const SizedBox(width: 12),
+          //                     Text(
+          //                       'Lng: ${longitude!.toStringAsFixed(5)}',
+          //                       style: theme.textTheme.bodyMedium?.copyWith(
+          //                         color: Colors.black87,
+          //                       ),
+          //                     ),
+          //                   ],
+          //                 )
+          //                 : Text(
+          //                   'Unavailable',
+          //                   style: theme.textTheme.bodyMedium?.copyWith(
+          //                     color: Colors.black87,
+          //                   ),
+          //                 ),
+          //           ],
+          //         ),
+          //         const SizedBox(height: 6),
+          //         Text(
+          //           lastUpdated != true
+          //               ? 'Last Active: $lastUpdated'
+          //               : 'Waiting...',
+          //           style: theme.textTheme.bodySmall?.copyWith(
+          //             color: Colors.green[300],
+          //           ),
+          //         ),
+          //         const SizedBox(height: 20),
+          //         SingleChildScrollView(
+          //           child: Padding(
+          //             padding: const EdgeInsets.all(16.0),
+          //             child: Wrap(
+          //               spacing: 50,
+          //               runSpacing: 10,
+          //               alignment: WrapAlignment.start,
+          //               children: [
+          //                 ElevatedButton(
+          //                   onPressed:
+          //                       (latitude != null && longitude != null)
+          //                           ? () {}
+          //                           : null,
+          //                   style: ElevatedButton.styleFrom(
+          //                     minimumSize: const Size(5, 45),
+          //                     backgroundColor: const Color(
+          //                       0xFF7DAEFF,
+          //                     ).withOpacity(0.25),
+          //                     foregroundColor: const Color(0xFF11468F),
+          //                     elevation: 0,
+          //                     shape: RoundedRectangleBorder(
+          //                       borderRadius: BorderRadius.circular(12),
+          //                     ),
+          //                   ),
+          //                   child: Row(
+          //                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          //                     children: [
+          //                       Transform.rotate(
+          //                         angle: 0.45,
+          //                         child: const Icon(Icons.navigation, size: 25),
+          //                       ),
+          //                       const Text('Navigate the Distance From You'),
+          //                     ],
+          //                   ),
+          //                 ),
+          //                 ElevatedButton(
+          //                   onPressed: toggleVehicleStatus,
+          //                   style: ElevatedButton.styleFrom(
+          //                     minimumSize: const Size(5, 45),
+          //                     backgroundColor:
+          //                         isVehicleOn
+          //                             ? Colors.green.shade600
+          //                             : Colors.red.shade600,
+          //                     foregroundColor: Colors.white,
+          //                     elevation: 0,
+          //                     shape: RoundedRectangleBorder(
+          //                       borderRadius: BorderRadius.circular(12),
+          //                     ),
+          //                   ),
+          //                   child: Row(
+          //                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          //                     children: [
+          //                       Icon(
+          //                         isVehicleOn
+          //                             ? Icons.power_settings_new
+          //                             : Icons.power_settings_new_outlined,
+          //                         size: 25,
+          //                       ),
+          //                       Text(
+          //                         isVehicleOn
+          //                             ? 'Turn Off Vehicle'
+          //                             : 'Turn On Vehicle',
+          //                       ),
+          //                     ],
+          //                   ),
+          //                 ),
+          //               ],
+          //             ),
+          //           ),
+          //         ),
+          //       ],
+          //     ),
+          //   ),
+          // ),
         ],
       ),
     );

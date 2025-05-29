@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/User/userInformation.dart';
 import '../../services/User/userService.dart';
+import '../../services/Auth/authService.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -243,8 +244,12 @@ class _ProfilePageState extends State<ProfilePage> {
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             ElevatedButton(
-                              onPressed: () {
-                                // handle logout
+                              onPressed: () async {
+                                await AuthService.signOut();
+                                Navigator.pushReplacementNamed(
+                                  context,
+                                  '/login',
+                                );
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.black,
