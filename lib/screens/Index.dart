@@ -50,7 +50,7 @@ class IndexScreen extends StatelessWidget {
                 Navigator.pushNamed(context, '/profile');
               } else if (value == 'settings') {
                 Navigator.pushNamed(context, '/settings');
-              }              else if (value == 'logout') {
+              } else if (value == 'logout') {
                 await AuthService.signOut();
                 // Navigation is handled by the StreamBuilder in main.dart
                 // No need to navigate manually here

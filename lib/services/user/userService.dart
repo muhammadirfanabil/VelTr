@@ -17,7 +17,6 @@ class UserService {
     }
   }
 
-  /// Get a stream of all users
   Stream<List<userInformation>> getUsers() {
     return usersRef.snapshots().map(
       (snapshot) =>
