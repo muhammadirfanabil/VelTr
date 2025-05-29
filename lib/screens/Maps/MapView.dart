@@ -21,12 +21,13 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   double? longitude;
   String? locationName = 'Loading Location...';
   bool isVehicleOn = false; // Menyimpan status kendaraan
+  int? satellites; // Menyimpan jumlah satellites
 
   @override
   void initState() {
     super.initState();
     fetchLastLocation();
-    fetchVehicleStatus(); // Memanggil fungsi untuk memantau status kendaraan
+    fetchVehicleStatus();
     fetchRelayStatus();
   }
 
@@ -69,6 +70,13 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
         latitude = double.tryParse(data['latitude'].toString());
         longitude = double.tryParse(data['longitude'].toString());
 
+        // Ambil data satellites jika ada
+        if (data.containsKey('satellites')) {
+          satellites = int.tryParse(data['satellites'].toString());
+        } else {
+          satellites = null;
+        }
+
         if (latitude != null && longitude != null) {
           fetchLocationName(
             latitude!,
@@ -76,12 +84,16 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
           ); // Pemanggilan API untuk mendapatkan nama lokasi
         }
 
-        final timestamp = data['timestamp'];
-        if (timestamp != null) {
-          final dt = DateTime.fromMillisecondsSinceEpoch(
-            int.parse(timestamp.toString()),
-          );
-          lastUpdated = DateFormat('yyyy-MM-dd HH:mm:ss').format(dt);
+        final waktuWita = data['waktu_wita'];
+        if (waktuWita != null) {
+          try {
+            final dt = DateFormat(
+              'yyyy-MM-dd HH:mm:ss',
+            ).parse(waktuWita.toString());
+            lastUpdated = DateFormat('yyyy-MM-dd HH:mm:ss').format(dt);
+          } catch (e) {
+            lastUpdated = 'Invalid WITA format';
+          }
         } else {
           lastUpdated = 'Unavailable';
         }
@@ -101,9 +113,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
 
   void toggleVehicleStatus() {
     final ref = FirebaseDatabase.instance.ref('GPS/status_kendaraan');
-    final relayRef = FirebaseDatabase.instance.ref(
-      'GPS/relay',
-    ); // Menambahkan referensi untuk relay
+    final relayRef = FirebaseDatabase.instance.ref('GPS/relay');
 
     // Toggle status kendaraan dan relay
     ref.set(!isVehicleOn); // Toggle status kendaraan
@@ -281,6 +291,16 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                                   color: Colors.black87,
                                 ),
                               ),
+                              const SizedBox(width: 12),
+                              // Tampilkan satellites jika ada
+                              satellites != null
+                                  ? Text(
+                                    'Satellites: $satellites',
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: Colors.black87,
+                                    ),
+                                  )
+                                  : const SizedBox.shrink(),
                             ],
                           )
                           : Text(

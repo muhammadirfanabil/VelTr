@@ -13,6 +13,7 @@ class MapWidget extends StatefulWidget {
 class _MapWidgetState extends State<MapWidget> {
   final MapController _mapController = MapController();
   LatLng? userLatLng;
+  double zoomLevel = 15.0;
 
   @override
   void initState() {
@@ -33,7 +34,8 @@ class _MapWidgetState extends State<MapWidget> {
         setState(() {
           userLatLng = newPosition;
         });
-        _mapController.move(newPosition, _mapController.camera.zoom);
+
+        _mapController.move(newPosition, zoomLevel);
       }
     });
   }
@@ -44,7 +46,15 @@ class _MapWidgetState extends State<MapWidget> {
         ? const Center(child: CircularProgressIndicator())
         : FlutterMap(
           mapController: _mapController,
-          options: MapOptions(initialCenter: userLatLng!, initialZoom: 15.0),
+          options: MapOptions(
+            initialCenter: userLatLng!,
+            initialZoom: zoomLevel,
+            onPositionChanged: (position, _) {
+              setState(() {
+                zoomLevel = position.zoom;
+              });
+            },
+          ),
           children: [
             TileLayer(
               urlTemplate:
@@ -52,16 +62,17 @@ class _MapWidgetState extends State<MapWidget> {
               subdomains: const ['a', 'b', 'c', 'd'],
               userAgentPackageName: 'com.example.gps_app',
             ),
+
             MarkerLayer(
               markers: [
                 Marker(
                   point: userLatLng!,
-                  width: 80.0,
-                  height: 80.0,
-                  child: const Icon(
-                    Icons.location_on,
-                    color: Colors.red,
-                    size: 40,
+                  width: 50.0,
+                  height: 50.0,
+                  child: Image.asset(
+                    'assets/icons/motor.png',
+                    width: 50,
+                    height: 50,
                   ),
                 ),
               ],
