@@ -1,12 +1,6 @@
 import 'package:flutter/material.dart';
-<<<<<<< HEAD
-import '../../models/User/userInformation.dart';
-import '../../services/User/userService.dart';
-import '../../services/Auth/authService.dart';
-=======
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
->>>>>>> a969fd623700a31e72347473a58818c5956b88a7
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -34,7 +28,6 @@ class _ProfilePageState extends State<ProfilePage> {
       final User? currentUser = _auth.currentUser;
 
       if (currentUser != null) {
-        // Get user data from Firestore
         final DocumentSnapshot userDoc =
             await _firestore
                 .collection('user_information')
@@ -359,14 +352,16 @@ class _ProfilePageState extends State<ProfilePage> {
                                 ),
                               ],
                             ),
+                            const SizedBox(height: 12),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 12.0),
+                              child: Text(
+                                '\u00a9 Poliban 2025',
+                                style: TextStyle(color: Colors.black54),
+                              ),
+                            ),
                           ],
                         ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12.0),
-                      child: Text(
-                        '\u00a9 Poliban 2025',
-                        style: TextStyle(color: Colors.black54),
                       ),
                     ),
                   ],
@@ -379,19 +374,28 @@ class _ProfilePageState extends State<ProfilePage> {
     BuildContext context, {
     required String label,
     required String routeName,
-    required Color color, // tambahin parameter warna
+    required Color color,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: OutlinedButton(
-        onPressed: () => Navigator.pushNamed(context, routeName),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: color, // warna teks
-          side: BorderSide(color: color), // warna border
-          minimumSize: const Size.fromHeight(48),
-          alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: SizedBox(
+        width: double.infinity,
+        height: 45,
+        child: OutlinedButton(
+          onPressed: () {
+            Navigator.pushNamed(context, routeName);
+          },
+          style: OutlinedButton.styleFrom(
+            side: BorderSide(color: color),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(color: color, fontWeight: FontWeight.w500),
+          ),
         ),
-        child: Text(label),
       ),
     );
   }

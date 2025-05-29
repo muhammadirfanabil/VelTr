@@ -7,6 +7,7 @@ import 'dart:convert';
 
 import '../../services/Auth/AuthService.dart';
 import '../../widgets/MapWidget.dart';
+import '../../widgets/stickyFooter.dart';
 
 class GPSMapScreen extends StatefulWidget {
   const GPSMapScreen({super.key});
@@ -210,89 +211,8 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
               ),
             ),
           ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: Container(
-              height: 70,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.95),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: Offset(0, -2),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  // Location Pin Icon + Text
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        onPressed: () {
-                          // TODO: Add your location pin action
-                        },
-                        icon: Icon(Icons.location_pin, color: Colors.black),
-                        tooltip: 'Location Pin',
-                      ),
-                      const Text('View', style: TextStyle(fontSize: 12)),
-                    ],
-                  ),
 
-                  // Location Searching Icon + Text
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        onPressed: () {
-                          // TODO: Add your location searching action
-                        },
-                        icon: Icon(
-                          Icons.location_searching,
-                          color: Colors.black,
-                        ),
-                        tooltip: 'Location Searching',
-                      ),
-                      const Text('GeoFence', style: TextStyle(fontSize: 12)),
-                    ],
-                  ),
-
-                  // // Near Me Icon + Text
-                  // Column(
-                  //   mainAxisSize: MainAxisSize.min,
-                  //   children: [
-                  //     IconButton(
-                  //       onPressed: () {
-                  //         // TODO: Add your near me action
-                  //       },
-                  //       icon: Icon(Icons.near_me_outlined, color: Colors.black),
-                  //       tooltip: 'Near Me',
-                  //     ),
-                  //     const Text('Nearby', style: TextStyle(fontSize: 12)),
-                  //   ],
-                  // ),
-
-                  // Two Wheeler Icon + Text
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        onPressed: () {
-                          // TODO: Add your two wheeler action
-                        },
-                        icon: Icon(Icons.two_wheeler, color: Colors.black),
-                        tooltip: 'Two Wheeler',
-                      ),
-                      const Text('Vehicle', style: TextStyle(fontSize: 12)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
+          StickyFooter(),
 
           // Align(
           //   alignment: Alignment.bottomCenter,

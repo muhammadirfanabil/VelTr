@@ -10,6 +10,7 @@ import 'screens/Auth/login.dart';
 // import 'screens/Users/index.dart';
 import 'screens/Vehicle/index.dart';
 import 'screens/Maps/mapView.dart';
+import 'screens/GeoFence/index.dart';
 import 'screens/index.dart';
 
 void main() async {
@@ -33,6 +34,7 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginScreen(),
         '/home': (context) => const GPSMapScreen(),
         '/vehicle': (context) => const VehicleIndexScreen(),
+        '/geofence': (context) => const GeofenceListScreen(),
         '/profile': (context) => const ProfilePage(),
         '/google-signup': (context) {
           // We'll pass the parameters when navigating to this route
