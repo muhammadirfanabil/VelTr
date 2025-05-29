@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../services/Auth/AuthService.dart';
+import '../../services/Auth/authService.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,9 +18,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _loading = false;
   String? _error;
-
   void _login() async {
     if (_formKey.currentState!.validate()) {
+      if (!mounted) return;
       setState(() {
         _loading = true;
         _error = null;
@@ -29,34 +30,58 @@ class _LoginScreenState extends State<LoginScreen> {
           _emailController.text.trim(),
           _passwordController.text.trim(),
         );
+        if (!mounted) return;
         Navigator.pushReplacementNamed(context, '/home');
       } catch (e) {
+        if (!mounted) return;
         setState(() => _error = 'Gagal login: ${e.toString()}');
       } finally {
-        setState(() => _loading = false);
+        if (mounted) setState(() => _loading = false);
       }
     }
   }
 
   void _loginWithGoogle() async {
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
       await AuthService.loginWithGoogle();
+      if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
-      setState(() {
-        if (e.toString().contains("not_registered")) {
-          _error = "Looks like your account is not registered.";
-        } else {
-          _error = "Failed to log in with Google: ${e.toString()}";
+      if (!mounted) return;
+      if (e.toString().contains("not_registered")) {
+        // Get Google user info to pass to signup screen
+        final googleUser = await GoogleSignIn().signIn();
+        if (googleUser != null && mounted) {
+          Navigator.pushReplacementNamed(
+            context,
+            '/google-signup',
+            arguments: {
+              'email': googleUser.email,
+              'displayName': googleUser.displayName ?? 'No Name',
+            },
+          );
         }
-      });
+      } else {
+        setState(
+          () => _error = "Failed to log in with Google: ${e.toString()}",
+        );
+      }
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
+  }
+
+  @override
+  void dispose() {
+    // Clean up controllers to prevent memory leaks
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   @override
@@ -171,7 +196,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   colors: [
                                     Color(0xFF11468F),
                                     Color(0xFFDA1212),
-                                  ], // Biru ke Cyan, contoh
+                                  ],
                                   begin: Alignment.centerLeft,
                                   end: Alignment.centerRight,
                                 ),
@@ -230,25 +255,41 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
 
                       const SizedBox(height: 24),
-                      GestureDetector(
-                        onTap:
-                            () => Navigator.pushNamed(context, '/registerone'),
-                        child: ShaderMask(
-                          shaderCallback:
-                              (bounds) => const LinearGradient(
-                                colors: [Color(0xFF11468F), Color(0xFFDA1212)],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                              ).createShader(bounds),
-                          child: const Text(
-                            'Or Make Your Account',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                              fontSize: 15,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            "Don't Have an Account?",
+                            style: TextStyle(color: Colors.black38),
+                          ),
+                          const SizedBox(width: 5),
+                          GestureDetector(
+                            onTap:
+                                () => Navigator.pushNamed(
+                                  context,
+                                  '/registerone',
+                                ),
+                            child: ShaderMask(
+                              shaderCallback:
+                                  (bounds) => const LinearGradient(
+                                    colors: [
+                                      Color(0xFF11468F),
+                                      Color(0xFFDA1212),
+                                    ],
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                  ).createShader(bounds),
+                              child: const Text(
+                                'Register Here',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
 
                       if (_error != null) ...[

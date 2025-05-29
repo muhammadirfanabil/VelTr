@@ -313,7 +313,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    lastUpdated != null
+                    lastUpdated != true
                         ? 'Last Active: $lastUpdated'
                         : 'Waiting...',
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -321,95 +321,75 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  Wrap(
-                    spacing: 50,
-                    runSpacing: 10,
-                    alignment: WrapAlignment.start,
-                    children: [
-                      ElevatedButton(
-                        onPressed:
-                            (latitude != null && longitude != null)
-                                ? () {}
-                                : null,
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(400, 45),
-                          backgroundColor: const Color(
-                            0xFF7DAEFF,
-                          ).withOpacity(0.25),
-                          foregroundColor: const Color(0xFF11468F),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                  SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Wrap(
+                        spacing: 50,
+                        runSpacing: 10,
+                        alignment: WrapAlignment.start,
+                        children: [
+                          ElevatedButton(
+                            onPressed:
+                                (latitude != null && longitude != null)
+                                    ? () {}
+                                    : null,
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(5, 45),
+                              backgroundColor: const Color(
+                                0xFF7DAEFF,
+                              ).withOpacity(0.25),
+                              foregroundColor: const Color(0xFF11468F),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Transform.rotate(
+                                  angle: 0.45,
+                                  child: const Icon(Icons.navigation, size: 25),
+                                ),
+                                const Text('Navigate the Distance From You'),
+                              ],
+                            ),
                           ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Transform.rotate(
-                              angle: 0.45, // Mengatur rotasi ikon ke kanan
-                              child: const Icon(Icons.navigation, size: 25),
+                          ElevatedButton(
+                            onPressed: toggleVehicleStatus,
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(5, 45),
+                              backgroundColor:
+                                  isVehicleOn
+                                      ? Colors.green.shade600
+                                      : Colors.red.shade600,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
-                            const Text('Navigate the Distance From You'),
-                          ],
-                        ),
-                      ),
-                      ElevatedButton(
-                        onPressed: toggleVehicleStatus,
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(400, 45),
-                          backgroundColor:
-                              isVehicleOn
-                                  ? Colors.green.shade600
-                                  : Colors.red.shade600,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Icon(
+                                  isVehicleOn
+                                      ? Icons.power_settings_new
+                                      : Icons.power_settings_new_outlined,
+                                  size: 25,
+                                ),
+                                Text(
+                                  isVehicleOn
+                                      ? 'Turn Off Vehicle'
+                                      : 'Turn On Vehicle',
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Icon(
-                              isVehicleOn
-                                  ? Icons.power_settings_new
-                                  : Icons.power_settings_new_outlined,
-                              size: 25,
-                            ),
-                            Text(
-                              isVehicleOn
-                                  ? 'Turn Off Vehicle'
-                                  : 'Turn On Vehicle',
-                            ),
-                          ],
-                        ),
+                        ],
                       ),
-                      ElevatedButton(
-                        onPressed:
-                            () => Navigator.pushReplacementNamed(
-                              context,
-                              '/home',
-                            ),
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(400, 45),
-                          backgroundColor: const Color(
-                            0xFF888888,
-                          ).withOpacity(0.7),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: const [
-                            Icon(Icons.arrow_back, size: 25),
-                            Text('Go Back'),
-                          ],
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ],
               ),

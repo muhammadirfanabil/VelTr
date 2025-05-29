@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../models/User/UserInformation.dart';
+import '../../models/User/userInformation.dart';
 
 // Handle CRUD for User
 class UserService {
@@ -8,7 +8,7 @@ class UserService {
   );
 
   /// Add a new user to Firestore
-  Future<void> addUser(UserInformation user) async {
+  Future<void> addUser(userInformation user) async {
     try {
       final docRef = usersRef.doc(); // Auto-generates ID
       await docRef.set(user.copyWith(id: docRef.id).toMap());
@@ -18,12 +18,12 @@ class UserService {
   }
 
   /// Get a stream of all users
-  Stream<List<UserInformation>> getUsers() {
+  Stream<List<userInformation>> getUsers() {
     return usersRef.snapshots().map(
       (snapshot) =>
           snapshot.docs
               .map(
-                (doc) => UserInformation.fromMap(
+                (doc) => userInformation.fromMap(
                   doc.data() as Map<String, dynamic>,
                   doc.id,
                 ),
@@ -33,7 +33,7 @@ class UserService {
   }
 
   /// Update an existing user
-  Future<void> updateUser(UserInformation user) async {
+  Future<void> updateUser(userInformation user) async {
     try {
       await usersRef.doc(user.id).update(user.toMap());
     } catch (e) {
@@ -51,11 +51,11 @@ class UserService {
   }
 
   /// Fetch a single user by ID
-  Future<UserInformation?> getUserById(String id) async {
+  Future<userInformation?> getUserById(String id) async {
     try {
       final doc = await usersRef.doc(id).get();
       if (doc.exists) {
-        return UserInformation.fromMap(
+        return userInformation.fromMap(
           doc.data() as Map<String, dynamic>,
           doc.id,
         );
