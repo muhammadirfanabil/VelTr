@@ -29,7 +29,7 @@ class AuthService {
     final uid = userCredential.user!.uid;
     final userDoc =
         await FirebaseFirestore.instance
-            .collection('user_information')
+            .collection('users_information')
             .doc(uid)
             .get();
 
@@ -112,5 +112,61 @@ class AuthService {
   static Future<void> signOut() async {
     await FirebaseAuth.instance.signOut();
     await GoogleSignIn().signOut();
+  }
+
+  /// Retrieves the current user data from Firestore
+  static Future<Map<String, dynamic>?> getUserData() async {
+    try {
+      final User? currentUser = FirebaseAuth.instance.currentUser;
+
+      if (currentUser != null) {
+        // Get user data from Firestore
+        final DocumentSnapshot userDoc =
+            await FirebaseFirestore.instance
+                .collection('users_information')
+                .doc(currentUser.uid)
+                .get();
+
+        if (userDoc.exists) {
+          final userData = userDoc.data() as Map<String, dynamic>;
+          // Add email from Firebase Auth if not present in Firestore
+          userData['email'] = userData['email'] ?? currentUser.email;
+          return userData;
+        } else {
+          // Return basic info if user document doesn't exist
+          return {'email': currentUser.email};
+        }
+      }
+      return null;
+    } catch (e) {
+      // Use proper error handling
+      print('Error loading user data: $e');
+      return null;
+    }
+  }
+
+  /// Update user data in Firestore
+  static Future<bool> updateUserData(String name, String email) async {
+    try {
+      final User? currentUser = FirebaseAuth.instance.currentUser;
+
+      if (currentUser != null) {
+        await FirebaseFirestore.instance
+            .collection('users_information')
+            .doc(currentUser.uid)
+            .update({
+              'name': name,
+              'email': email,
+              'updated_at': FieldValue.serverTimestamp(),
+            });
+
+        return true;
+      }
+      return false;
+    } catch (e) {
+      // Use logger in production instead
+      print('Error updating user data: $e');
+      return false;
+    }
   }
 }

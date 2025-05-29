@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../models/User/userInformation.dart';
+import '../../services/User/UserService.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -11,10 +12,11 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final UserService _userService = UserService();
   bool _isLoading = true;
-  String _name = 'Loading...';
-  String _email = 'Loading...';
+  userInformation? _userInfo;
+  String _name = 'Profile';
+  String _email = 'Profile';
   String _phoneNumber = '-';
 
   @override
@@ -25,35 +27,16 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _loadUserData() async {
     try {
-      final User? currentUser = _auth.currentUser;
+      final userData = await _userService.loadUserData();
 
-      if (currentUser != null) {
-        // Get user data from Firestore
-        final DocumentSnapshot userDoc =
-            await _firestore
-                .collection('user_information')
-                .doc(currentUser.uid)
-                .get();
-        if (userDoc.exists) {
-          final userData = userDoc.data() as Map<String, dynamic>;
-
-          if (mounted) {
-            setState(() {
-              _name = userData['name'] ?? 'No name found';
-              _email =
-                  userData['email'] ?? currentUser.email ?? 'No email found';
-              _phoneNumber = userData['phone_number'] ?? '-';
-              _isLoading = false;
-            });
-          }
-        } else {
-          if (mounted) {
-            setState(() {
-              _email = currentUser.email ?? 'No email found';
-              _isLoading = false;
-            });
-          }
-        }
+      if (mounted) {
+        setState(() {
+          _userInfo = userData['userInfo'];
+          _name = userData['name'];
+          _email = userData['email'];
+          _phoneNumber = userData['phoneNumber'];
+          _isLoading = userData['isLoading'];
+        });
       }
     } catch (e) {
       print('Error loading user data: $e');
@@ -61,39 +44,121 @@ class _ProfilePageState extends State<ProfilePage> {
         setState(() {
           _isLoading = false;
         });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading profile: $e')));
       }
     }
   }
 
-  Future<void> _updateUserData(String name, String email) async {
+  Future<void> _refreshProfile() async {
+    setState(() {
+      _isLoading = true;
+    });
+
     try {
-      final User? currentUser = _auth.currentUser;
+      final userData = await _userService.refreshUserProfile();
 
-      if (currentUser != null) {
-        await _firestore
-            .collection('user_information')
-            .doc(currentUser.uid)
-            .update({
-              'name': name,
-              'email': email,
-              'updated_at': FieldValue.serverTimestamp(),
-            });
+      if (mounted) {
+        setState(() {
+          _userInfo = userData['userInfo'];
+          _name = userData['name'];
+          _email = userData['email'];
+          _phoneNumber = userData['phoneNumber'];
+          _isLoading = userData['isLoading'];
+        });
 
-        if (mounted) {
-          setState(() {
-            _name = name;
-            _email = email;
-          });
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile refreshed successfully!')),
+        );
       }
     } catch (e) {
-      print('Error updating user data: $e');
+      print('Error refreshing profile: $e');
       if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error updating profile: $e')));
+        ).showSnackBar(SnackBar(content: Text('Error refreshing profile: $e')));
       }
     }
+  }
+
+  Future<void> _showEditProfileDialog() async {
+    final nameController = TextEditingController(text: _name);
+    final emailController = TextEditingController(text: _email);
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Edit Profile'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Name',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: emailController,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  try {
+                    final updatedUserInfo = await _userService
+                        .updateUserProfile(
+                          nameController.text,
+                          emailController.text,
+                          _userInfo,
+                        );
+
+                    if (mounted) {
+                      setState(() {
+                        _userInfo = updatedUserInfo;
+                        _name = updatedUserInfo.name;
+                        _email = updatedUserInfo.emailAddress;
+                      });
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Profile updated successfully!'),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    print('Error updating user data: $e');
+                    if (mounted) {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text('$e')));
+                    }
+                  }
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          ),
+    );
   }
 
   @override
@@ -101,109 +166,21 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        toolbarHeight: 100,
+        backgroundColor: Colors.white30,
+        toolbarHeight: 60,
         elevation: 1,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
         ),
-        title: Row(
-          children: [
-            const CircleAvatar(
-              radius: 20,
-              backgroundColor: Colors.grey,
-              child: Icon(Icons.person, color: Colors.white, size: 20),
-            ),
-            const SizedBox(width: 20),
-            Expanded(
-              child:
-                  _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _name,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          Text(
-                            _email,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.black54,
-                            ),
-                          ),
-                          Text(
-                            _phoneNumber,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.black54,
-                            ),
-                          ),
-                        ],
-                      ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.edit),
-              onPressed: () async {
-                final nameController = TextEditingController(text: _name);
-                final emailController = TextEditingController(text: _email);
-
-                showDialog(
-                  context: context,
-                  builder:
-                      (context) => AlertDialog(
-                        title: const Text('Edit Profile'),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            TextField(
-                              controller: nameController,
-                              decoration: const InputDecoration(
-                                labelText: 'Name',
-                              ),
-                            ),
-                            TextField(
-                              controller: emailController,
-                              decoration: const InputDecoration(
-                                labelText: 'Email',
-                              ),
-                            ),
-                          ],
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancel'),
-                          ),
-                          ElevatedButton(
-                            onPressed: () async {
-                              await _updateUserData(
-                                nameController.text.trim(),
-                                emailController.text.trim(),
-                              );
-                              if (mounted) {
-                                Navigator.pop(context);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text("User updated successfully"),
-                                  ),
-                                );
-                              }
-                            },
-                            child: const Text('Save'),
-                          ),
-                        ],
-                      ),
-                );
-              },
-            ),
-          ],
-        ),
+        title: const Text('Profile'),
+        // actions: [
+        //   IconButton(
+        //     icon: const Icon(Icons.refresh),
+        //     onPressed: _refreshProfile,
+        //     tooltip: 'Refresh Profile',
+        //   ),
+        // ],
       ),
       body: SafeArea(
         child:
@@ -239,60 +216,60 @@ class _ProfilePageState extends State<ProfilePage> {
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
-                                      children: [
+                                        children: [
                                         ShaderMask(
                                           shaderCallback:
-                                              (bounds) => const LinearGradient(
-                                                colors: [
-                                                  Color(0xFF11468F),
-                                                  Color(0xFFDA1212),
-                                                ],
-                                                begin: Alignment.topLeft,
-                                                end: Alignment.bottomRight,
-                                              ).createShader(
-                                                Rect.fromLTWH(
-                                                  0,
-                                                  0,
-                                                  bounds.width,
-                                                  bounds.height,
-                                                ),
-                                              ),
-                                          child: Text(
-                                            _name,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 18,
-                                              color: Colors.white,
+                                            (bounds) => const LinearGradient(
+                                            colors: [
+                                              Color(0xFF11468F),
+                                              Color(0xFFDA1212),
+                                            ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                            ).createShader(
+                                            Rect.fromLTWH(
+                                              0,
+                                              0,
+                                              bounds.width,
+                                              bounds.height,
                                             ),
+                                            ),
+                                          child: Text(
+                                          _name,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 18,
+                                            color: Colors.white,
+                                          ),
                                           ),
                                         ),
                                         const SizedBox(height: 4),
                                         Text(_email),
                                         Text(_phoneNumber),
                                         const SizedBox(height: 12),
-                                        const Text(
-                                          'Joined 7 Aug 2025',
-                                          style: TextStyle(
+                                        Text(
+                                          _userInfo?.createdAt != null 
+                                            ? 'Joined ${_userInfo!.createdAt.toLocal().toString().split(' ')[0]}'
+                                            : 'Joined recently',
+                                          style: const TextStyle(
                                             color: Colors.black45,
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  ElevatedButton.icon(
-                                    onPressed: () {
-                                      Navigator.pushNamed(context, '/vehicle');
-                                    },
-                                    icon: const Icon(Icons.directions_bike),
-                                    label: const Text('Vehicle Info'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF11468F),
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                  ),
+                                  // ElevatedButton.icon(
+                                  //   onPressed: _showEditProfileDialog,
+                                  //   icon: const Icon(Icons.edit),
+                                  //   label: const Text('Edit Profile'),
+                                  //   style: ElevatedButton.styleFrom(
+                                  //     backgroundColor: const Color(0xFF11468F),
+                                  //     foregroundColor: Colors.white,
+                                  //     shape: RoundedRectangleBorder(
+                                  //       borderRadius: BorderRadius.circular(8),
+                                  //     ),
+                                  //   ),
+                                  // ),
                                 ],
                               ),
                             ),
