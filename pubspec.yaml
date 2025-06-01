@@ -36,6 +36,7 @@ flutter:
     - assets/icons/appicon1.svg
     - assets/icons/appiconblk.svg
     - assets/icons/appiconwht.svg
+    - assets/icons/motor.svg
     - assets/icons/google_icon.svg
     - assets/icons/motor.png
     - assets/fonts/

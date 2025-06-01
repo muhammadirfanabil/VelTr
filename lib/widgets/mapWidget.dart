@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:flutter_svg/flutter_svg.dart'; // Make sure this is imported
 
 class MapWidget extends StatefulWidget {
   const MapWidget({super.key});
@@ -67,12 +68,29 @@ class _MapWidgetState extends State<MapWidget> {
               markers: [
                 Marker(
                   point: userLatLng!,
-                  width: 50.0,
-                  height: 50.0,
-                  child: Image.asset(
-                    'assets/icons/motor.png',
-                    width: 50,
-                    height: 50,
+                  width: 80,
+                  height: 80,
+                  child: GestureDetector(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder:
+                            (_) => AlertDialog(
+                              content: const Text('Track'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  child: const Text('Close'),
+                                ),
+                              ],
+                            ),
+                      );
+                    },
+                    child: SvgPicture.asset(
+                      'assets/icons/motor.svg',
+                      width: 20,
+                      height: 20,
+                    ),
                   ),
                 ),
               ],
