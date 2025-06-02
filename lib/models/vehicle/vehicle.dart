@@ -4,8 +4,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class vehicle {
   final String id;
   final String name;
-  final String vehicleTypes;
-  final String plateNumber;
+  final String ownerId; // Reference to user ID
+  final String? deviceId; // Can be null if no device is attached
+  final String? vehicleTypes; // Optional: type of vehicle
+  final String? plateNumber; // Optional: license plate
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -13,8 +15,10 @@ class vehicle {
   const vehicle({
     required this.id,
     required this.name,
-    required this.vehicleTypes,
-    required this.plateNumber,
+    required this.ownerId,
+    this.deviceId,
+    this.vehicleTypes,
+    this.plateNumber,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -27,17 +31,20 @@ class vehicle {
     return vehicle(
       id: documentId,
       name: data['name'] ?? '',
-      vehicleTypes: data['vehicle_types'] ?? '',
-      plateNumber: data['plate_number'] ?? '',
+      ownerId: data['ownerId'] ?? data['owner'] ?? '',
+      deviceId: data['deviceId'],
+      vehicleTypes: data['vehicle_types'] ?? data['vehicleTypes'],
+      plateNumber: data['plate_number'] ?? data['plateNumber'],
       createdAt: (data['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updated_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
-
   /// Converts this vehicle to a map for Firestore storage.
   Map<String, dynamic> toMap() {
     return {
       'name': name,
+      'ownerId': ownerId,
+      'deviceId': deviceId,
       'vehicle_types': vehicleTypes,
       'plate_number': plateNumber,
       'created_at': Timestamp.fromDate(createdAt),
@@ -49,6 +56,8 @@ class vehicle {
   vehicle copyWith({
     String? id,
     String? name,
+    String? ownerId,
+    String? deviceId,
     String? vehicleTypes,
     String? plateNumber,
     DateTime? createdAt,
@@ -57,6 +66,8 @@ class vehicle {
     return vehicle(
       id: id ?? this.id,
       name: name ?? this.name,
+      ownerId: ownerId ?? this.ownerId,
+      deviceId: deviceId ?? this.deviceId,
       vehicleTypes: vehicleTypes ?? this.vehicleTypes,
       plateNumber: plateNumber ?? this.plateNumber,
       createdAt: createdAt ?? this.createdAt,
@@ -65,7 +76,7 @@ class vehicle {
   }
 
   @override
-  String toString() => 'vehicle(id: $id, name: $name, vehicleTypes: $vehicleTypes, plateNumber: $plateNumber)';
+  String toString() => 'vehicle(id: $id, name: $name, ownerId: $ownerId, deviceId: $deviceId, vehicleTypes: $vehicleTypes, plateNumber: $plateNumber)';
 
   @override
   bool operator ==(Object other) =>
@@ -73,6 +84,8 @@ class vehicle {
       other is vehicle &&
           other.id == id &&
           other.name == name &&
+          other.ownerId == ownerId &&
+          other.deviceId == deviceId &&
           other.vehicleTypes == vehicleTypes &&
           other.plateNumber == plateNumber;
 

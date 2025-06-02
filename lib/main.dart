@@ -8,6 +8,7 @@ import 'package:gps_app/screens/Users/Profile.dart';
 import 'firebase_options.dart';
 import 'screens/Auth/login.dart';
 import 'screens/Vehicle/index.dart';
+import 'screens/Device/index.dart';
 import 'screens/Maps/mapView.dart';
 
 void main() async {
@@ -30,6 +31,7 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginScreen(),
         '/home': (context) => const GPSMapScreen(),
         '/vehicle': (context) => const VehicleIndexScreen(),
+        '/device': (context) => const DeviceIndexScreen(),
         '/profile': (context) => const ProfilePage(),
         '/google-signup': (context) {
           // We'll pass the parameters when navigating to this route

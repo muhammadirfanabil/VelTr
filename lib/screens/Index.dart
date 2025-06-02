@@ -135,6 +135,14 @@ class IndexScreen extends StatelessWidget {
                   routeName: "/vehicle",
                   icon: Icons.directions_car,
                 ),
+                const SizedBox(height: 16),
+                _buildCard(
+                  context,
+                  title: "GPS Device Management",
+                  subtitle: "Manage your GPS tracking devices.",
+                  routeName: "/device",
+                  icon: Icons.device_hub,
+                ),
                 const Spacer(),
                 const Text(
                   "Credit Poliban 2025",

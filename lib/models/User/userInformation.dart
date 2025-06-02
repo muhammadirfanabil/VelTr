@@ -5,6 +5,7 @@ class userInformation {
   String id;
   String name;
   String emailAddress;
+  List<String> vehicleIds; // List of vehicle IDs owned by the user
   DateTime createdAt;
   DateTime updatedAt;
 
@@ -12,6 +13,7 @@ class userInformation {
     required this.id,
     required this.name,
     required this.emailAddress,
+    this.vehicleIds = const [],
     required this.createdAt,
     required this.updatedAt,
   });
@@ -20,6 +22,7 @@ class userInformation {
     String? id,
     String? name,
     String? emailAddress,
+    List<String>? vehicleIds,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -27,11 +30,11 @@ class userInformation {
       id: id ?? this.id,
       name: name ?? this.name,
       emailAddress: emailAddress ?? this.emailAddress,
+      vehicleIds: vehicleIds ?? this.vehicleIds,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
-
   factory userInformation.fromMap(
     Map<String, dynamic> data,
     String documentId,
@@ -40,6 +43,7 @@ class userInformation {
       id: documentId,
       name: data['name'] ?? '',
       emailAddress: data['email'] ?? data['emailAddress'] ?? '',
+      vehicleIds: List<String>.from(data['vehicleIds'] ?? data['vehicle_ids'] ?? []),
       createdAt:
           data['created_at'] != null
               ? (data['created_at'] as Timestamp).toDate()
@@ -49,11 +53,11 @@ class userInformation {
               ? (data['updated_at'] as Timestamp).toDate()
               : DateTime.now(),
     );
-  }
-  Map<String, dynamic> toMap() {
+  }  Map<String, dynamic> toMap() {
     return {
       'name': name,
       'email': emailAddress,
+      'vehicleIds': vehicleIds,
       'created_at': Timestamp.fromDate(createdAt),
       'updated_at': Timestamp.fromDate(updatedAt),
     };
@@ -71,16 +75,15 @@ class userInformation {
           .createUserWithEmailAndPassword(email: email, password: password);
 
       // Get the user ID from Firebase Authentication
-      String userId = userCredential.user!.uid;
-
-      // Create a UserInformation object
+      String userId = userCredential.user!.uid;      // Create a UserInformation object
       userInformation UserInformation = userInformation(
         id: userId,
         name: name,
         emailAddress: email,
+        vehicleIds: [], // Initialize with empty vehicle list
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
-      ); // Save user information to Firestore
+      );// Save user information to Firestore
       await FirebaseFirestore.instance
           .collection('users_information')
           .doc(userId)

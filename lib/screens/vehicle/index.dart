@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../../models/vehicle/vehicle.dart';
 import '../../services/vehicle/vehicleService.dart';
+import '../../services/device/deviceService.dart';
+import '../../models/Device/device.dart';
 
 class VehicleIndexScreen extends StatefulWidget {
   const VehicleIndexScreen({Key? key}) : super(key: key);
@@ -13,6 +15,7 @@ class VehicleIndexScreen extends StatefulWidget {
 
 class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
   final vehicleService _vehicleService = vehicleService();
+  final DeviceService _deviceService = DeviceService();
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -60,12 +63,11 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
           return ListView.builder(
             itemCount: vehicles.length,
             itemBuilder: (context, index) {
-              final vehicle = vehicles[index];
-
-              return VehicleCard(
+              final vehicle = vehicles[index];              return VehicleCard(
                 vehicleModel: vehicle,
                 onEdit: () => _showEditVehicleDialog(context, vehicle),
                 onDelete: () => _deleteVehicle(vehicle.id),
+                onManageDevice: () => _showDeviceManagementDialog(context, vehicle),
               );
             },
           );
@@ -219,7 +221,6 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
       ).showSnackBar(SnackBar(content: Text('Error adding vehicle: $e')));
     }
   }
-
   void _updateVehicle(
     String id,
     String name,
@@ -227,23 +228,25 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
     String plateNumber,
   ) async {
     try {
-      await _vehicleService.updateVehicle(
-        id: id,
-        name: name,
-        vehicleTypes: vehicleTypes,
-        plateNumber: plateNumber,
-      );
+      final existingVehicle = await _vehicleService.getVehicleById(id);
+      if (existingVehicle != null) {
+        final updatedVehicle = existingVehicle.copyWith(
+          name: name,
+          vehicleTypes: vehicleTypes,
+          plateNumber: plateNumber,
+        );
+        await _vehicleService.updateVehicle(updatedVehicle);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('vehicle updated successfully')),
-      );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('vehicle updated successfully')),
+        );
+      }
     } catch (e) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error updating vehicle: $e')));
     }
   }
-
   void _deleteVehicle(String id) async {
     try {
       await _vehicleService.deleteVehicle(id);
@@ -257,18 +260,219 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
       ).showSnackBar(SnackBar(content: Text('Error deleting vehicle: $e')));
     }
   }
+
+  void _showDeviceManagementDialog(BuildContext context, vehicle vehicle) async {
+    // Get current device assigned to this vehicle
+    Device? currentDevice;
+    if (vehicle.deviceId != null) {
+      currentDevice = await _deviceService.getDeviceById(vehicle.deviceId!);
+    }
+
+    // Get list of unassigned devices
+    final unassignedDevices = await _deviceService.getUnassignedDevices();
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Manage Device for ${vehicle.name}'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Current Device:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 8),
+                if (currentDevice != null)
+                  Card(
+                    color: Colors.green.shade50,
+                    child: ListTile(
+                      leading: Icon(Icons.gps_fixed, color: Colors.green),
+                      title: Text(currentDevice.name),
+                      subtitle: Text(
+                        currentDevice.hasValidGPS 
+                          ? 'GPS: ${currentDevice.coordinatesString}'
+                          : 'No GPS data',
+                      ),
+                      trailing: Icon(
+                        currentDevice.isActive ? Icons.signal_cellular_4_bar : Icons.signal_cellular_off,
+                        color: currentDevice.isActive ? Colors.green : Colors.red,
+                      ),
+                    ),
+                  )
+                else
+                  Card(
+                    color: Colors.orange.shade50,
+                    child: ListTile(
+                      leading: Icon(Icons.gps_off, color: Colors.orange),
+                      title: Text('No device assigned'),
+                      subtitle: Text('This vehicle has no GPS tracker'),
+                    ),
+                  ),
+                SizedBox(height: 16),
+                Text(
+                  'Available Devices:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 8),
+                if (unassignedDevices.isEmpty)
+                  Text(
+                    'No unassigned devices available',
+                    style: TextStyle(color: Colors.grey),
+                  )
+                else
+                  ...unassignedDevices.map((device) => Card(
+                    child: ListTile(
+                      leading: Icon(Icons.device_hub),
+                      title: Text(device.name),
+                      subtitle: Text(
+                        device.hasValidGPS 
+                          ? 'GPS: ${device.coordinatesString}'
+                          : 'No GPS data',
+                      ),
+                      trailing: IconButton(
+                        icon: Icon(Icons.link, color: Colors.blue),
+                        onPressed: () async {
+                          await _assignDeviceToVehicle(vehicle.id, device.id);
+                          Navigator.pop(context);
+                        },
+                      ),
+                    ),
+                  )).toList(),
+              ],
+            ),
+          ),
+          actions: [
+            if (currentDevice != null)
+              TextButton(
+                onPressed: () async {
+                  await _unassignDeviceFromVehicle(vehicle.id);
+                  Navigator.pop(context);
+                },
+                child: Text('Unassign Device', style: TextStyle(color: Colors.red)),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Close'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _showAddDeviceDialog(context, vehicle);
+              },
+              child: Text('Add New Device'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _assignDeviceToVehicle(String vehicleId, String deviceId) async {
+    try {
+      await _vehicleService.attachDeviceToVehicle(vehicleId, deviceId);
+      await _deviceService.assignDeviceToVehicle(deviceId, vehicleId);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Device assigned successfully')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error assigning device: $e')),
+      );
+    }
+  }
+
+  Future<void> _unassignDeviceFromVehicle(String vehicleId) async {
+    try {
+      // Get the vehicle to find the device ID
+      final vehicleData = await _vehicleService.getVehicleById(vehicleId);
+      if (vehicleData?.deviceId != null) {
+        await _deviceService.unassignDeviceFromVehicle(vehicleData!.deviceId!);
+      }
+      await _vehicleService.detachDeviceFromVehicle(vehicleId);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Device unassigned successfully')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error unassigning device: $e')),
+      );
+    }
+  }
+
+  void _showAddDeviceDialog(BuildContext context, vehicle vehicle) {
+    final nameController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Add New Device for ${vehicle.name}'),
+        content: TextField(
+          controller: nameController,
+          decoration: InputDecoration(
+            labelText: 'Device Name',
+            hintText: 'e.g., GPS Tracker 1',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (nameController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Please enter a device name')),
+                );
+                return;
+              }
+
+              try {
+                final device = await _deviceService.addDevice(
+                  name: nameController.text.trim(),
+                  vehicleId: vehicle.id,
+                );
+                
+                await _vehicleService.attachDeviceToVehicle(vehicle.id, device.id);
+                
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Device created and assigned successfully')),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error creating device: $e')),
+                );
+              }
+            },
+            child: Text('Create & Assign'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class VehicleCard extends StatelessWidget {
   final vehicle vehicleModel;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onManageDevice;
 
   const VehicleCard({
     Key? key,
     required this.vehicleModel,
     required this.onEdit,
     required this.onDelete,
+    required this.onManageDevice,
   }) : super(key: key);
 
   @override
@@ -289,12 +493,19 @@ class VehicleCard extends StatelessWidget {
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
-                ),
-                Row(
+                ),                Row(
                   children: [
                     IconButton(
                       icon: const Icon(Icons.edit, color: Colors.blue),
                       onPressed: onEdit,
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.device_hub,
+                        color: vehicleModel.deviceId != null ? Colors.green : Colors.orange,
+                      ),
+                      onPressed: onManageDevice,
+                      tooltip: vehicleModel.deviceId != null ? 'Manage Device' : 'Assign Device',
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete, color: Colors.red),
@@ -325,10 +536,26 @@ class VehicleCard extends StatelessWidget {
                   ],
                 ),
               ],
-            ),
-            const SizedBox(height: 8),
+            ),            const SizedBox(height: 8),
             Text('Type: ${vehicleModel.vehicleTypes}'),
             Text('License Plate: ${vehicleModel.plateNumber}'),
+            Row(
+              children: [
+                Icon(
+                  vehicleModel.deviceId != null ? Icons.gps_fixed : Icons.gps_off,
+                  size: 16,
+                  color: vehicleModel.deviceId != null ? Colors.green : Colors.red,
+                ),
+                SizedBox(width: 4),
+                Text(
+                  vehicleModel.deviceId != null ? 'GPS Device Assigned' : 'No GPS Device',
+                  style: TextStyle(
+                    color: vehicleModel.deviceId != null ? Colors.green : Colors.red,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
             Text('Created: ${_formatDate(vehicleModel.createdAt)}'),
             Text('Last Updated: ${_formatDate(vehicleModel.updatedAt)}'),
           ],

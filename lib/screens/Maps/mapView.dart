@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:intl/intl.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 
 import '../../services/Auth/AuthService.dart';
-import '../../widgets/MapWidget.dart';
+import '../../services/maps/mapsService.dart';
+import '../../widgets/mapWidget.dart';
 
 class GPSMapScreen extends StatefulWidget {
   const GPSMapScreen({super.key});
@@ -16,134 +13,113 @@ class GPSMapScreen extends StatefulWidget {
 }
 
 class _GPSMapScreenState extends State<GPSMapScreen> {
+  static const String deviceId = 'B0A7322B2EC4'; // Make this configurable later
+  late final mapServices _mapService;
+
   String lastUpdated = '-';
   double? latitude;
   double? longitude;
   String? locationName = 'Loading Location...';
-  bool isVehicleOn = false; // Menyimpan status kendaraan
+  bool isVehicleOn = false;
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    fetchLastLocation();
-    fetchVehicleStatus(); // Memanggil fungsi untuk memantau status kendaraan
-    fetchRelayStatus();
+    _mapService = mapServices(deviceId: deviceId);
+    _setupRealtimeListeners();
   }
 
-  Future<bool> pingESP32(String ip) async {
-    try {
-      final response = await http
-          .get(Uri.parse('http://$ip/ping'))
-          .timeout(
-            const Duration(seconds: 3),
-            onTimeout: () => http.Response('Timeout', 408),
-          );
-
-      if (response.statusCode == 200) {
-        debugPrint("ESP32 responded: ${response.body}");
-        return true;
-      } else {
-        debugPrint(
-          "ESP32 not responding properly. Status: ${response.statusCode}",
-        );
-        return false;
+  void _setupRealtimeListeners() {
+    // Listen to GPS data changes
+    _mapService.getGPSDataStream().listen((gpsData) {
+      if (mounted && gpsData != null && _mapService.isGPSDataValid(gpsData)) {
+        _updateGPSData(gpsData);
       }
+    });
+
+    // Listen to relay status changes
+    _mapService.getRelayStatusStream().listen((relayStatus) {
+      if (mounted) {
+        setState(() {
+          isVehicleOn = relayStatus;
+        });
+      }
+    });
+
+    // Load initial data
+    _loadInitialData();
+  }
+
+  Future<void> _updateGPSData(Map<String, dynamic> gpsData) async {
+    try {
+      final lat = gpsData['latitude'] as double;
+      final lon = gpsData['longitude'] as double;
+
+      // Fetch location name (but don't wait for it to update other data)
+      _mapService.fetchLocationName(lat, lon).then((locationName) {
+        if (mounted) {
+          setState(() {
+            this.locationName = locationName;
+          });
+        }
+      });
+
+      setState(() {
+        latitude = lat;
+        longitude = lon;
+        lastUpdated =
+            gpsData['waktu_wita']?.toString() ??
+            gpsData['time']?.toString() ??
+            DateTime.now().toString();
+        isLoading = false;
+      });
     } catch (e) {
-      debugPrint("Error pinging ESP32: $e");
-      return false;
+      debugPrint('Error updating GPS data: $e');
     }
   }
 
-  Future<void> fetchLocationName(double lat, double lon) async {
-    final url = Uri.parse(
-      'https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lon&zoom=18&addressdetails=1',
-    );
-
+  Future<void> _loadInitialData() async {
     try {
-      final response = await http.get(
-        url,
-        headers: {
-          'User-Agent': 'FlutterApp', // User-Agent wajib diisi
-        },
-      );
+      // Load initial GPS location
+      final gpsData = await _mapService.getLastGPSLocation();
+      if (gpsData != null && _mapService.isGPSDataValid(gpsData)) {
+        await _updateGPSData(gpsData);
+      }
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+      // Load initial relay status
+      final relayStatus = await _mapService.getCurrentRelayStatus();
+      if (mounted) {
         setState(() {
-          locationName = data['display_name'] ?? 'Location Not Found';
-        });
-      } else {
-        setState(() {
-          locationName = 'Failed to Load Location';
+          isVehicleOn = relayStatus;
+          isLoading = false;
         });
       }
     } catch (e) {
-      setState(() {
-        locationName = 'Error: ${e.toString()}';
-      });
+      debugPrint('Error loading initial data: $e');
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
-  void fetchLastLocation() {
-    final ref = FirebaseDatabase.instance.ref('GPS');
-    ref.onValue.listen((event) {
-      final data = Map<String, dynamic>.from(event.snapshot.value as Map);
-
-      setState(() {
-        latitude = double.tryParse(data['latitude'].toString());
-        longitude = double.tryParse(data['longitude'].toString());
-
-        if (latitude != null && longitude != null) {
-          fetchLocationName(
-            latitude!,
-            longitude!,
-          ); // Pemanggilan API untuk mendapatkan nama lokasi
-        }
-
-        final timestamp = data['timestamp'];
-        if (timestamp != null) {
-          final dt = DateTime.fromMillisecondsSinceEpoch(
-            int.parse(timestamp.toString()),
-          );
-          lastUpdated = DateFormat('yyyy-MM-dd HH:mm:ss').format(dt);
-        } else {
-          lastUpdated = 'Unavailable';
-        }
-      });
-    });
-  }
-
-  void fetchVehicleStatus() {
-    final ref = FirebaseDatabase.instance.ref('GPS/status_kendaraan');
-    ref.onValue.listen((event) {
-      final data = event.snapshot.value;
-      setState(() {
-        isVehicleOn = data == true; // Asumsikan status kendaraan adalah boolean
-      });
-    });
-  }
-
-  void toggleVehicleStatus() {
-    final ref = FirebaseDatabase.instance.ref('GPS/status_kendaraan');
-    final relayRef = FirebaseDatabase.instance.ref(
-      'GPS/relay',
-    ); // Menambahkan referensi untuk relay
-
-    // Toggle status kendaraan dan relay
-    ref.set(!isVehicleOn); // Toggle status kendaraan
-    relayRef.set(isVehicleOn ? true : false); // Kirimkan status relay
-
+  Future<void> _refreshData() async {
     setState(() {
-      isVehicleOn = !isVehicleOn; // Update status lokal
+      isLoading = true;
     });
-  }
 
-  void fetchRelayStatus() {
-    final ref = FirebaseDatabase.instance.ref('GPS/relay');
-    ref.onValue.listen((event) {
-      final data = event.snapshot.value;
-      setState(() {});
-    });
+    await _loadInitialData();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Data refreshed'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override
@@ -153,7 +129,10 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          const MapWidget(), // Menampilkan Peta
+          // Pass deviceId to MapWidget
+          MapWidget(deviceId: deviceId),
+
+          // Top navigation bar
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -188,15 +167,17 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                     Row(
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.refresh),
-                          onPressed: () {
-                            fetchLastLocation();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Loading Location...'),
-                              ),
-                            );
-                          },
+                          icon:
+                              isLoading
+                                  ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                  : const Icon(Icons.refresh),
+                          onPressed: isLoading ? null : _refreshData,
                         ),
                         PopupMenuButton<String>(
                           icon: const Icon(Icons.person, color: Colors.black),
@@ -208,21 +189,29 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                           color: Colors.white,
                           shadowColor: Colors.black.withOpacity(0.2),
                           onSelected: (value) async {
-                            if (value == 'profile') {
-                              Navigator.pushNamed(context, '/profile');
-                            } else if (value == 'settings') {
-                              Navigator.pushNamed(context, '/settings');
-                            } else if (value == 'logout') {
-                              await AuthService.signOut();
-                              Navigator.pushReplacementNamed(context, '/login');
+                            switch (value) {
+                              case 'profile':
+                                Navigator.pushNamed(context, '/vehicle');
+                                break;
+                              case 'settings':
+                                Navigator.pushNamed(context, '/settings');
+                                break;
+                              case 'logout':
+                                await AuthService.signOut();
+                                Navigator.pushReplacementNamed(
+                                  context,
+                                  '/login',
+                                );
+                                break;
                             }
                           },
                           itemBuilder:
-                              (context) => [
+                              (context) => const [
                                 PopupMenuItem(
                                   value: 'profile',
                                   child: Row(
-                                    children: const [
+                                    children: [
+                                      Icon(Icons.person_outline),
                                       SizedBox(width: 8),
                                       Text('Profile'),
                                     ],
@@ -231,7 +220,8 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                                 PopupMenuItem(
                                   value: 'settings',
                                   child: Row(
-                                    children: const [
+                                    children: [
+                                      Icon(Icons.settings_outlined),
                                       SizedBox(width: 8),
                                       Text('Settings'),
                                     ],
@@ -240,7 +230,8 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                                 PopupMenuItem(
                                   value: 'logout',
                                   child: Row(
-                                    children: const [
+                                    children: [
+                                      Icon(Icons.logout_outlined),
                                       SizedBox(width: 8),
                                       Text('Logout'),
                                     ],
@@ -255,6 +246,8 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
               ),
             ),
           ),
+
+          // Bottom information panel
           Align(
             alignment: Alignment.bottomCenter,
             child: AnimatedContainer(
@@ -284,116 +277,155 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      (latitude != null && longitude != null)
-                          ? Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Lat: ${latitude!.toStringAsFixed(5)}',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: Colors.black87,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Lng: ${longitude!.toStringAsFixed(5)}',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            ],
-                          )
-                          : Text(
-                            'Unavailable',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: Colors.black87,
-                            ),
+
+                  // GPS Coordinates
+                  if (latitude != null && longitude != null)
+                    Row(
+                      children: [
+                        Text(
+                          'Lat: ${latitude!.toStringAsFixed(5)}',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: Colors.black87,
                           ),
-                    ],
-                  ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Lng: ${longitude!.toStringAsFixed(5)}',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    Text(
+                      'GPS coordinates unavailable',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.black54,
+                      ),
+                    ),
+
                   const SizedBox(height: 6),
+
+                  // Last updated info
                   Text(
-                    lastUpdated != true
+                    lastUpdated != '-' && lastUpdated.isNotEmpty
                         ? 'Last Active: $lastUpdated'
-                        : 'Waiting...',
+                        : 'Waiting for GPS data...',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.green[300],
+                      color:
+                          (latitude != null && longitude != null)
+                              ? Colors.green[600]
+                              : Colors.orange[600],
                     ),
                   ),
                   const SizedBox(height: 20),
-                  SingleChildScrollView(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Wrap(
-                        spacing: 50,
-                        runSpacing: 10,
-                        alignment: WrapAlignment.start,
-                        children: [
-                          ElevatedButton(
-                            onPressed:
-                                (latitude != null && longitude != null)
-                                    ? () {}
-                                    : null,
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: const Size(5, 45),
-                              backgroundColor: const Color(
-                                0xFF7DAEFF,
-                              ).withOpacity(0.25),
-                              foregroundColor: const Color(0xFF11468F),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Transform.rotate(
-                                  angle: 0.45,
-                                  child: const Icon(Icons.navigation, size: 25),
-                                ),
-                                const Text('Navigate the Distance From You'),
-                              ],
+
+                  // Action buttons
+                  Column(
+                    children: [
+                      // Navigation button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed:
+                              (latitude != null && longitude != null)
+                                  ? () {
+                                    // TODO: Implement navigation functionality
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Navigation feature coming soon!',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  : null,
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 48),
+                            backgroundColor: const Color(
+                              0xFF7DAEFF,
+                            ).withOpacity(0.25),
+                            foregroundColor: const Color(0xFF11468F),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          ElevatedButton(
-                            onPressed: toggleVehicleStatus,
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: const Size(5, 45),
-                              backgroundColor:
-                                  isVehicleOn
-                                      ? Colors.green.shade600
-                                      : Colors.red.shade600,
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Transform.rotate(
+                                angle: 0.45,
+                                child: const Icon(Icons.navigation, size: 20),
                               ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Icon(
-                                  isVehicleOn
-                                      ? Icons.power_settings_new
-                                      : Icons.power_settings_new_outlined,
-                                  size: 25,
-                                ),
-                                Text(
-                                  isVehicleOn
-                                      ? 'Turn Off Vehicle'
-                                      : 'Turn On Vehicle',
-                                ),
-                              ],
-                            ),
+                              const SizedBox(width: 8),
+                              const Text('Navigate to Location'),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
-                    ),
+
+                      const SizedBox(height: 12),
+
+                      // Vehicle control button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            try {
+                              await _mapService.toggleRelayStatus();
+                              // Status will be updated automatically through the stream listener
+                            } catch (e) {
+                              debugPrint('Error toggling vehicle status: $e');
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Failed to toggle vehicle: $e',
+                                    ),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 48),
+                            backgroundColor:
+                                isVehicleOn
+                                    ? Colors.green.shade600
+                                    : Colors.red.shade600,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                isVehicleOn
+                                    ? Icons.power_settings_new
+                                    : Icons.power_settings_new_outlined,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                isVehicleOn
+                                    ? 'Turn Off Vehicle'
+                                    : 'Turn On Vehicle',
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
