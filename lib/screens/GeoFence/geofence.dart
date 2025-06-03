@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:gps_app/widgets/MapWidget.dart';
 import 'package:latlong2/latlong.dart';
-import '../../screens/GeoFence/index.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart';
+import 'index.dart';
 
 class GeofenceMapScreen extends StatefulWidget {
   final String deviceId;
@@ -14,16 +18,38 @@ class GeofenceMapScreen extends StatefulWidget {
 class _GeofenceMapScreenState extends State<GeofenceMapScreen> {
   List<LatLng> polygonPoints = [];
   bool showPolygon = false;
+  String? address;
+  LatLng? currentLocation;
 
-  void _handleMapTap(TapPosition tapPosition, LatLng point) {
-    if (_isPolygonVisible) return;
+  @override
+  void initState() {
+    super.initState();
+    _getCurrentLocation();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return;
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) return;
+    }
+
+    if (permission == LocationPermission.deniedForever) return;
+
+    Position position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
+
     setState(() {
-      _polygonPoints.add(point);
+      currentLocation = LatLng(position.latitude, position.longitude);
     });
   }
 
-  void _handleContinue() {
-    if (_polygonPoints.length < 3) {
+  void onContinuePressed() {
+    if (polygonPoints.length < 3) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -33,19 +59,9 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen> {
       );
       return;
     }
-    setState(() => _isPolygonVisible = true);
-  }
 
-  void _handleUndo() {
-    if (_polygonPoints.isNotEmpty) {
-      setState(() => _polygonPoints.removeLast());
-    }
-  }
-
-  void _handleReset() {
     setState(() {
-      _polygonPoints.clear();
-      _isPolygonVisible = false; // Reset polygon visibility too
+      showPolygon = true;
     });
   }
 
@@ -62,48 +78,71 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen> {
     }
   }
 
-  void _handleSave() {
-    final nameController = TextEditingController();
-
+  void onSavePressed() {
     showDialog(
       context: context,
       builder: (context) {
         TextEditingController nameController = TextEditingController();
 
         return AlertDialog(
-          title: const Text('Simpan Geofence'),
+          title: const Text('Save Geofence'),
           content: TextField(
             controller: nameController,
             decoration: const InputDecoration(
-              labelText: 'Nama Geofence',
+              labelText: 'Geofence Name',
               border: OutlineInputBorder(),
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Batal'),
+              child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 final name = nameController.text.trim();
                 if (name.isEmpty) return;
 
-                // TODO: Simpan ke Firestore atau database
-                print('Nama Geofence: $name');
-                for (var point in polygonPoints) {
-                  print('Point: ${point.latitude}, ${point.longitude}');
-                }
-
-                Navigator.pop(context);
-
-                // Navigasi ke halaman GeofenceListScreen
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => GeofenceListScreen()),
+                final centerPoint = polygonPoints.reduce(
+                  (value, element) => LatLng(
+                    (value.latitude + element.latitude) / 2,
+                    (value.longitude + element.longitude) / 2,
+                  ),
                 );
+
+                final fetchedAddress = await getAddressFromLatLng(
+                  centerPoint.latitude,
+                  centerPoint.longitude,
+                );
+
+                setState(() {
+                  address = fetchedAddress;
+                });
+
+                await FirebaseFirestore.instance.collection('geofences').add({
+                  'deviceId': widget.deviceId,
+                  'name': name,
+                  'address': address,
+                  'points':
+                      polygonPoints
+                          .map((p) => {'lat': p.latitude, 'lng': p.longitude})
+                          .toList(),
+                  'status': true,
+                  'createdAt': FieldValue.serverTimestamp(),
+                });
+
+                if (mounted) {
+                  Navigator.pop(context);
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (_) => GeofenceListScreen(deviceId: widget.deviceId),
+                    ),
+                  );
+                }
               },
-              child: const Text('Simpan'),
+              child: const Text('Save'),
             ),
           ],
         );
@@ -113,13 +152,17 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (currentLocation == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Tentukan Area Geofence')),
+      appBar: AppBar(title: const Text('Define Geofence Area')),
       body: Stack(
         children: [
-          FlutterMap(
+          MapWidget(
             options: MapOptions(
-              initialCenter: LatLng(-3.316378, 114.597325),
+              initialCenter: currentLocation!,
               initialZoom: 15.0,
               onTap: (tapPosition, point) {
                 if (showPolygon) return;
@@ -131,9 +174,20 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen> {
             children: [
               TileLayer(
                 urlTemplate:
-                    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    'https://tile-{s}.openstreetmap.fr/hot/{z}/{x}/{y}.png',
                 subdomains: const ['a', 'b', 'c'],
+                userAgentPackageName: 'com.example.gps_app',
               ),
+              if (polygonPoints.length >= 2)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: polygonPoints,
+                      color: Colors.blueAccent,
+                      strokeWidth: 3.0,
+                    ),
+                  ],
+                ),
               if (showPolygon && polygonPoints.length >= 3)
                 PolygonLayer(
                   polygonCulling: false,
@@ -141,7 +195,7 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen> {
                     Polygon(
                       points: [...polygonPoints, polygonPoints.first],
                       color: Colors.blue.withOpacity(0.3),
-                      borderColor: Colors.blueAccent,
+                      borderColor: Colors.blue,
                       borderStrokeWidth: 3,
                     ),
                   ],
@@ -171,7 +225,6 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen> {
             ],
           ),
 
-          // Undo tombol
           if (!showPolygon && polygonPoints.isNotEmpty)
             Positioned(
               bottom: 140,
@@ -181,15 +234,17 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen> {
                 onPressed: () {
                   setState(() {
                     polygonPoints.removeLast();
+                    if (polygonPoints.length < 3) {
+                      showPolygon = false;
+                    }
                   });
                 },
                 icon: const Icon(Icons.undo),
-                label: const Text('Undo Titik Terakhir'),
+                label: const Text('Undo Last Point'),
               ),
             ),
 
-          // Reset tombol
-          if (!showPolygon && polygonPoints.isNotEmpty)
+          if (polygonPoints.isNotEmpty)
             Positioned(
               bottom: 80,
               left: 16,
@@ -198,15 +253,16 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen> {
                 onPressed: () {
                   setState(() {
                     polygonPoints.clear();
+                    showPolygon = false;
                   });
                 },
                 icon: const Icon(Icons.delete),
-                label: const Text('Reset Titik'),
+                label: const Text('Reset Points'),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
               ),
             ),
 
-          // Tombol Lanjutkan
+          // Continue button (hanya muncul saat belum selesai)
           if (!showPolygon)
             Positioned(
               bottom: 20,
@@ -214,12 +270,12 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen> {
               right: 16,
               child: ElevatedButton(
                 onPressed: onContinuePressed,
-                child: const Text('Lanjutkan'),
+                child: const Text('Continue'),
               ),
             ),
 
-          // Tombol Simpan (setelah lanjutkan)
-          if (showPolygon)
+          // Save button (hanya muncul jika showPolygon dan titik cukup)
+          if (showPolygon && polygonPoints.length >= 3)
             Positioned(
               bottom: 20,
               left: 16,
@@ -227,7 +283,7 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen> {
               child: ElevatedButton.icon(
                 onPressed: onSavePressed,
                 icon: const Icon(Icons.save),
-                label: const Text('Simpan Geofence'),
+                label: const Text('Save Geofence'),
               ),
             ),
         ],

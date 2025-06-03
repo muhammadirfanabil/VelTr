@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'geofence_list_screen.dart'; // Pastikan GeofenceListScreen ada di sini
+import '../GeoFence/index.dart'; // Pastikan GeofenceListScreen ada di sini
 
 class DeviceListScreen extends StatefulWidget {
-  const DeviceListScreen({super.key});
+  final String deviceId;
+
+  const DeviceListScreen({Key? key, required this.deviceId}) : super(key: key);
 
   @override
   State<DeviceListScreen> createState() => _DeviceListScreenState();
 }
 
 class _DeviceListScreenState extends State<DeviceListScreen> {
-  final DatabaseReference devicesRef = FirebaseDatabase.instance.ref('devices');
+  final DatabaseReference devicesRef = FirebaseDatabase.instance.ref(
+    'devices/',
+  );
 
   @override
   Widget build(BuildContext context) {

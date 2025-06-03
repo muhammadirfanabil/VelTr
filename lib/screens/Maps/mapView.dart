@@ -8,14 +8,13 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-// import '../../services/Auth/AuthService.dart';
 import '../../widgets/MapWidget.dart';
 import '../../widgets/stickyFooter.dart';
-import '../../widgets/motoricon.dart'; // Import your VehicleMarkerIcon
-import '../../widgets/tracker.dart'; // Import VehicleStatusPanel
+import '../../widgets/motoricon.dart';
+import '../../widgets/tracker.dart';
 
 class GPSMapScreen extends StatefulWidget {
-  final String deviceId; // Add this line to define the deviceId
+  final String deviceId;
 
   const GPSMapScreen({Key? key, required this.deviceId}) : super(key: key);
 
@@ -27,15 +26,20 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   String lastUpdated = '-';
   double? latitude;
   double? longitude;
-  String? locationName = 'Loading Location...';
-  bool isVehicleOn = false; // Menyimpan status kendaraan
+  String locationName = 'Loading Location...';
+  bool isVehicleOn = false;
+  final MapController _mapController = MapController();
+
+  LatLng get vehicleLocation =>
+      (latitude != null && longitude != null)
+          ? LatLng(latitude!, longitude!)
+          : LatLng(-6.200000, 106.816666);
 
   @override
   void initState() {
     super.initState();
     fetchLastLocation();
-    fetchVehicleStatus(); // Memanggil fungsi untuk memantau status kendaraan
-    fetchRelayStatus();
+    fetchVehicleStatus();
   }
 
   Future<bool> pingESP32(String ip) async {
@@ -91,17 +95,63 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   }
 
   void fetchLastLocation() {
-    // Ensure deviceId is passed properly to avoid null issues
+    debugPrint('DEBUG: Fetching location for deviceId: ${widget.deviceId}');
     final ref = FirebaseDatabase.instance.ref('devices/${widget.deviceId}/gps');
 
-    ref.once().then((DatabaseEvent event) {
-      if (event.snapshot.exists) {
+    ref
+        .once()
+        .then((DatabaseEvent event) {
+          debugPrint(
+            'DEBUG: Firebase snapshot exists: ${event.snapshot.exists}',
+          );
+
+          if (event.snapshot.exists) {
+            final data = Map<String, dynamic>.from(event.snapshot.value as Map);
+            debugPrint('DEBUG: Firebase data: $data');
+
+            final lat = double.tryParse(data['latitude'].toString());
+            final lon = double.tryParse(data['longitude'].toString());
+            final timestamp = data['tanggal'];
+
+            debugPrint('DEBUG: Parsed coordinates - lat: $lat, lon: $lon');
+
+            setState(() {
+              latitude = lat;
+              longitude = lon;
+
+              if (lat != null && lon != null) {
+                fetchLocationName(lat, lon);
+                _mapController.move(LatLng(lat, lon), 15.0);
+                debugPrint('DEBUG: Map moved to: $lat, $lon');
+              } else {
+                debugPrint('DEBUG: Coordinates are null, marker will not show');
+              }
+
+              if (timestamp != null) {
+                final dt = DateTime.parse(timestamp);
+                lastUpdated = DateFormat('yyyy-MM-dd HH:mm:ss').format(dt);
+              } else {
+                lastUpdated = 'Unavailable';
+              }
+            });
+          } else {
+            debugPrint(
+              'DEBUG: No data found at path: devices/${widget.deviceId}/gps',
+            );
+          }
+        })
+        .catchError((error) {
+          debugPrint('DEBUG: Firebase error: $error');
+        });
+
+    // Fixed: Add null check for real-time updates
+    ref.onValue.listen((event) {
+      if (event.snapshot.exists && event.snapshot.value != null) {
         final data = Map<String, dynamic>.from(event.snapshot.value as Map);
 
-        // Accessing the nested keys directly
         final lat = double.tryParse(data['latitude'].toString());
         final lon = double.tryParse(data['longitude'].toString());
-        final timestamp = data['tanggal']; // Retrieve the correct field
+        final timestamp = data['tanggal'];
 
         setState(() {
           latitude = lat;
@@ -113,9 +163,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
           }
 
           if (timestamp != null) {
-            final dt = DateTime.parse(
-              timestamp,
-            ); // Updated to use DateTime.parse for the string date
+            final dt = DateTime.parse(timestamp);
             lastUpdated = DateFormat('yyyy-MM-dd HH:mm:ss').format(dt);
           } else {
             lastUpdated = 'Unavailable';
@@ -123,39 +171,13 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
         });
       }
     });
-
-    ref.onValue.listen((event) {
-      final data = Map<String, dynamic>.from(event.snapshot.value as Map);
-
-      // Repeating the same structure for real-time updates
-      final lat = double.tryParse(data['latitude'].toString());
-      final lon = double.tryParse(data['longitude'].toString());
-      final timestamp = data['tanggal'];
-
-      setState(() {
-        latitude = double.tryParse(data['latitude'].toString());
-        longitude = double.tryParse(data['longitude'].toString());
-
-        if (lat != null && lon != null) {
-          fetchLocationName(lat, lon);
-          _mapController.move(LatLng(lat, lon), 15.0);
-        }
-
-        final timestamp = data['timestamp'];
-        if (timestamp != null) {
-          final dt = DateTime.fromMillisecondsSinceEpoch(
-            int.parse(timestamp.toString()),
-          );
-          lastUpdated = DateFormat('yyyy-MM-dd HH:mm:ss').format(dt);
-        } else {
-          lastUpdated = 'Unavailable';
-        }
-      });
-    });
   }
 
   void fetchVehicleStatus() {
-    final ref = FirebaseDatabase.instance.ref('GPS/status_kendaraan');
+    // Fixed: Use correct Firebase path for isActive
+    final ref = FirebaseDatabase.instance.ref(
+      'devices/${widget.deviceId}/gps/isActive',
+    );
     ref.onValue.listen((event) {
       final data = event.snapshot.value;
       setState(() {
@@ -164,15 +186,30 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     });
   }
 
-  void toggleVehicleStatus() {
-    final ref = FirebaseDatabase.instance.ref('GPS/status_kendaraan');
-    final relayRef = FirebaseDatabase.instance.ref(
-      'GPS/relay',
-    ); // Menambahkan referensi untuk relay
+  bool get isRecentlyActive {
+    if (lastUpdated == '-' || lastUpdated == 'Unavailable') return false;
 
-    // Toggle status kendaraan dan relay
-    ref.set(!isVehicleOn); // Toggle status kendaraan
-    relayRef.set(isVehicleOn ? true : false); // Kirimkan status relay
+    try {
+      final lastUpdate = DateFormat('yyyy-MM-dd HH:mm:ss').parse(lastUpdated);
+      final now = DateTime.now();
+      final difference = now.difference(lastUpdate);
+
+      // Consider active if updated within last 5 minutes
+      return difference.inMinutes <= 5;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  void toggleVehicleStatus() {
+    // Fixed: Use correct Firebase path - only need to update isActive
+    final statusRef = FirebaseDatabase.instance.ref(
+      'devices/${widget.deviceId}/gps/isActive',
+    );
+
+    final newStatus = !isVehicleOn;
+
+    statusRef.set(newStatus);
 
     setState(() {
       isVehicleOn = newStatus;
@@ -202,42 +239,41 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       body: Stack(
         children: [
           MapWidget(
+            mapController: _mapController,
             options: MapOptions(
               initialCenter: const LatLng(
                 -2.2180,
                 113.9220,
-              ), // Default to Central Kalimantan
+              ), // Default center, will be updated by GPS
               initialZoom: 15.0,
               minZoom: 3.0,
               maxZoom: 18.0,
             ),
+            deviceId: widget.deviceId, // Pass deviceId to MapWidget
             children: [
               TileLayer(
                 urlTemplate:
                     'https://tile-{s}.openstreetmap.fr/hot/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.gps_app',
               ),
-              // Add VehicleMarkerIcon here - only on home page
-              if (latitude != null && longitude != null)
-                MarkerLayer(
-                  markers: [
+              MarkerLayer(
+                markers: [
+                  // Vehicle marker - show based on recent activity
+                  if (latitude != null && longitude != null && isRecentlyActive)
                     Marker(
                       point: LatLng(latitude!, longitude!),
                       width: 80,
                       height: 80,
                       child: GestureDetector(
                         onTap: showVehiclePanel,
-                        child: VehicleMarkerIcon(isOn: isVehicleOn),
+                        child: VehicleMarkerIcon(isOn: isRecentlyActive),
                       ),
                     ),
-                  ],
-                ),
+                ],
+              ),
             ],
           ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: StickyFooter(), // ini bakal nempel di bawah layar!
-          ),
+          Align(alignment: Alignment.bottomCenter, child: StickyFooter()),
         ],
       ),
     );

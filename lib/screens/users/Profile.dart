@@ -30,7 +30,7 @@ class _ProfilePageState extends State<ProfilePage> {
       if (currentUser != null) {
         final userDoc =
             await _firestore
-                .collection('user_information')
+                .collection('users_information')
                 .doc(currentUser.uid)
                 .get();
 
@@ -52,115 +52,6 @@ class _ProfilePageState extends State<ProfilePage> {
         _showErrorSnackBar('Failed to load profile data');
       }
     }
-  }
-
-  Future<void> _updateUserData(String name, String email) async {
-    if (name.isEmpty || email.isEmpty) {
-      _showErrorSnackBar('Name and email cannot be empty');
-      return;
-    }
-
-    try {
-      final currentUser = _auth.currentUser;
-      if (currentUser != null) {
-        await _firestore
-            .collection('user_information')
-            .doc(currentUser.uid)
-            .update({
-              'name': name,
-              'email': email,
-              'updated_at': FieldValue.serverTimestamp(),
-            });
-
-        if (mounted) {
-          setState(() {
-            _name = name;
-            _email = email;
-          });
-          _showSuccessSnackBar('Profile updated successfully');
-        }
-      }
-    } catch (e) {
-      debugPrint('Update error: $e');
-      if (mounted) {
-        _showErrorSnackBar('Failed to update profile');
-      }
-    }
-  }
-
-  void _showEditDialog() {
-    final nameController = TextEditingController(text: _name);
-    final emailController = TextEditingController(text: _email);
-    final formKey = GlobalKey<FormState>();
-
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Edit Profile'),
-            content: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Name',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.person_outline),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Name is required';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: emailController,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.email_outlined),
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Email is required';
-                      }
-                      if (!RegExp(
-                        r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                      ).hasMatch(value)) {
-                        return 'Please enter a valid email';
-                      }
-                      return null;
-                    },
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () async {
-                  if (formKey.currentState?.validate() ?? false) {
-                    Navigator.pop(context);
-                    await _updateUserData(
-                      nameController.text.trim(),
-                      emailController.text.trim(),
-                    );
-                  }
-                },
-                child: const Text('Save'),
-              ),
-            ],
-          ),
-    );
   }
 
   Future<void> _handleLogout() async {
@@ -240,7 +131,8 @@ class _ProfilePageState extends State<ProfilePage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
-            onPressed: _showEditDialog,
+            onPressed:
+                () => Navigator.pushReplacementNamed(context, '/edit-profile'),
             tooltip: 'Edit Profile',
           ),
         ],

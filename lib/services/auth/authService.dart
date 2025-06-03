@@ -29,7 +29,7 @@ class AuthService {
     final uid = userCredential.user!.uid;
     final userDoc =
         await FirebaseFirestore.instance
-            .collection('user_information')
+            .collection('users_information')
             .doc(uid)
             .get();
 
