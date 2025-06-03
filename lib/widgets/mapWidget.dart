@@ -23,7 +23,7 @@ class _MapWidgetState extends State<MapWidget> {
   }
 
   void fetchRealtimeLocation() {
-    final ref = FirebaseDatabase.instance.ref('GPS');
+    final ref = FirebaseDatabase.instance.ref('devices/B0A7322B2EC4/gps');
 
     ref.onValue.listen((event) {
       final data = Map<String, dynamic>.from(event.snapshot.value as Map);
