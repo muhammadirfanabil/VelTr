@@ -27,12 +27,6 @@ class _MapWidgetState extends State<MapWidget> {
   StreamSubscription<DatabaseEvent>? _locationSubscription;
 
   LatLng? userLatLng;
-  String? locationName;
-  String? lastUpdated;
-  bool isVehicleOn = false;
-  double currentZoom = 15.0;
-  bool _isLoading = true;
-  String? _errorMessage;
 
   @override
   void initState() {
@@ -83,10 +77,7 @@ class _MapWidgetState extends State<MapWidget> {
   }
 
   void fetchRealtimeLocation() {
-    try {
-      final ref = FirebaseDatabase.instance.ref(
-        'devices/${widget.deviceId}/gps',
-      );
+    final ref = FirebaseDatabase.instance.ref('GPS');
 
       _locationSubscription = ref.onValue.listen(
         (event) async {
@@ -111,69 +102,14 @@ class _MapWidgetState extends State<MapWidget> {
             final updated = data['lastUpdated']?.toString();
             final status = data['isVehicleOn'] == true;
 
-            if (lat != null && lng != null) {
-              final newPosition = LatLng(lat, lng);
-
-              String? placeName = locationName;
-              if (userLatLng == null ||
-                  _calculateDistance(userLatLng!, newPosition) > 50) {
-                placeName = await reverseGeocode(lat, lng);
-              }
-
-              if (!mounted) return;
-
-              setState(() {
-                userLatLng = newPosition;
-                locationName = placeName ?? locationName ?? 'Unknown location';
-                lastUpdated = updated;
-                isVehicleOn = status;
-                _isLoading = false;
-                _errorMessage = null;
-              });
-
-              if (_calculateDistance(
-                    _mapController.camera.center,
-                    newPosition,
-                  ) >
-                  10) {
-                _mapController.move(newPosition, currentZoom);
-              }
-            } else {
-              setState(() {
-                _errorMessage = 'Invalid GPS coordinates';
-                _isLoading = false;
-              });
-            }
-          } catch (e) {
-            debugPrint('Error parsing GPS data: $e');
-            setState(() {
-              _errorMessage = 'Error parsing GPS data';
-              _isLoading = false;
-            });
-          }
-        },
-        onError: (error) {
-          debugPrint('Firebase listener error: $error');
-          if (mounted) {
-            setState(() {
-              _errorMessage = 'Connection error: $error';
-              _isLoading = false;
-            });
-          }
-        },
-      );
-    } catch (e) {
-      debugPrint('Error setting up Firebase listener: $e');
-      setState(() {
-        _errorMessage = 'Failed to connect to GPS data';
-        _isLoading = false;
-      });
-    }
-  }
-
-  double _calculateDistance(LatLng point1, LatLng point2) {
-    const Distance distance = Distance();
-    return distance.as(LengthUnit.Meter, point1, point2);
+      if (lat != null && lng != null) {
+        final newPosition = LatLng(lat, lng);
+        setState(() {
+          userLatLng = newPosition;
+        });
+        _mapController.move(newPosition, _mapController.camera.zoom);
+      }
+    });
   }
 
   @override
@@ -182,58 +118,46 @@ class _MapWidgetState extends State<MapWidget> {
       children: [
         FlutterMap(
           mapController: _mapController,
-          options: MapOptions(
-            initialCenter: widget.options.initialCenter,
-            initialZoom: widget.options.initialZoom,
-            minZoom: widget.options.minZoom,
-            maxZoom: widget.options.maxZoom,
-            initialRotation: widget.options.initialRotation,
-            keepAlive: widget.options.keepAlive,
-            onMapEvent: _onMapEvent,
-            onTap: widget.options.onTap,
-          ),
+          options: MapOptions(initialCenter: userLatLng!, initialZoom: 15.0),
           children: [
-            ...widget.children, // Each page can add its own layers/markers
-          ],
-        ),
-        // Loading indicator
-        if (_isLoading) const Center(child: CircularProgressIndicator()),
-        // Error message
-        if (_errorMessage != null)
-          Positioned(
-            top: 50,
-            left: 16,
-            right: 16,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.shade100,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.shade300),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.error, color: Colors.red.shade700),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _errorMessage!,
-                      style: TextStyle(color: Colors.red.shade700),
+            TileLayer(
+              urlTemplate:
+                  'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+              subdomains: const ['a', 'b', 'c', 'd'],
+              userAgentPackageName: 'com.example.gps_app',
+            ),
+            MarkerLayer(
+              markers: [
+                Marker(
+                  point: userLatLng!,
+                  width: 80,
+                  height: 80,
+                  child: GestureDetector(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder:
+                            (_) => AlertDialog(
+                              content: const Text('Track'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  child: const Text('Close'),
+                                ),
+                              ],
+                            ),
+                      );
+                    },
+                    child: SvgPicture.asset(
+                      'assets/icons/motor.svg',
+                      width: 20,
+                      height: 20,
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () {
-                      setState(() {
-                        _errorMessage = null;
-                      });
-                    },
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ),
-      ],
-    );
+          ],
+        );
   }
 }

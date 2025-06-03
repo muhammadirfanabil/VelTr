@@ -27,20 +27,15 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   String lastUpdated = '-';
   double? latitude;
   double? longitude;
-  String locationName = 'Loading Location...';
-  bool isVehicleOn = false;
-  final MapController _mapController = MapController();
-
-  LatLng get vehicleLocation =>
-      (latitude != null && longitude != null)
-          ? LatLng(latitude!, longitude!)
-          : LatLng(-6.200000, 106.816666);
+  String? locationName = 'Loading Location...';
+  bool isVehicleOn = false; // Menyimpan status kendaraan
 
   @override
   void initState() {
     super.initState();
     fetchLastLocation();
-    fetchVehicleStatus();
+    fetchVehicleStatus(); // Memanggil fungsi untuk memantau status kendaraan
+    fetchRelayStatus();
   }
 
   Future<bool> pingESP32(String ip) async {
@@ -138,16 +133,19 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       final timestamp = data['tanggal'];
 
       setState(() {
-        latitude = lat;
-        longitude = lon;
+        latitude = double.tryParse(data['latitude'].toString());
+        longitude = double.tryParse(data['longitude'].toString());
 
         if (lat != null && lon != null) {
           fetchLocationName(lat, lon);
           _mapController.move(LatLng(lat, lon), 15.0);
         }
 
+        final timestamp = data['timestamp'];
         if (timestamp != null) {
-          final dt = DateTime.parse(timestamp);
+          final dt = DateTime.fromMillisecondsSinceEpoch(
+            int.parse(timestamp.toString()),
+          );
           lastUpdated = DateFormat('yyyy-MM-dd HH:mm:ss').format(dt);
         } else {
           lastUpdated = 'Unavailable';
@@ -167,13 +165,14 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   }
 
   void toggleVehicleStatus() {
-    final statusRef = FirebaseDatabase.instance.ref('GPS/status_kendaraan');
-    final relayRef = FirebaseDatabase.instance.ref('GPS/relay');
+    final ref = FirebaseDatabase.instance.ref('GPS/status_kendaraan');
+    final relayRef = FirebaseDatabase.instance.ref(
+      'GPS/relay',
+    ); // Menambahkan referensi untuk relay
 
-    final newStatus = !isVehicleOn;
-
-    statusRef.set(newStatus);
-    relayRef.set(newStatus);
+    // Toggle status kendaraan dan relay
+    ref.set(!isVehicleOn); // Toggle status kendaraan
+    relayRef.set(isVehicleOn ? true : false); // Kirimkan status relay
 
     setState(() {
       isVehicleOn = newStatus;
