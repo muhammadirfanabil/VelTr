@@ -3,6 +3,7 @@ import 'package:flutter_svg/svg.dart';
 
 import '../../services/Auth/AuthService.dart';
 import '../../services/maps/mapsService.dart';
+import '../../services/device/deviceService.dart';
 import '../../widgets/mapWidget.dart';
 
 class GPSMapScreen extends StatefulWidget {
@@ -13,8 +14,10 @@ class GPSMapScreen extends StatefulWidget {
 }
 
 class _GPSMapScreenState extends State<GPSMapScreen> {
-  static const String deviceId = 'B0A7322B2EC4'; // Make this configurable later
-  late final mapServices _mapService;
+  late final DeviceService _deviceService;
+  mapServices? _mapService;
+  String? currentDeviceId;
+  String? deviceName;
 
   String lastUpdated = '-';
   double? latitude;
@@ -22,24 +25,77 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   String? locationName = 'Loading Location...';
   bool isVehicleOn = false;
   bool isLoading = true;
-
   @override
   void initState() {
     super.initState();
-    _mapService = mapServices(deviceId: deviceId);
-    _setupRealtimeListeners();
+    _deviceService = DeviceService();
+    _initializeWithUserDevice();
+  }
+
+  /// Initialize the map service with the current user's primary device
+  Future<void> _initializeWithUserDevice() async {
+    try {
+      setState(() {
+        isLoading = true;
+      });      // Use the enhanced bridge method to get validated MAC ID
+      final macId = await _deviceService.getValidatedDeviceMacIdForMap();
+
+      if (macId == null) {
+        throw Exception('No valid devices found or device not connected to GPS system');
+      }
+
+      // Get the device name for display using the MAC ID
+      final name = await _deviceService.getDeviceNameById(macId);
+
+      // Initialize the map service with the MAC ID for Firebase Realtime Database access
+      final mapService = mapServices(deviceId: macId);
+
+      setState(() {
+        currentDeviceId = macId;
+        deviceName = name ?? macId; // Show MAC ID if no name available
+        _mapService = mapService;
+      });
+
+      // Set up real-time listeners and load initial data
+      _setupRealtimeListeners();
+      await _loadInitialData();
+    } catch (e) {
+      debugPrint('Error initializing with user device: $e');      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+
+        // Provide specific error messages for bridge connection issues
+        String errorMessage = 'Failed to initialize device: $e';
+        if (e.toString().contains('No valid devices found')) {
+          errorMessage = 'No GPS devices found or device not connected to GPS system. Please check your device setup.';
+        } else if (e.toString().contains('not connected to GPS system')) {
+          errorMessage = 'Device found but not sending GPS data. Please check your physical GPS device connection.';
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 8),
+          ),
+        );
+      }
+    }
   }
 
   void _setupRealtimeListeners() {
+    if (_mapService == null) return;
+
     // Listen to GPS data changes
-    _mapService.getGPSDataStream().listen((gpsData) {
-      if (mounted && gpsData != null && _mapService.isGPSDataValid(gpsData)) {
+    _mapService!.getGPSDataStream().listen((gpsData) {
+      if (mounted && gpsData != null && _mapService!.isGPSDataValid(gpsData)) {
         _updateGPSData(gpsData);
       }
     });
 
     // Listen to relay status changes
-    _mapService.getRelayStatusStream().listen((relayStatus) {
+    _mapService!.getRelayStatusStream().listen((relayStatus) {
       if (mounted) {
         setState(() {
           isVehicleOn = relayStatus;
@@ -57,7 +113,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       final lon = gpsData['longitude'] as double;
 
       // Fetch location name (but don't wait for it to update other data)
-      _mapService.fetchLocationName(lat, lon).then((locationName) {
+      _mapService?.fetchLocationName(lat, lon).then((locationName) {
         if (mounted) {
           setState(() {
             this.locationName = locationName;
@@ -80,15 +136,17 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   }
 
   Future<void> _loadInitialData() async {
+    if (_mapService == null) return;
+
     try {
       // Load initial GPS location
-      final gpsData = await _mapService.getLastGPSLocation();
-      if (gpsData != null && _mapService.isGPSDataValid(gpsData)) {
+      final gpsData = await _mapService!.getLastGPSLocation();
+      if (gpsData != null && _mapService!.isGPSDataValid(gpsData)) {
         await _updateGPSData(gpsData);
       }
 
       // Load initial relay status
-      final relayStatus = await _mapService.getCurrentRelayStatus();
+      final relayStatus = await _mapService!.getCurrentRelayStatus();
       if (mounted) {
         setState(() {
           isVehicleOn = relayStatus;
@@ -130,7 +188,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       body: Stack(
         children: [
           // Pass deviceId to MapWidget
-          MapWidget(deviceId: deviceId),
+          MapWidget(deviceId: currentDeviceId),
 
           // Top navigation bar
           SafeArea(
@@ -162,6 +220,30 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                           height: 25,
                         ),
                         const SizedBox(width: 10),
+                        // Display current device name
+                        if (deviceName != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.blue.withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              deviceName!,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.blue,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                     Row(
@@ -191,7 +273,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                           onSelected: (value) async {
                             switch (value) {
                               case 'profile':
-                                Navigator.pushNamed(context, '/vehicle');
+                                Navigator.pushNamed(context, '/profile');
                                 break;
                               case 'settings':
                                 Navigator.pushNamed(context, '/settings');
@@ -376,24 +458,31 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: () async {
-                            try {
-                              await _mapService.toggleRelayStatus();
-                              // Status will be updated automatically through the stream listener
-                            } catch (e) {
-                              debugPrint('Error toggling vehicle status: $e');
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Failed to toggle vehicle: $e',
-                                    ),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
-                            }
-                          },
+                          onPressed:
+                              _mapService == null
+                                  ? null
+                                  : () async {
+                                    try {
+                                      await _mapService!.toggleRelayStatus();
+                                      // Status will be updated automatically through the stream listener
+                                    } catch (e) {
+                                      debugPrint(
+                                        'Error toggling vehicle status: $e',
+                                      );
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'Failed to toggle vehicle: $e',
+                                            ),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
                           style: ElevatedButton.styleFrom(
                             minimumSize: const Size(double.infinity, 48),
                             backgroundColor:

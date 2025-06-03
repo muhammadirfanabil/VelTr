@@ -73,39 +73,99 @@ class AuthService {
     required String address,
     required String phoneNumber,
   }) async {
-    // First, perform the Google sign-in
+    // Get the currently signed-in Google user
     final googleSignIn = GoogleSignIn();
-    final googleUser = await googleSignIn.signIn();
-    if (googleUser == null) throw Exception("Login canceled.");
+    final googleUser = googleSignIn.currentUser;
 
-    final googleAuth = await googleUser.authentication;
+    if (googleUser == null) {
+      // If no current user, perform sign-in
+      final newGoogleUser = await googleSignIn.signIn();
+      if (newGoogleUser == null) throw Exception("Login canceled.");
 
-    final credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
-    );
+      final googleAuth = await newGoogleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
 
-    // Sign in with Firebase Auth
-    final userCredential = await FirebaseAuth.instance.signInWithCredential(
-      credential,
-    );
+      // Sign in with Firebase Auth
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(
+        credential,
+      );
+      final uid = userCredential.user!.uid;
 
-    final uid = userCredential.user!.uid;
+      // Save user information to Firestore
+      await FirebaseFirestore.instance
+          .collection('users_information')
+          .doc(uid)
+          .set({
+            'name': name,
+            'email': email,
+            'address': address,
+            'phone_number': phoneNumber,
+            'created_at': FieldValue.serverTimestamp(),
+            'google_signin': true,
+          });
 
-    // Save user information to Firestore
-    await FirebaseFirestore.instance
-        .collection('users_information')
-        .doc(uid)
-        .set({
-          'name': name,
-          'email': email,
-          'address': address,
-          'phone_number': phoneNumber,
-          'created_at': FieldValue.serverTimestamp(),
-          'google_signin': true,
-        });
+      return userCredential;
+    } else {
+      // User is already signed in with Google, just create the Firestore record
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        // Re-authenticate with Google if Firebase user is null
+        final googleAuth = await googleUser.authentication;
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
 
-    return userCredential;
+        final userCredential = await FirebaseAuth.instance.signInWithCredential(
+          credential,
+        );
+        final uid = userCredential.user!.uid;
+
+        // Save user information to Firestore
+        await FirebaseFirestore.instance
+            .collection('users_information')
+            .doc(uid)
+            .set({
+              'name': name,
+              'email': email,
+              'address': address,
+              'phone_number': phoneNumber,
+              'created_at': FieldValue.serverTimestamp(),
+              'google_signin': true,
+            });
+
+        return userCredential;
+      } else {
+        // Firebase user exists, just update Firestore
+        await FirebaseFirestore.instance
+            .collection('users_information')
+            .doc(currentUser.uid)
+            .set({
+              'name': name,
+              'email': email,
+              'address': address,
+              'phone_number': phoneNumber,
+              'created_at': FieldValue.serverTimestamp(),
+              'google_signin': true,
+            });
+        // Return the current authentication state since user is already signed in
+        // We can't create a UserCredential manually, so let's re-authenticate
+        final googleAuth = await googleUser.authentication;
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+
+        final userCredential = await FirebaseAuth.instance.signInWithCredential(
+          credential,
+        );
+
+        return userCredential;
+      }
+    }
   }
 
   /// Logout from the app

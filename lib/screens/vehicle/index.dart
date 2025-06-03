@@ -324,8 +324,7 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
                   Text(
                     'No unassigned devices available',
                     style: TextStyle(color: Colors.grey),
-                  )
-                else
+                  )                else
                   ...unassignedDevices.map((device) => Card(
                     child: ListTile(
                       leading: Icon(Icons.device_hub),
@@ -344,6 +343,47 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
                       ),
                     ),
                   )).toList(),
+                SizedBox(height: 16),
+                Text(
+                  'Device Actions:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _showAddDeviceDialog(context, vehicle);
+                        },
+                        icon: Icon(Icons.add),
+                        label: Text('Create New Device'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                    if (unassignedDevices.isNotEmpty) ...[
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _showAttachExistingDeviceDialog(context, vehicle);
+                          },
+                          icon: Icon(Icons.link),
+                          label: Text('Attach Existing'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ],
             ),
           ),
@@ -454,6 +494,81 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
               }
             },
             child: Text('Create & Assign'),
+          ),
+        ],
+      ),    );
+  }
+
+  void _showAttachExistingDeviceDialog(BuildContext context, vehicle vehicle) async {
+    final unassignedDevices = await _deviceService.getUnassignedDevices();
+
+    if (!mounted) return;
+
+    if (unassignedDevices.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No unassigned devices available')),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Attach Device to ${vehicle.name}'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Select a device to attach:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 16),
+              ...unassignedDevices.map((device) => Card(
+                child: ListTile(
+                  leading: Icon(
+                    Icons.device_hub,
+                    color: device.isActive ? Colors.green : Colors.orange,
+                  ),
+                  title: Text(device.name),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        device.isActive ? 'Active' : 'Inactive',
+                        style: TextStyle(
+                          color: device.isActive ? Colors.green : Colors.orange,
+                        ),
+                      ),
+                      if (device.hasValidGPS)
+                        Text('GPS: ${device.coordinatesString}')
+                      else
+                        Text('No GPS data', style: TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+                  trailing: ElevatedButton.icon(
+                    onPressed: () async {
+                      await _assignDeviceToVehicle(vehicle.id, device.id);
+                      Navigator.pop(context);
+                    },
+                    icon: Icon(Icons.link, size: 16),
+                    label: Text('Attach'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                  ),
+                ),
+              )).toList(),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
           ),
         ],
       ),

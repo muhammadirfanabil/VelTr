@@ -216,31 +216,31 @@ class _ProfilePageState extends State<ProfilePage> {
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
-                                        children: [
+                                      children: [
                                         ShaderMask(
                                           shaderCallback:
-                                            (bounds) => const LinearGradient(
-                                            colors: [
-                                              Color(0xFF11468F),
-                                              Color(0xFFDA1212),
-                                            ],
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                            ).createShader(
-                                            Rect.fromLTWH(
-                                              0,
-                                              0,
-                                              bounds.width,
-                                              bounds.height,
-                                            ),
-                                            ),
+                                              (bounds) => const LinearGradient(
+                                                colors: [
+                                                  Color(0xFF11468F),
+                                                  Color(0xFFDA1212),
+                                                ],
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                              ).createShader(
+                                                Rect.fromLTWH(
+                                                  0,
+                                                  0,
+                                                  bounds.width,
+                                                  bounds.height,
+                                                ),
+                                              ),
                                           child: Text(
-                                          _name,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 18,
-                                            color: Colors.white,
-                                          ),
+                                            _name,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 18,
+                                              color: Colors.white,
+                                            ),
                                           ),
                                         ),
                                         const SizedBox(height: 4),
@@ -248,9 +248,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                         Text(_phoneNumber),
                                         const SizedBox(height: 12),
                                         Text(
-                                          _userInfo?.createdAt != null 
-                                            ? 'Joined ${_userInfo!.createdAt.toLocal().toString().split(' ')[0]}'
-                                            : 'Joined recently',
+                                          _userInfo?.createdAt != null
+                                              ? 'Joined ${_userInfo!.createdAt.toLocal().toString().split(' ')[0]}'
+                                              : 'Joined recently',
                                           style: const TextStyle(
                                             color: Colors.black45,
                                           ),
@@ -293,6 +293,18 @@ class _ProfilePageState extends State<ProfilePage> {
                                   label: 'Driving History',
                                   routeName: '/history',
                                   color: Colors.orange,
+                                ),
+                                _buildFullWidthOutlinedButton(
+                                  context,
+                                  label: 'Manage Devices',
+                                  routeName: '/device',
+                                  color: Colors.orange,
+                                ),
+                                _buildFullWidthOutlinedButton(
+                                  context,
+                                  label: 'Manage Vehicle',
+                                  routeName: '/vehicle',
+                                  color: Colors.purple,
                                 ),
                               ],
                             ),

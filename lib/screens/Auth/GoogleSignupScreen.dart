@@ -33,14 +33,38 @@ class _GoogleSignupScreenState extends State<GoogleSignupScreen> {
     _nameController.dispose();
     super.dispose();
   }
+
   void _completeRegistration() async {
     if (_formKey.currentState!.validate()) {
       if (!mounted) return;
       setState(() {
         _loading = true;
         _error = null;
-      });      try {
-        // The updated method now handles the entire sign-in and registration process
+      });
+
+      try {
+        // Check if user is already registered first
+        try {
+          await AuthService.loginWithGoogle();
+          if (!mounted) return;
+
+          // User is already registered, show message and go to home
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('User already registered! Signing in...'),
+            ),
+          );
+          Navigator.pushReplacementNamed(context, '/home');
+          return;
+        } catch (e) {
+          // If error contains "not_registered", continue with registration
+          if (!e.toString().contains("not_registered")) {
+            // Some other error occurred
+            rethrow;
+          }
+        }
+
+        // User is not registered, proceed with registration
         await AuthService.registerGoogleUser(
           email: widget.email,
           name: _nameController.text.trim(),

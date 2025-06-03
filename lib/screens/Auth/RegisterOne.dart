@@ -117,24 +117,43 @@ class _RegisterOneState extends State<RegisterOne> {
         return; // User cancelled
       }
 
-      // Navigate to Google signup screen with user info
-      if (mounted) {
-        Navigator.pushReplacementNamed(
-          context,
-          '/google-signup',
-          arguments: {
-            'email': googleUser.email,
-            'displayName': googleUser.displayName ?? 'No Name',
-          },
-        );
+      // Check if user is already registered
+      try {
+        await AuthService.loginWithGoogle();
+        if (!mounted) return;
+
+        // User is already registered, go to home
+        Navigator.pushReplacementNamed(context, '/home');
+      } catch (e) {
+        if (e.toString().contains("not_registered")) {
+          // User not registered, navigate to Google signup screen
+          if (mounted) {
+            Navigator.pushReplacementNamed(
+              context,
+              '/google-signup',
+              arguments: {
+                'email': googleUser.email,
+                'displayName': googleUser.displayName ?? 'No Name',
+              },
+            );
+          }
+        } else {
+          // Other error occurred
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Google sign-in error: ${e.toString()}')),
+            );
+          }
+        }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Google sign-in error: ${e.toString()}')),
         );
-        setState(() => _loading = false);
       }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 

@@ -54,8 +54,10 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (!mounted) return;
       if (e.toString().contains("not_registered")) {
-        // Get Google user info to pass to signup screen
-        final googleUser = await GoogleSignIn().signIn();
+        // Get the current Google user info to pass to signup screen
+        final googleSignIn = GoogleSignIn();
+        final googleUser = googleSignIn.currentUser;
+
         if (googleUser != null && mounted) {
           Navigator.pushReplacementNamed(
             context,
@@ -65,6 +67,8 @@ class _LoginScreenState extends State<LoginScreen> {
               'displayName': googleUser.displayName ?? 'No Name',
             },
           );
+        } else {
+          setState(() => _error = "Please try signing in with Google again");
         }
       } else {
         setState(

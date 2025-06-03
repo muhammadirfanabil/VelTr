@@ -76,9 +76,10 @@ class _DeviceIndexScreenState extends State<DeviceIndexScreen> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddDeviceDialog(context),
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text('Add Device'),
       ),
     );
   }
