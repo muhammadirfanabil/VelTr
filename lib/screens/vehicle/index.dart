@@ -1,343 +1,155 @@
 import 'package:flutter/material.dart';
-// import 'package:gps_app/models/Vehicle/Vehicle.dart' as VehicleModel;
+import '../../widgets/stickyFooter.dart';
 
-import '../../models/vehicle/vehicle.dart';
-import '../../services/vehicle/vehicleService.dart';
+class VehicleIndexScreen extends StatelessWidget {
+  const VehicleIndexScreen({super.key});
 
-class VehicleIndexScreen extends StatefulWidget {
-  const VehicleIndexScreen({Key? key}) : super(key: key);
-
-  @override
-  _VehicleIndexScreenState createState() => _VehicleIndexScreenState();
-}
-
-class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
-  final vehicleService _vehicleService = vehicleService();
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('My Vehicles'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => setState(() {}),
+        title: const Text(
+          'Vehicle Settings',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 20,
+            color: Colors.black,
           ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, size: 20),
+          color: Colors.black,
+          onPressed: () {
+            Navigator.pushReplacementNamed(context, '/home');
+          },
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 0.5, color: Colors.grey[300]),
+        ),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  const SizedBox(height: 8),
+                  _buildSettingsSection([
+                    _SettingItem(
+                      icon: Icons.directions_car_outlined,
+                      title: 'Manage Vehicle',
+                      subtitle: 'Add, edit, or remove vehicles',
+                      onTap:
+                          () => Navigator.pushNamed(context, '/manage-vehicle'),
+                    ),
+                    _SettingItem(
+                      icon: Icons.location_on_outlined,
+                      title: 'Set Geofence',
+                      subtitle: 'Create safe zones and boundaries',
+                      onTap: () => Navigator.pushNamed(context, '/geofence'),
+                    ),
+                    _SettingItem(
+                      icon: Icons.straighten_outlined,
+                      title: 'Set Range',
+                      subtitle: 'Configure distance limits',
+                      onTap: () => Navigator.pushNamed(context, '/set-range'),
+                    ),
+                    _SettingItem(
+                      icon: Icons.history_outlined,
+                      title: 'Driving History',
+                      subtitle: 'View past trips and analytics',
+                      onTap:
+                          () => Navigator.pushNamed(context, '/drive-history'),
+                    ),
+                  ]),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+          ),
+          const StickyFooter(),
         ],
       ),
-      body: StreamBuilder<List<vehicle>>(
-        stream: _vehicleService.getVehiclesStream(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    );
+  }
 
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
-
-          final vehicles = snapshot.data ?? [];
-
-          if (vehicles.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    'No vehicles found',
-                    style: TextStyle(fontSize: 18),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => _showAddVehicleDialog(context),
-                    child: const Text('Add your first vehicle'),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return ListView.builder(
-            itemCount: vehicles.length,
-            itemBuilder: (context, index) {
-              final vehicle = vehicles[index];
-
-              return VehicleCard(
-                vehicleModel: vehicle,
-                onEdit: () => _showEditVehicleDialog(context, vehicle),
-                onDelete: () => _deleteVehicle(vehicle.id),
-              );
-            },
-          );
-        },
+  Widget _buildSettingsSection(List<_SettingItem> items) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          top: BorderSide(color: Colors.grey[200]!, width: 0.5),
+          bottom: BorderSide(color: Colors.grey[200]!, width: 0.5),
+        ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddVehicleDialog(context),
-        child: const Icon(Icons.add),
+      child: Column(
+        children: items.map((item) => _buildSettingTile(item)).toList(),
       ),
     );
   }
 
-  void _showAddVehicleDialog(BuildContext context) {
-    final nameController = TextEditingController();
-    final vehicleTypesController = TextEditingController();
-    final plateNumberController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Add New vehicle'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Name (Make & Model)',
-                    ),
-                  ),
-                  TextField(
-                    controller: vehicleTypesController,
-                    decoration: const InputDecoration(
-                      labelText: 'vehicle Type',
-                    ),
-                  ),
-                  TextField(
-                    controller: plateNumberController,
-                    decoration: const InputDecoration(
-                      labelText: 'License Plate',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  _addVehicle(
-                    nameController.text,
-                    vehicleTypesController.text,
-                    plateNumberController.text,
-                  );
-                  Navigator.pop(context);
-                },
-                child: const Text('Add'),
-              ),
-            ],
+  Widget _buildSettingTile(_SettingItem item) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Colors.grey[100]!, width: 0.5),
+        ),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            borderRadius: BorderRadius.circular(20),
           ),
-    );
-  }
-
-  void _showEditVehicleDialog(BuildContext context, vehicle vehicle) {
-    final nameController = TextEditingController(text: vehicle.name);
-    final vehicleTypesController = TextEditingController(
-      text: vehicle.vehicleTypes,
-    );
-    final plateNumberController = TextEditingController(
-      text: vehicle.plateNumber,
-    );
-
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Edit vehicle'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Name (Make & Model)',
-                    ),
-                  ),
-                  TextField(
-                    controller: vehicleTypesController,
-                    decoration: const InputDecoration(
-                      labelText: 'vehicle Type',
-                    ),
-                  ),
-                  TextField(
-                    controller: plateNumberController,
-                    decoration: const InputDecoration(
-                      labelText: 'License Plate',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  _updateVehicle(
-                    vehicle.id,
-                    nameController.text,
-                    vehicleTypesController.text,
-                    plateNumberController.text,
-                  );
-                  Navigator.pop(context);
-                },
-                child: const Text('Update'),
-              ),
-            ],
+          child: Icon(item.icon, color: Colors.black87, size: 22),
+        ),
+        title: Text(
+          item.title,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: Colors.black,
           ),
+        ),
+        subtitle:
+            item.subtitle != null
+                ? Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    item.subtitle!,
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  ),
+                )
+                : null,
+        trailing: Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
+        onTap: item.onTap,
+      ),
     );
   }
 
-  void _addVehicle(String name, String vehicleTypes, String plateNumber) async {
-    if (name.isEmpty || vehicleTypes.isEmpty || plateNumber.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Please fill all fields')));
-      return;
-    }
-
-    try {
-      await _vehicleService.addVehicle(
-        name: name,
-        vehicleTypes: vehicleTypes,
-        plateNumber: plateNumber,
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('vehicle added successfully')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error adding vehicle: $e')));
-    }
-  }
-
-  void _updateVehicle(
-    String id,
-    String name,
-    String vehicleTypes,
-    String plateNumber,
-  ) async {
-    try {
-      await _vehicleService.updateVehicle(
-        id: id,
-        name: name,
-        vehicleTypes: vehicleTypes,
-        plateNumber: plateNumber,
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('vehicle updated successfully')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error updating vehicle: $e')));
-    }
-  }
-
-  void _deleteVehicle(String id) async {
-    try {
-      await _vehicleService.deleteVehicle(id);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('vehicle deleted successfully')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error deleting vehicle: $e')));
-    }
+  Widget _buildDivider() {
+    return Container(height: 8, color: Colors.grey[50]);
   }
 }
 
-class VehicleCard extends StatelessWidget {
-  final vehicle vehicleModel;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+class _SettingItem {
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
 
-  const VehicleCard({
-    Key? key,
-    required this.vehicleModel,
-    required this.onEdit,
-    required this.onDelete,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  vehicleModel.name,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.blue),
-                      onPressed: onEdit,
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder:
-                              (context) => AlertDialog(
-                                title: const Text('Confirm Deletion'),
-                                content: Text('Delete ${vehicleModel.name}?'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.pop(context);
-                                      onDelete();
-                                    },
-                                    child: const Text('Delete'),
-                                  ),
-                                ],
-                              ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text('Type: ${vehicleModel.vehicleTypes}'),
-            Text('License Plate: ${vehicleModel.plateNumber}'),
-            Text('Created: ${_formatDate(vehicleModel.createdAt)}'),
-            Text('Last Updated: ${_formatDate(vehicleModel.updatedAt)}'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _formatDate(DateTime dateTime) {
-    return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
-  }
+  _SettingItem({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    required this.onTap,
+  });
 }
