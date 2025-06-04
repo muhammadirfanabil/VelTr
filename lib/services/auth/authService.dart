@@ -29,7 +29,7 @@ class AuthService {
     final uid = userCredential.user!.uid;
     final userDoc =
         await FirebaseFirestore.instance
-            .collection('user_information')
+            .collection('users_information')
             .doc(uid)
             .get();
 
@@ -73,44 +73,160 @@ class AuthService {
     required String address,
     required String phoneNumber,
   }) async {
-    // First, perform the Google sign-in
+    // Get the currently signed-in Google user
     final googleSignIn = GoogleSignIn();
-    final googleUser = await googleSignIn.signIn();
-    if (googleUser == null) throw Exception("Login canceled.");
+    final googleUser = googleSignIn.currentUser;
 
-    final googleAuth = await googleUser.authentication;
+    if (googleUser == null) {
+      // If no current user, perform sign-in
+      final newGoogleUser = await googleSignIn.signIn();
+      if (newGoogleUser == null) throw Exception("Login canceled.");
 
-    final credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
-    );
+      final googleAuth = await newGoogleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
 
-    // Sign in with Firebase Auth
-    final userCredential = await FirebaseAuth.instance.signInWithCredential(
-      credential,
-    );
+      // Sign in with Firebase Auth
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(
+        credential,
+      );
+      final uid = userCredential.user!.uid;
 
-    final uid = userCredential.user!.uid;
+      // Save user information to Firestore
+      await FirebaseFirestore.instance
+          .collection('users_information')
+          .doc(uid)
+          .set({
+            'name': name,
+            'email': email,
+            'address': address,
+            'phone_number': phoneNumber,
+            'created_at': FieldValue.serverTimestamp(),
+            'google_signin': true,
+          });
 
-    // Save user information to Firestore
-    await FirebaseFirestore.instance
-        .collection('users_information')
-        .doc(uid)
-        .set({
-          'name': name,
-          'email': email,
-          'address': address,
-          'phone_number': phoneNumber,
-          'created_at': FieldValue.serverTimestamp(),
-          'google_signin': true,
-        });
+      return userCredential;
+    } else {
+      // User is already signed in with Google, just create the Firestore record
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        // Re-authenticate with Google if Firebase user is null
+        final googleAuth = await googleUser.authentication;
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
 
-    return userCredential;
+        final userCredential = await FirebaseAuth.instance.signInWithCredential(
+          credential,
+        );
+        final uid = userCredential.user!.uid;
+
+        // Save user information to Firestore
+        await FirebaseFirestore.instance
+            .collection('users_information')
+            .doc(uid)
+            .set({
+              'name': name,
+              'email': email,
+              'address': address,
+              'phone_number': phoneNumber,
+              'created_at': FieldValue.serverTimestamp(),
+              'google_signin': true,
+            });
+
+        return userCredential;
+      } else {
+        // Firebase user exists, just update Firestore
+        await FirebaseFirestore.instance
+            .collection('users_information')
+            .doc(currentUser.uid)
+            .set({
+              'name': name,
+              'email': email,
+              'address': address,
+              'phone_number': phoneNumber,
+              'created_at': FieldValue.serverTimestamp(),
+              'google_signin': true,
+            });
+        // Return the current authentication state since user is already signed in
+        // We can't create a UserCredential manually, so let's re-authenticate
+        final googleAuth = await googleUser.authentication;
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+
+        final userCredential = await FirebaseAuth.instance.signInWithCredential(
+          credential,
+        );
+
+        return userCredential;
+      }
+    }
   }
 
   /// Logout from the app
   static Future<void> signOut() async {
     await FirebaseAuth.instance.signOut();
     await GoogleSignIn().signOut();
+  }
+
+  /// Retrieves the current user data from Firestore
+  static Future<Map<String, dynamic>?> getUserData() async {
+    try {
+      final User? currentUser = FirebaseAuth.instance.currentUser;
+
+      if (currentUser != null) {
+        // Get user data from Firestore
+        final DocumentSnapshot userDoc =
+            await FirebaseFirestore.instance
+                .collection('users_information')
+                .doc(currentUser.uid)
+                .get();
+
+        if (userDoc.exists) {
+          final userData = userDoc.data() as Map<String, dynamic>;
+          // Add email from Firebase Auth if not present in Firestore
+          userData['email'] = userData['email'] ?? currentUser.email;
+          return userData;
+        } else {
+          // Return basic info if user document doesn't exist
+          return {'email': currentUser.email};
+        }
+      }
+      return null;
+    } catch (e) {
+      // Use proper error handling
+      print('Error loading user data: $e');
+      return null;
+    }
+  }
+
+  /// Update user data in Firestore
+  static Future<bool> updateUserData(String name, String email) async {
+    try {
+      final User? currentUser = FirebaseAuth.instance.currentUser;
+
+      if (currentUser != null) {
+        await FirebaseFirestore.instance
+            .collection('users_information')
+            .doc(currentUser.uid)
+            .update({
+              'name': name,
+              'email': email,
+              'updated_at': FieldValue.serverTimestamp(),
+            });
+
+        return true;
+      }
+      return false;
+    } catch (e) {
+      // Use logger in production instead
+      print('Error updating user data: $e');
+      return false;
+    }
   }
 }

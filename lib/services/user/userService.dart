@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/User/userInformation.dart';
 
 // Handle CRUD for User
@@ -62,6 +63,200 @@ class UserService {
       return null;
     } catch (e) {
       throw Exception('Failed to fetch user: $e');
+    }
+  }
+
+  /// Load user data with fallback to Firebase Auth user data
+  Future<Map<String, dynamic>> loadUserData() async {
+    try {
+      final User? currentUser = FirebaseAuth.instance.currentUser;
+
+      if (currentUser != null) {
+        // Get user data from Firestore
+        userInformation? userInfo = await getUserById(currentUser.uid);
+
+        if (userInfo != null) {
+          return {
+            'userInfo': userInfo,
+            'name': userInfo.name,
+            'email': userInfo.emailAddress,
+            'phoneNumber':
+                '-', // UserInformation model doesn't have phone field yet
+            'isLoading': false,
+          };
+        } else {
+          // If user not found in Firestore, return Firebase Auth data
+          return {
+            'userInfo': null,
+            'name': currentUser.displayName ?? 'No name found',
+            'email': currentUser.email ?? 'No email found',
+            'phoneNumber': '-',
+            'isLoading': false,
+          };
+        }
+      } else {
+        throw Exception('No authenticated user found');
+      }
+    } catch (e) {
+      throw Exception('Error loading user data: $e');
+    }
+  }
+
+  /// Update user data or create new user if doesn't exist
+  Future<userInformation> updateUserData(
+    String name,
+    String email,
+    userInformation? currentUserInfo,
+  ) async {
+    try {
+      final User? currentUser = FirebaseAuth.instance.currentUser;
+
+      if (currentUser != null) {
+        if (currentUserInfo != null) {
+          // Update existing user
+          final updatedUser = currentUserInfo.copyWith(
+            name: name,
+            emailAddress: email,
+            updatedAt: DateTime.now(),
+          );
+
+          await updateUser(updatedUser);
+          return updatedUser;
+        } else {
+          // Create new user info if it doesn't exist
+          final newUserInfo = userInformation(
+            id: currentUser.uid,
+            name: name,
+            emailAddress: email,
+            vehicleIds: [], // Initialize with empty vehicle list
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+
+          await addUser(newUserInfo);
+          return newUserInfo;
+        }
+      } else {
+        throw Exception('No authenticated user found');
+      }
+    } catch (e) {
+      throw Exception('Error updating user data: $e');
+    }
+  }
+
+  /// Refresh user profile data - useful for UI refresh operations
+  Future<Map<String, dynamic>> refreshUserProfile() async {
+    try {
+      return await loadUserData();
+    } catch (e) {
+      throw Exception('Error refreshing profile: $e');
+    }
+  }
+
+  /// Validate user data before updates
+  bool validateUserData(String name, String email) {
+    if (name.trim().isEmpty) {
+      throw Exception('Name cannot be empty');
+    }
+
+    if (email.trim().isEmpty) {
+      throw Exception('Email cannot be empty');
+    }
+
+    // Basic email validation
+    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+    if (!emailRegex.hasMatch(email.trim())) {
+      throw Exception('Please enter a valid email address');
+    }
+
+    return true;
+  }
+
+  /// Update user profile with validation
+  Future<userInformation> updateUserProfile(
+    String name,
+    String email,
+    userInformation? currentUserInfo,
+  ) async {
+    try {
+      // Validate data first
+      validateUserData(name, email);
+
+      // Call the existing update method
+      return await updateUserData(name.trim(), email.trim(), currentUserInfo);
+    } catch (e) {
+      throw Exception('Profile update failed: $e');
+    }
+  }
+
+  /// Add a vehicle to user's vehicle list
+  Future<void> addVehicleToUser(String userId, String vehicleId) async {
+    try {
+      final userInfo = await getUserById(userId);
+      if (userInfo != null) {
+        List<String> vehicleIds = List<String>.from(userInfo.vehicleIds);
+        if (!vehicleIds.contains(vehicleId)) {
+          vehicleIds.add(vehicleId);
+          final updatedUser = userInfo.copyWith(
+            vehicleIds: vehicleIds,
+            updatedAt: DateTime.now(),
+          );
+          await updateUser(updatedUser);
+        }
+      }
+    } catch (e) {
+      throw Exception('Failed to add vehicle to user: $e');
+    }
+  }
+
+  /// Remove a vehicle from user's vehicle list
+  Future<void> removeVehicleFromUser(String userId, String vehicleId) async {
+    try {
+      final userInfo = await getUserById(userId);
+      if (userInfo != null) {
+        List<String> vehicleIds = List<String>.from(userInfo.vehicleIds);
+        vehicleIds.remove(vehicleId);
+        final updatedUser = userInfo.copyWith(
+          vehicleIds: vehicleIds,
+          updatedAt: DateTime.now(),
+        );
+        await updateUser(updatedUser);
+      }
+    } catch (e) {
+      throw Exception('Failed to remove vehicle from user: $e');
+    }
+  }
+
+  /// Get user's vehicle IDs
+  Future<List<String>> getUserVehicleIds(String userId) async {
+    try {
+      final userInfo = await getUserById(userId);
+      return userInfo?.vehicleIds ?? [];
+    } catch (e) {
+      throw Exception('Failed to get user vehicles: $e');
+    }
+  }
+
+  /// Initialize user with empty vehicle list (for new registrations)
+  Future<userInformation> createUserWithEmptyVehicles(
+    String name,
+    String email,
+    String userId,
+  ) async {
+    try {
+      final newUserInfo = userInformation(
+        id: userId,
+        name: name,
+        emailAddress: email,
+        vehicleIds: [], // Initialize with empty vehicle list
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      await addUser(newUserInfo);
+      return newUserInfo;
+    } catch (e) {
+      throw Exception('Failed to create user: $e');
     }
   }
 }

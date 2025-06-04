@@ -1,14 +1,19 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../services/Auth/AuthService.dart';
 import '../../services/maps/mapsService.dart';
 import '../../services/device/deviceService.dart';
-import '../../widgets/mapWidget.dart';
+import '../../widgets/MapWidget.dart';
 import '../../widgets/stickyFooter.dart';
+import '../../widgets/motoricon.dart';
 import '../../widgets/tracker.dart';
 
 class GPSMapScreen extends StatefulWidget {
@@ -141,6 +146,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
           });
         }
       });
+
       setState(() {
         latitude = lat;
         longitude = lon;
@@ -151,8 +157,10 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
         isLoading = false;
       });
 
-      // MapWidget will automatically follow the GPS coordinates
-      // No need to manually move the map controller here
+      // Move map to new position if coordinates are valid
+      if (lat != null && lon != null) {
+        _mapController.move(LatLng(lat, lon), 15.0);
+      }
     } catch (e) {
       debugPrint('Error updating GPS data: $e');
     }
@@ -256,24 +264,41 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       body: Stack(
         children: [
-          // Use MapWidget with backend service integration and auto-follow enabled
+          // Use MapWidget with both backend service and direct Firebase support
           MapWidget(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: vehicleLocation,
+              initialZoom: 15.0,
+              minZoom: 3.0,
+              maxZoom: 18.0,
+            ),
             deviceId: currentDeviceId,
-            autoFollow: true, // Enable automatic following of GPS coordinates
-            followThreshold: 30.0, // Follow when device moves 30+ meters
-            mapController: _mapController, // Use existing map controller
-            initialCenter: vehicleLocation, // Start at vehicle location
             children: [
-              // OpenStreetMap tile layer
               TileLayer(
                 urlTemplate:
-                    'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-                subdomains: const ['a', 'b', 'c', 'd'],
+                    'https://tile-{s}.openstreetmap.fr/hot/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.gps_app',
-                maxZoom: 18,
+              ),
+              MarkerLayer(
+                markers: [
+                  // Vehicle marker - show based on recent activity
+                  if (latitude != null && longitude != null && isRecentlyActive)
+                    Marker(
+                      point: LatLng(latitude!, longitude!),
+                      width: 80,
+                      height: 80,
+                      child: GestureDetector(
+                        onTap: showVehiclePanel,
+                        child: VehicleMarkerIcon(isOn: isVehicleOn),
+                      ),
+                    ),
+                ],
               ),
             ],
           ),
