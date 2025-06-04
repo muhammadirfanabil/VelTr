@@ -39,7 +39,7 @@ class _ProfilePageState extends State<ProfilePage> {
         });
       }
     } catch (e) {
-      print('Error loading user data: $e');
+      debugPrint('Error loading user data: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -85,93 +85,93 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> _showEditProfileDialog() async {
-    final nameController = TextEditingController(text: _name);
-    final emailController = TextEditingController(text: _email);
-
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Edit Profile'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Name',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: emailController,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  try {
-                    final updatedUserInfo = await _userService
-                        .updateUserProfile(
-                          nameController.text,
-                          emailController.text,
-                          _userInfo,
-                        );
-
-                    if (mounted) {
-                      setState(() {
-                        _userInfo = updatedUserInfo;
-                        _name = updatedUserInfo.name;
-                        _email = updatedUserInfo.emailAddress;
-                      });
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Profile updated successfully!'),
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    print('Error updating user data: $e');
-                    if (mounted) {
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(SnackBar(content: Text('$e')));
-                    }
-                  }
-                },
-                child: const Text('Save'),
-              ),
-            ],
-          ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white30,
-        toolbarHeight: 60,
-        elevation: 1,
+        elevation: 0,
+        backgroundColor: colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
+        ),
+        title: Text(
+          'Profile',
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            onPressed:
+                () => Navigator.pushReplacementNamed(context, '/edit-profile'),
+            tooltip: 'Edit Profile',
+          ),
+        ],
+      ),
+      body:
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : RefreshIndicator(
+                onRefresh: _loadUserData,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildProfileHeader(colorScheme),
+                      const SizedBox(height: 24),
+                      _buildQuickActions(colorScheme),
+                      const SizedBox(height: 32),
+                      _buildLogoutSection(),
+                      const SizedBox(height: 24),
+                      _buildFooter(),
+                    ],
+                  ),
+                ),
+              ),
+    );
+  }
+
+  Widget _buildProfileHeader(ColorScheme colorScheme) {
+    return Card(
+      elevation: 0,
+      color: colorScheme.primaryContainer.withOpacity(0.3),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            CircleAvatar(
+              radius: 40,
+              backgroundColor: colorScheme.primary,
+              child: Text(
+                _name.isNotEmpty ? _name[0].toUpperCase() : '?',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onPrimary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _name,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            _buildInfoRow(Icons.email_outlined, _email),
+            const SizedBox(height: 4),
+            _buildInfoRow(Icons.phone_outlined, _phoneNumber),
+          ],
         ),
         title: const Text('Profile'),
         // actions: [
@@ -182,201 +182,139 @@ class _ProfilePageState extends State<ProfilePage> {
         //   ),
         // ],
       ),
-      body: SafeArea(
-        child:
-            _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : Column(
-                  children: [
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          children: [
-                            // info card
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: Colors.grey.shade300),
-                              ),
-                              child: Row(
-                                children: [
-                                  const CircleAvatar(
-                                    radius: 32,
-                                    backgroundColor: Colors.grey,
-                                    child: Icon(
-                                      Icons.person,
-                                      color: Colors.white,
-                                      size: 32,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        ShaderMask(
-                                          shaderCallback:
-                                              (bounds) => const LinearGradient(
-                                                colors: [
-                                                  Color(0xFF11468F),
-                                                  Color(0xFFDA1212),
-                                                ],
-                                                begin: Alignment.topLeft,
-                                                end: Alignment.bottomRight,
-                                              ).createShader(
-                                                Rect.fromLTWH(
-                                                  0,
-                                                  0,
-                                                  bounds.width,
-                                                  bounds.height,
-                                                ),
-                                              ),
-                                          child: Text(
-                                            _name,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 18,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(_email),
-                                        Text(_phoneNumber),
-                                        const SizedBox(height: 12),
-                                        Text(
-                                          _userInfo?.createdAt != null
-                                              ? 'Joined ${_userInfo!.createdAt.toLocal().toString().split(' ')[0]}'
-                                              : 'Joined recently',
-                                          style: const TextStyle(
-                                            color: Colors.black45,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  // ElevatedButton.icon(
-                                  //   onPressed: _showEditProfileDialog,
-                                  //   icon: const Icon(Icons.edit),
-                                  //   label: const Text('Edit Profile'),
-                                  //   style: ElevatedButton.styleFrom(
-                                  //     backgroundColor: const Color(0xFF11468F),
-                                  //     foregroundColor: Colors.white,
-                                  //     shape: RoundedRectangleBorder(
-                                  //       borderRadius: BorderRadius.circular(8),
-                                  //     ),
-                                  //   ),
-                                  // ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Column(
-                              children: [
-                                _buildFullWidthOutlinedButton(
-                                  context,
-                                  label: 'Track Your Vehicle',
-                                  routeName: '/home',
-                                  color: Colors.blue,
-                                ),
-                                _buildFullWidthOutlinedButton(
-                                  context,
-                                  label: 'Set Range',
-                                  routeName: '/set-range',
-                                  color: Colors.green,
-                                ),
-                                _buildFullWidthOutlinedButton(
-                                  context,
-                                  label: 'Driving History',
-                                  routeName: '/history',
-                                  color: Colors.orange,
-                                ),
-                                _buildFullWidthOutlinedButton(
-                                  context,
-                                  label: 'Manage Devices',
-                                  routeName: '/device',
-                                  color: Colors.orange,
-                                ),
-                                _buildFullWidthOutlinedButton(
-                                  context,
-                                  label: 'Manage Vehicle',
-                                  routeName: '/vehicle',
-                                  color: Colors.purple,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                ElevatedButton(
-                                  onPressed: () async {
-                                    await _auth.signOut();
-                                    if (mounted) {
-                                      Navigator.pushReplacementNamed(
-                                        context,
-                                        '/login',
-                                      );
-                                    }
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.black,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 40,
-                                      vertical: 12,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    'Log Out',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12.0),
-                      child: Text(
-                        '\u00a9 Poliban 2025',
-                        style: TextStyle(color: Colors.black54),
-                      ),
-                    ),
-                  ],
-                ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String text) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, size: 16, color: Colors.grey[600]),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            text,
+            style: TextStyle(color: Colors.grey[600], fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickActions(ColorScheme colorScheme) {
+    final actions = [
+      _ActionItem(
+        icon: Icons.map_outlined,
+        title: 'Track Vehicle',
+        subtitle: 'Monitor your vehicle location',
+        route: '/home',
+      ),
+      _ActionItem(
+        icon: Icons.directions_bike_outlined,
+        title: 'My Vehicle',
+        subtitle: 'Manage vehicle information',
+        route: '/vehicle',
+      ),
+      _ActionItem(
+        icon: Icons.radio_button_checked_outlined,
+        title: 'Set Range',
+        subtitle: 'Configure tracking range',
+        route: '/set-range',
+      ),
+      _ActionItem(
+        icon: Icons.history_outlined,
+        title: 'Driving History',
+        subtitle: 'View past journeys',
+        route: '/drive-history',
+      ),
+    ];
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'Quick Actions',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
+          ),
+          ...actions.map((action) => _buildActionTile(action, colorScheme)),
+        ],
       ),
     );
   }
 
-  Widget _buildFullWidthOutlinedButton(
-    BuildContext context, {
-    required String label,
-    required String routeName,
-    required Color color, // tambahin parameter warna
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: OutlinedButton(
-        onPressed: () => Navigator.pushNamed(context, routeName),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: color, // warna teks
-          side: BorderSide(color: color), // warna border
-          minimumSize: const Size.fromHeight(48),
-          alignment: Alignment.center,
+  Widget _buildActionTile(_ActionItem action, ColorScheme colorScheme) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: colorScheme.primaryContainer.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(8),
         ),
-        child: Text(label),
+        child: Icon(action.icon, color: colorScheme.primary, size: 20),
+      ),
+      title: Text(
+        action.title,
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+      subtitle: Text(action.subtitle),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => Navigator.pushNamed(context, action.route),
+    );
+  }
+
+  Widget _buildLogoutSection() {
+    return Card(
+      elevation: 0,
+      color: Colors.red.shade50,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.red.shade100,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(Icons.logout, color: Colors.red, size: 20),
+        ),
+        title: const Text(
+          'Logout',
+          style: TextStyle(fontWeight: FontWeight.w600, color: Colors.red),
+        ),
+        subtitle: const Text('Sign out of your account'),
+        onTap: _handleLogout,
       ),
     );
   }
+
+  Widget _buildFooter() {
+    return Center(
+      child: Text(
+        '© Poliban 2025',
+        style: TextStyle(color: Colors.grey[500], fontSize: 12),
+      ),
+    );
+  }
+}
+
+class _ActionItem {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String route;
+
+  const _ActionItem({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.route,
+  });
 }

@@ -3,13 +3,18 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:gps_app/screens/Auth/RegisterOne.dart';
 import 'package:gps_app/screens/Auth/GoogleSignupScreen.dart';
+import 'package:gps_app/screens/GeoFence/device_geofence.dart';
 import 'package:gps_app/screens/Users/Profile.dart';
+import 'package:gps_app/screens/users/edit_profile.dart';
+import 'package:gps_app/screens/vehicle/manage.dart';
 
 import 'firebase_options.dart';
 import 'screens/Auth/login.dart';
 import 'screens/Vehicle/index.dart';
 import 'screens/Device/index.dart';
 import 'screens/Maps/mapView.dart';
+import 'screens/GeoFence/index.dart';
+import 'screens/index.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,10 +34,34 @@ class MyApp extends StatelessWidget {
       routes: {
         '/registerone': (context) => const RegisterOne(),
         '/login': (context) => const LoginScreen(),
-        '/home': (context) => const GPSMapScreen(),
+        '/home': (context) {
+          final args =
+              ModalRoute.of(context)?.settings.arguments
+                  as Map<String, dynamic>?;
+          final deviceId = args?['deviceId'] as String? ?? 'default_device_id';
+          return GPSMapScreen(deviceId: deviceId);
+        },
         '/vehicle': (context) => const VehicleIndexScreen(),
         '/device': (context) => const DeviceIndexScreen(),
+        '/manage-vehicle': (context) => const ManageVehicle(),
+        '/geofence': (context) {
+          // Extract deviceId from route arguments
+          final args =
+              ModalRoute.of(context)?.settings.arguments
+                  as Map<String, dynamic>?;
+          final deviceId = args?['deviceId'] as String? ?? 'default_device_id';
+          return DeviceListScreen(deviceId: deviceId);
+        },
+        '/set-range': (context) {
+          // Extract deviceId from route arguments
+          final args =
+              ModalRoute.of(context)?.settings.arguments
+                  as Map<String, dynamic>?;
+          final deviceId = args?['deviceId'] as String? ?? 'default_device_id';
+          return DeviceListScreen(deviceId: deviceId);
+        },
         '/profile': (context) => const ProfilePage(),
+        '/edit-profile': (context) => const EditProfileScreen(),
         '/google-signup': (context) {
           // We'll pass the parameters when navigating to this route
           final args =
@@ -56,7 +85,7 @@ class MyApp extends StatelessWidget {
             return const LoginScreen();
           }
 
-          return const GPSMapScreen();
+          return const GPSMapScreen(deviceId: 'default_device_id');
         },
       ),
     );

@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:intl/intl.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../services/Auth/AuthService.dart';
 import '../../services/maps/mapsService.dart';
 import '../../services/device/deviceService.dart';
 import '../../widgets/mapWidget.dart';
+import '../../widgets/stickyFooter.dart';
+import '../../widgets/tracker.dart';
 
 class GPSMapScreen extends StatefulWidget {
-  const GPSMapScreen({super.key});
+  final String deviceId;
+
+  const GPSMapScreen({Key? key, required this.deviceId}) : super(key: key);
 
   @override
   State<GPSMapScreen> createState() => _GPSMapScreenState();
@@ -22,9 +29,16 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   String lastUpdated = '-';
   double? latitude;
   double? longitude;
-  String? locationName = 'Loading Location...';
+  String locationName = 'Loading Location...';
   bool isVehicleOn = false;
   bool isLoading = true;
+  final MapController _mapController = MapController();
+
+  LatLng get vehicleLocation =>
+      (latitude != null && longitude != null)
+          ? LatLng(latitude!, longitude!)
+          : LatLng(-6.200000, 106.816666);
+
   @override
   void initState() {
     super.initState();
@@ -37,11 +51,15 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     try {
       setState(() {
         isLoading = true;
-      });      // Use the enhanced bridge method to get validated MAC ID
+      });
+
+      // Use the enhanced bridge method to get validated MAC ID
       final macId = await _deviceService.getValidatedDeviceMacIdForMap();
 
       if (macId == null) {
-        throw Exception('No valid devices found or device not connected to GPS system');
+        throw Exception(
+          'No valid devices found or device not connected to GPS system',
+        );
       }
 
       // Get the device name for display using the MAC ID
@@ -60,7 +78,8 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       _setupRealtimeListeners();
       await _loadInitialData();
     } catch (e) {
-      debugPrint('Error initializing with user device: $e');      if (mounted) {
+      debugPrint('Error initializing with user device: $e');
+      if (mounted) {
         setState(() {
           isLoading = false;
         });
@@ -68,9 +87,11 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
         // Provide specific error messages for bridge connection issues
         String errorMessage = 'Failed to initialize device: $e';
         if (e.toString().contains('No valid devices found')) {
-          errorMessage = 'No GPS devices found or device not connected to GPS system. Please check your device setup.';
+          errorMessage =
+              'No GPS devices found or device not connected to GPS system. Please check your device setup.';
         } else if (e.toString().contains('not connected to GPS system')) {
-          errorMessage = 'Device found but not sending GPS data. Please check your physical GPS device connection.';
+          errorMessage =
+              'Device found but not sending GPS data. Please check your physical GPS device connection.';
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -120,7 +141,6 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
           });
         }
       });
-
       setState(() {
         latitude = lat;
         longitude = lon;
@@ -130,6 +150,9 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
             DateTime.now().toString();
         isLoading = false;
       });
+
+      // MapWidget will automatically follow the GPS coordinates
+      // No need to manually move the map controller here
     } catch (e) {
       debugPrint('Error updating GPS data: $e');
     }
@@ -163,6 +186,57 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     }
   }
 
+  bool get isRecentlyActive {
+    if (lastUpdated == '-' || lastUpdated == 'Unavailable') return false;
+
+    try {
+      final lastUpdate = DateFormat('yyyy-MM-dd HH:mm:ss').parse(lastUpdated);
+      final now = DateTime.now();
+      final difference = now.difference(lastUpdate);
+
+      // Consider active if updated within last 5 minutes
+      return difference.inMinutes <= 5;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  void toggleVehicleStatus() async {
+    if (_mapService == null) return;
+
+    try {
+      await _mapService!.toggleRelayStatus();
+      // Status will be updated automatically through the stream listener
+    } catch (e) {
+      debugPrint('Error toggling vehicle status: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to toggle vehicle: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void showVehiclePanel() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder:
+          (context) => VehicleStatusPanel(
+            locationName: locationName,
+            latitude: latitude,
+            longitude: longitude,
+            lastUpdated: lastUpdated,
+            isVehicleOn: isVehicleOn,
+            toggleVehicleStatus: toggleVehicleStatus,
+          ),
+    );
+  }
+
   Future<void> _refreshData() async {
     setState(() {
       isLoading = true;
@@ -182,13 +256,27 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       body: Stack(
         children: [
-          // Pass deviceId to MapWidget
-          MapWidget(deviceId: currentDeviceId),
+          // Use MapWidget with backend service integration and auto-follow enabled
+          MapWidget(
+            deviceId: currentDeviceId,
+            autoFollow: true, // Enable automatic following of GPS coordinates
+            followThreshold: 30.0, // Follow when device moves 30+ meters
+            mapController: _mapController, // Use existing map controller
+            initialCenter: vehicleLocation, // Start at vehicle location
+            children: [
+              // OpenStreetMap tile layer
+              TileLayer(
+                urlTemplate:
+                    'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+                subdomains: const ['a', 'b', 'c', 'd'],
+                userAgentPackageName: 'com.example.gps_app',
+                maxZoom: 18,
+              ),
+            ],
+          ),
 
           // Top navigation bar
           SafeArea(
@@ -329,197 +417,21 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
             ),
           ),
 
-          // Bottom information panel
+          // Bottom information panel - Use VehicleStatusPanel for consistency
           Align(
             alignment: Alignment.bottomCenter,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.95),
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(32),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 12,
-                    offset: const Offset(0, -4),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    locationName ?? 'Loading...',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 8),
-
-                  // GPS Coordinates
-                  if (latitude != null && longitude != null)
-                    Row(
-                      children: [
-                        Text(
-                          'Lat: ${latitude!.toStringAsFixed(5)}',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Lng: ${longitude!.toStringAsFixed(5)}',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ],
-                    )
-                  else
-                    Text(
-                      'GPS coordinates unavailable',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: Colors.black54,
-                      ),
-                    ),
-
-                  const SizedBox(height: 6),
-
-                  // Last updated info
-                  Text(
-                    lastUpdated != '-' && lastUpdated.isNotEmpty
-                        ? 'Last Active: $lastUpdated'
-                        : 'Waiting for GPS data...',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color:
-                          (latitude != null && longitude != null)
-                              ? Colors.green[600]
-                              : Colors.orange[600],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Action buttons
-                  Column(
-                    children: [
-                      // Navigation button
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed:
-                              (latitude != null && longitude != null)
-                                  ? () {
-                                    // TODO: Implement navigation functionality
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Navigation feature coming soon!',
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                  : null,
-                          style: ElevatedButton.styleFrom(
-                            minimumSize: const Size(double.infinity, 48),
-                            backgroundColor: const Color(
-                              0xFF7DAEFF,
-                            ).withOpacity(0.25),
-                            foregroundColor: const Color(0xFF11468F),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Transform.rotate(
-                                angle: 0.45,
-                                child: const Icon(Icons.navigation, size: 20),
-                              ),
-                              const SizedBox(width: 8),
-                              const Text('Navigate to Location'),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      // Vehicle control button
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed:
-                              _mapService == null
-                                  ? null
-                                  : () async {
-                                    try {
-                                      await _mapService!.toggleRelayStatus();
-                                      // Status will be updated automatically through the stream listener
-                                    } catch (e) {
-                                      debugPrint(
-                                        'Error toggling vehicle status: $e',
-                                      );
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'Failed to toggle vehicle: $e',
-                                            ),
-                                            backgroundColor: Colors.red,
-                                          ),
-                                        );
-                                      }
-                                    }
-                                  },
-                          style: ElevatedButton.styleFrom(
-                            minimumSize: const Size(double.infinity, 48),
-                            backgroundColor:
-                                isVehicleOn
-                                    ? Colors.green.shade600
-                                    : Colors.red.shade600,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                isVehicleOn
-                                    ? Icons.power_settings_new
-                                    : Icons.power_settings_new_outlined,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                isVehicleOn
-                                    ? 'Turn Off Vehicle'
-                                    : 'Turn On Vehicle',
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+            child: VehicleStatusPanel(
+              locationName: locationName,
+              latitude: latitude,
+              longitude: longitude,
+              lastUpdated: lastUpdated,
+              isVehicleOn: isVehicleOn,
+              toggleVehicleStatus: toggleVehicleStatus,
             ),
           ),
+
+          // Sticky footer
+          Align(alignment: Alignment.bottomCenter, child: StickyFooter()),
         ],
       ),
     );
