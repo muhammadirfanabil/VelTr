@@ -12,6 +12,7 @@ import 'screens/Auth/login.dart';
 import 'screens/Vehicle/index.dart';
 import 'screens/Maps/mapView.dart';
 import 'screens/GeoFence/geofence_list_screen.dart';
+import 'screens/notifications/notifications_screen.dart';
 import 'screens/index.dart';
 
 void main() async {
@@ -35,6 +36,7 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const GPSMapScreen(),
         '/vehicle': (context) => const VehicleIndexScreen(),
         '/geofence': (context) => const DeviceListScreen(),
+        '/notifications': (context) => const NotificationsScreen(),
         '/set-range': (context) => const DeviceListScreen(),
         '/profile': (context) => const ProfilePage(),
         '/google-signup': (context) {
