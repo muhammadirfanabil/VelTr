@@ -227,12 +227,20 @@ class _ManageVehicleState extends State<ManageVehicle> {
     String plateNumber,
   ) async {
     try {
-      await _vehicleService.updateVehicle(
-        id: id,
+      // Get the original vehicle first
+      final originalVehicle = await _vehicleService.getVehicleById(id);
+      if (originalVehicle == null) {
+        throw Exception('Vehicle not found');
+      }
+
+      // Create updated vehicle using copyWith
+      final updatedVehicle = originalVehicle.copyWith(
         name: name,
         vehicleTypes: vehicleTypes,
         plateNumber: plateNumber,
       );
+
+      await _vehicleService.updateVehicle(updatedVehicle);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('vehicle updated successfully')),

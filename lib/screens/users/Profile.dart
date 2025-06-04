@@ -173,7 +173,7 @@ class _ProfilePageState extends State<ProfilePage> {
             _buildInfoRow(Icons.phone_outlined, _phoneNumber),
           ],
         ),
-        title: const Text('Profile'),
+        // title: const Text('Profile'),
         // actions: [
         //   IconButton(
         //     icon: const Icon(Icons.refresh),
@@ -290,7 +290,7 @@ class _ProfilePageState extends State<ProfilePage> {
           style: TextStyle(fontWeight: FontWeight.w600, color: Colors.red),
         ),
         subtitle: const Text('Sign out of your account'),
-        onTap: _handleLogout,
+        // onTap: _handleLogout,
       ),
     );
   }
