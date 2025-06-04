@@ -87,7 +87,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Add New vehicle'),
+            title: const Text('Add New Vehicle'),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
