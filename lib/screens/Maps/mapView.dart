@@ -1,6 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -9,6 +13,7 @@ import '../../services/maps/mapsService.dart';
 import '../../services/device/deviceService.dart';
 import '../../widgets/mapWidget.dart';
 import '../../widgets/stickyFooter.dart';
+import '../../widgets/motoricon.dart';
 import '../../widgets/tracker.dart';
 
 class GPSMapScreen extends StatefulWidget {
@@ -141,6 +146,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
           });
         }
       });
+
       setState(() {
         latitude = lat;
         longitude = lon;
@@ -151,8 +157,10 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
         isLoading = false;
       });
 
-      // MapWidget will automatically follow the GPS coordinates
-      // No need to manually move the map controller here
+      // Move map to new position if coordinates are valid
+      if (lat != null && lon != null) {
+        _mapController.move(LatLng(lat, lon), 15.0);
+      }
     } catch (e) {
       debugPrint('Error updating GPS data: $e');
     }
@@ -256,87 +264,91 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       body: Stack(
         children: [
-          // Use MapWidget with backend service integration and auto-follow enabled
+          // Use MapWidget with both backend service and direct Firebase support
           MapWidget(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: vehicleLocation,
+              initialZoom: 15.0,
+              minZoom: 3.0,
+              maxZoom: 18.0,
+            ),
             deviceId: currentDeviceId,
-            autoFollow: true, // Enable automatic following of GPS coordinates
-            followThreshold: 30.0, // Follow when device moves 30+ meters
-            mapController: _mapController, // Use existing map controller
-            initialCenter: vehicleLocation, // Start at vehicle location
             children: [
-              // OpenStreetMap tile layer
+              // OSM Humanitarian tile layer
               TileLayer(
                 urlTemplate:
-                    'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-                subdomains: const ['a', 'b', 'c', 'd'],
+                    'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+                subdomains: const ['a', 'b', 'c'],
                 userAgentPackageName: 'com.example.gps_app',
                 maxZoom: 18,
+              ),
+              MarkerLayer(
+                markers: [
+                  // Vehicle marker - always show if we have coordinates
+                  Marker(
+                    point: vehicleLocation,
+                    width: 80,
+                    height: 80,
+                    child: GestureDetector(
+                      onTap: showVehiclePanel,
+                      child: VehicleMarkerIcon(isOn: isVehicleOn),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
 
-          // Top navigation bar
+          // Top floating controls - simplified without app bar
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.92),
-                  borderRadius: BorderRadius.circular(50),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        SvgPicture.asset(
-                          'assets/icons/appicon1.svg',
-                          height: 25,
-                        ),
-                        const SizedBox(width: 10),
-                        // Display current device name
-                        if (deviceName != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: Colors.blue.withOpacity(0.3),
-                                width: 1,
-                              ),
-                            ),
-                            child: Text(
-                              deviceName!,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.blue,
-                              ),
-                            ),
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Device info
+                  if (deviceName != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
                           ),
-                      ],
+                        ],
+                      ),
                     ),
-                    Row(
-                      children: [
-                        IconButton(
+
+                  // Action buttons
+                  Row(
+                    children: [
+                      // Refresh button
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: IconButton(
                           icon:
                               isLoading
                                   ? const SizedBox(
@@ -349,7 +361,22 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                                   : const Icon(Icons.refresh),
                           onPressed: isLoading ? null : _refreshData,
                         ),
-                        PopupMenuButton<String>(
+                      ),
+                      const SizedBox(width: 8),
+                      // User menu
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: PopupMenuButton<String>(
                           icon: const Icon(Icons.person, color: Colors.black),
                           offset: const Offset(0, 45),
                           shape: RoundedRectangleBorder(
@@ -409,24 +436,11 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                                 ),
                               ],
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ),
-          ),
-
-          // Bottom information panel - Use VehicleStatusPanel for consistency
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: VehicleStatusPanel(
-              locationName: locationName,
-              latitude: latitude,
-              longitude: longitude,
-              lastUpdated: lastUpdated,
-              isVehicleOn: isVehicleOn,
-              toggleVehicleStatus: toggleVehicleStatus,
             ),
           ),
 
@@ -437,3 +451,5 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     );
   }
 }
+
+// VehicleMarkerIcon widget from motoricon.dart is used

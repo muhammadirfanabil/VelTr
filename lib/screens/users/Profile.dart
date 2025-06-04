@@ -15,9 +15,10 @@ class _ProfilePageState extends State<ProfilePage> {
   final UserService _userService = UserService();
   bool _isLoading = true;
   userInformation? _userInfo;
-  String _name = 'Profile';
-  String _email = 'Profile';
-  String _phoneNumber = '-';
+  String _name = '';
+  String _email = '';
+  String _phoneNumber = '';
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -26,16 +27,24 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _loadUserData() async {
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
     try {
+      // Use the existing loadUserData method from UserService
       final userData = await _userService.loadUserData();
 
       if (mounted) {
         setState(() {
           _userInfo = userData['userInfo'];
-          _name = userData['name'];
-          _email = userData['email'];
-          _phoneNumber = userData['phoneNumber'];
-          _isLoading = userData['isLoading'];
+          _name = userData['name'] ?? 'No Name';
+          _email = userData['email'] ?? 'No Email';
+          _phoneNumber = userData['phoneNumber'] ?? 'No Phone';
+          _isLoading = userData['isLoading'] ?? false;
         });
       }
     } catch (e) {
@@ -43,44 +52,79 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) {
         setState(() {
           _isLoading = false;
+          _errorMessage = 'Failed to load profile data';
+          // Fallback to Firebase Auth data
+          final User? currentUser = _auth.currentUser;
+          if (currentUser != null) {
+            _name = currentUser.displayName ?? 'No Name';
+            _email = currentUser.email ?? 'No Email';
+            _phoneNumber = currentUser.phoneNumber ?? 'No Phone';
+          }
         });
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error loading profile: $e')));
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading profile: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
 
   Future<void> _refreshProfile() async {
-    setState(() {
-      _isLoading = true;
-    });
+    await _loadUserData();
 
+    if (mounted && _errorMessage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profile refreshed successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleLogout() async {
     try {
-      final userData = await _userService.refreshUserProfile();
+      // Show confirmation dialog
+      final bool? shouldLogout = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Confirm Logout'),
+            content: const Text('Are you sure you want to sign out?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('Logout'),
+              ),
+            ],
+          );
+        },
+      );
 
-      if (mounted) {
-        setState(() {
-          _userInfo = userData['userInfo'];
-          _name = userData['name'];
-          _email = userData['email'];
-          _phoneNumber = userData['phoneNumber'];
-          _isLoading = userData['isLoading'];
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile refreshed successfully!')),
-        );
+      if (shouldLogout == true) {
+        await _auth.signOut();
+        if (mounted) {
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil('/login', (route) => false);
+        }
       }
     } catch (e) {
-      print('Error refreshing profile: $e');
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error refreshing profile: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error during logout: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -108,6 +152,11 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _refreshProfile,
+            tooltip: 'Refresh Profile',
+          ),
+          IconButton(
             icon: const Icon(Icons.edit_outlined),
             onPressed:
                 () => Navigator.pushReplacementNamed(context, '/edit-profile'),
@@ -119,13 +168,35 @@ class _ProfilePageState extends State<ProfilePage> {
           _isLoading
               ? const Center(child: CircularProgressIndicator())
               : RefreshIndicator(
-                onRefresh: _loadUserData,
+                onRefresh: _refreshProfile,
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      if (_errorMessage != null)
+                        Card(
+                          color: Colors.red.shade50,
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Row(
+                              children: [
+                                Icon(Icons.warning, color: Colors.red.shade700),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _errorMessage!,
+                                    style: TextStyle(
+                                      color: Colors.red.shade700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      if (_errorMessage != null) const SizedBox(height: 16),
                       _buildProfileHeader(colorScheme),
                       const SizedBox(height: 24),
                       _buildQuickActions(colorScheme),
@@ -163,24 +234,22 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(height: 16),
             Text(
-              _name,
+              _name.isEmpty ? 'Loading...' : _name,
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            _buildInfoRow(Icons.email_outlined, _email),
+            _buildInfoRow(
+              Icons.email_outlined,
+              _email.isEmpty ? 'Loading...' : _email,
+            ),
             const SizedBox(height: 4),
-            _buildInfoRow(Icons.phone_outlined, _phoneNumber),
+            _buildInfoRow(
+              Icons.phone_outlined,
+              _phoneNumber.isEmpty ? 'Loading...' : _phoneNumber,
+            ),
           ],
         ),
-        // title: const Text('Profile'),
-        // actions: [
-        //   IconButton(
-        //     icon: const Icon(Icons.refresh),
-        //     onPressed: _refreshProfile,
-        //     tooltip: 'Refresh Profile',
-        //   ),
-        // ],
       ),
     );
   }
@@ -290,7 +359,7 @@ class _ProfilePageState extends State<ProfilePage> {
           style: TextStyle(fontWeight: FontWeight.w600, color: Colors.red),
         ),
         subtitle: const Text('Sign out of your account'),
-        // onTap: _handleLogout,
+        onTap: _handleLogout,
       ),
     );
   }
