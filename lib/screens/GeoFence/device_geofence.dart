@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_database/firebase_database.dart';
-import 'geofence_list_screen.dart'; // Pastikan GeofenceListScreen ada di sini
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'geofence_list_screen.dart';
 
 class DeviceListScreen extends StatefulWidget {
   const DeviceListScreen({super.key});
@@ -10,36 +11,47 @@ class DeviceListScreen extends StatefulWidget {
 }
 
 class _DeviceListScreenState extends State<DeviceListScreen> {
-  final DatabaseReference devicesRef = FirebaseDatabase.instance.ref('devices');
+  String? ownerId;
+
+  @override
+  void initState() {
+    super.initState();
+    // Ambil UID user yang sedang login
+    ownerId = FirebaseAuth.instance.currentUser?.uid;
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (ownerId == null) {
+      return const Scaffold(body: Center(child: Text('User not logged in')));
+    }
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Devices')),
-      body: StreamBuilder<DatabaseEvent>(
-        stream: devicesRef.onValue,
+      appBar: AppBar(title: const Text('My Devices')),
+      body: StreamBuilder<QuerySnapshot>(
+        stream:
+            FirebaseFirestore.instance
+                .collection('devices')
+                .where('ownerId', isEqualTo: ownerId)
+                .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return const Center(child: Text('Error loading devices'));
           }
-          if (!snapshot.hasData || snapshot.data!.snapshot.value == null) {
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return const Center(child: Text('No devices found'));
           }
 
-          final data = snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
-          final deviceEntries = data.entries.toList();
+          final devices = snapshot.data!.docs;
 
           return ListView.builder(
-            itemCount: deviceEntries.length,
+            itemCount: devices.length,
             itemBuilder: (context, index) {
-              final deviceKey = deviceEntries[index].key;
-              final deviceData =
-                  deviceEntries[index].value as Map<dynamic, dynamic>;
-
-              // Ambil nama device, kalau kosong pakai deviceKey
-              final deviceName = (deviceData['name'] ?? '').toString().trim();
-              final displayName =
-                  deviceName.isEmpty ? deviceKey.toString() : deviceName;
+              final doc = devices[index];
+              final deviceId = doc.id;
+              final data = doc.data() as Map<String, dynamic>;
+              final name = (data['name'] ?? '').toString().trim();
+              final displayName = name.isEmpty ? deviceId : name;
 
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -49,16 +61,13 @@ class _DeviceListScreenState extends State<DeviceListScreen> {
                     displayName,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  subtitle: Text('ID: $deviceKey'),
+                  subtitle: Text('ID: $deviceId'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder:
-                            (_) => GeofenceListScreen(
-                              deviceId: deviceKey.toString(),
-                            ),
+                        builder: (_) => GeofenceListScreen(deviceId: deviceId),
                       ),
                     );
                   },
