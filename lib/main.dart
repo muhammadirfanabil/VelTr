@@ -4,12 +4,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:gps_app/screens/Auth/RegisterOne.dart';
 import 'package:gps_app/screens/Auth/GoogleSignupScreen.dart';
 import 'package:gps_app/screens/GeoFence/device_geofence.dart';
-import 'package:gps_app/screens/GeoFence/index.dart';
+// import 'package:gps_app/screens/GeoFence/index.dart';
 import 'package:gps_app/screens/Index.dart';
 import 'package:gps_app/screens/Users/Profile.dart';
 import 'package:gps_app/screens/device/index.dart';
 import 'package:gps_app/screens/users/edit_profile.dart';
 import 'package:gps_app/screens/vehicle/manage.dart';
+import 'package:gps_app/screens/vehicle/history.dart';
 
 import 'firebase_options.dart';
 import 'screens/Auth/login.dart';
@@ -50,6 +51,7 @@ class MyApp extends StatelessWidget {
         '/vehicle': (context) => const VehicleIndexScreen(),
         '/manage-vehicle': (context) => const ManageVehicle(),
         '/geofence': (context) => const DeviceManagerScreen(),
+        '/drive-history': (context) => const DrivingHistory(),
         // '/geofence': (context) => const GeofenceListScreen(),
         // '/geofence': (context) {
         //   // Extract deviceId from route arguments
@@ -67,6 +69,8 @@ class MyApp extends StatelessWidget {
           final deviceId = args?['deviceId'] as String? ?? 'default_device_id';
           return DeviceListScreen(deviceId: deviceId);
         },
+
+        // Profile
         '/profile': (context) => const ProfilePage(),
         '/edit-profile': (context) => const EditProfileScreen(),
         '/google-signup': (context) {
