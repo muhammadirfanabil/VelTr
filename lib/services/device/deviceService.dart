@@ -32,6 +32,14 @@ class DeviceService {
         );
   }
 
+  Stream<Device> getDeviceStream(String deviceId) {
+    return _firestore
+        .collection('devices')
+        .doc(deviceId)
+        .snapshots()
+        .map((doc) => Device.fromMap(doc.data()!, doc.id));
+  }
+
   /// Adds a new device for the current user
   Future<Device> addDevice({
     required String name,
@@ -221,6 +229,7 @@ class DeviceService {
 
     await batch.commit();
   }
+
   /// Get the current user's primary device ID for map tracking
   /// Returns the device ID (MAC ID) that corresponds to the physical GPS device
   /// Priority: Active device with valid GPS data > Any active device > Any device
@@ -271,6 +280,7 @@ class DeviceService {
       throw Exception('Failed to get primary device: $e');
     }
   }
+
   /// Get device name by device ID for display purposes
   /// The device ID should be the MAC ID of the physical GPS device
   Future<String?> getDeviceNameById(String deviceId) async {
@@ -291,15 +301,19 @@ class DeviceService {
     }
 
     try {
-      final snapshot = await _firestore
-          .collection('devices')
-          .where('ownerId', isEqualTo: currentUser.uid)
-          .where('name', isEqualTo: macId)
-          .limit(1)
-          .get();
+      final snapshot =
+          await _firestore
+              .collection('devices')
+              .where('ownerId', isEqualTo: currentUser.uid)
+              .where('name', isEqualTo: macId)
+              .limit(1)
+              .get();
 
       if (snapshot.docs.isNotEmpty) {
-        return Device.fromMap(snapshot.docs.first.data(), snapshot.docs.first.id);
+        return Device.fromMap(
+          snapshot.docs.first.data(),
+          snapshot.docs.first.id,
+        );
       }
       return null;
     } catch (e) {
@@ -307,6 +321,7 @@ class DeviceService {
       return null;
     }
   }
+
   /// Get physical device MAC ID from user's device record
   /// This is the bridge method that ensures we get the correct MAC ID for FRDB access
   /// The device name in Firestore should match the MAC ID used in Firebase Realtime Database
@@ -316,10 +331,14 @@ class DeviceService {
       if (device != null && device.ownerId == _auth.currentUser?.uid) {
         // The device.name should be the MAC ID (e.g., "B0A7322B2EC4")
         // This creates the bridge between Firestore device records and FRDB GPS data
-        debugPrint('Bridge: Found device ${device.name} for user device ID: $userDeviceId');
+        debugPrint(
+          'Bridge: Found device ${device.name} for user device ID: $userDeviceId',
+        );
         return device.name; // Return device name as MAC ID
       }
-      debugPrint('Bridge: Device not found or unauthorized access for ID: $userDeviceId');
+      debugPrint(
+        'Bridge: Device not found or unauthorized access for ID: $userDeviceId',
+      );
       return null;
     } catch (e) {
       debugPrint('Error getting physical device MAC ID: $e');
@@ -342,6 +361,7 @@ class DeviceService {
       return false;
     }
   }
+
   /// Complete bridge method: Get validated MAC ID for map service
   /// 1. Gets user's primary device from Firestore
   /// 2. Extracts MAC ID from device name
@@ -366,12 +386,18 @@ class DeviceService {
       // Step 3: Validate MAC ID exists in Firebase Realtime Database
       final isValidInFRDB = await validateDeviceInRealtimeDB(macId);
       if (!isValidInFRDB) {
-        debugPrint('Bridge: MAC ID $macId not found in Firebase Realtime Database');
-        debugPrint('Bridge: Make sure your physical GPS device is sending data to devices/$macId/gps');
+        debugPrint(
+          'Bridge: MAC ID $macId not found in Firebase Realtime Database',
+        );
+        debugPrint(
+          'Bridge: Make sure your physical GPS device is sending data to devices/$macId/gps',
+        );
         return null;
       }
 
-      debugPrint('Bridge: Successfully validated MAC ID $macId for map service');
+      debugPrint(
+        'Bridge: Successfully validated MAC ID $macId for map service',
+      );
       return macId;
     } catch (e) {
       debugPrint('Error in bridge validation: $e');
@@ -383,10 +409,10 @@ class DeviceService {
   Stream<String?> getValidatedDeviceMacIdStream() {
     return getCurrentUserPrimaryDeviceIdStream().asyncMap((deviceId) async {
       if (deviceId == null) return null;
-      
+
       final macId = await getPhysicalDeviceMacId(deviceId);
       if (macId == null) return null;
-      
+
       final isValid = await validateDeviceInRealtimeDB(macId);
       return isValid ? macId : null;
     });

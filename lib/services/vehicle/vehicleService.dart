@@ -54,6 +54,9 @@ class vehicleService {
       updatedAt: DateTime.now(),
     );
 
+    final data = newVehicle.toMap();
+    print('Saving vehicle with data: $data');
+
     await docRef.set(newVehicle.toMap());
     return newVehicle;
   }

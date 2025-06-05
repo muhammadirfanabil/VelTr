@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // Add this import
 import '../../models/User/userInformation.dart';
 import '../../services/User/UserService.dart';
 
@@ -23,10 +24,11 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    _loadUserDataDirect(); // Use direct loading instead
   }
 
-  Future<void> _loadUserData() async {
+  // Add direct Firestore loading like EditProfileScreen
+  Future<void> _loadUserDataDirect() async {
     if (!mounted) return;
 
     setState(() {
@@ -35,17 +37,50 @@ class _ProfilePageState extends State<ProfilePage> {
     });
 
     try {
-      // Use the existing loadUserData method from UserService
-      final userData = await _userService.loadUserData();
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('No authenticated user found');
+      }
 
-      if (mounted) {
-        setState(() {
-          _userInfo = userData['userInfo'];
-          _name = userData['name'] ?? 'No Name';
-          _email = userData['email'] ?? 'No Email';
-          _phoneNumber = userData['phoneNumber'] ?? 'No Phone';
-          _isLoading = userData['isLoading'] ?? false;
-        });
+      // Direct Firestore query (same as EditProfileScreen)
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('users_information')
+              .doc(user.uid)
+              .get();
+
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+
+        if (mounted) {
+          setState(() {
+            // Use same field names as EditProfileScreen
+            _name = (data['name'] ?? '').toString().trim();
+            _email = (data['emailAddress'] ?? '').toString().trim();
+            _phoneNumber =
+                (data['phone_number'] ?? data['phoneNumber'] ?? '')
+                    .toString()
+                    .trim();
+
+            // Handle empty values
+            if (_name.isEmpty) _name = user.displayName ?? 'No Name';
+            if (_email.isEmpty) _email = user.email ?? 'No Email';
+            if (_phoneNumber.isEmpty)
+              _phoneNumber = user.phoneNumber ?? 'No Phone';
+
+            _isLoading = false;
+          });
+        }
+      } else {
+        // Fallback to Firebase Auth data (same as EditProfileScreen)
+        if (mounted) {
+          setState(() {
+            _name = user.displayName ?? 'No Name';
+            _email = user.email ?? 'No Email';
+            _phoneNumber = user.phoneNumber ?? 'No Phone';
+            _isLoading = false;
+          });
+        }
       }
     } catch (e) {
       debugPrint('Error loading user data: $e');
@@ -53,6 +88,7 @@ class _ProfilePageState extends State<ProfilePage> {
         setState(() {
           _isLoading = false;
           _errorMessage = 'Failed to load profile data';
+
           // Fallback to Firebase Auth data
           final User? currentUser = _auth.currentUser;
           if (currentUser != null) {
@@ -62,27 +98,64 @@ class _ProfilePageState extends State<ProfilePage> {
           }
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading profile: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showError('Error loading profile: ${e.toString()}');
       }
     }
   }
 
+  // Keep original method as fallback
+  Future<void> _loadUserData() async {
+    try {
+      // Try UserService first
+      final userData = await _userService.loadUserData();
+
+      if (mounted) {
+        setState(() {
+          _userInfo = userData['userInfo'];
+          _name = userData['name'] ?? 'No Name';
+          _email = userData['email'] ?? 'No Email';
+          _phoneNumber =
+              userData['phoneNumber'] ?? userData['phone_number'] ?? 'No Phone';
+          _isLoading = userData['isLoading'] ?? false;
+        });
+      }
+    } catch (e) {
+      // Fallback to direct loading
+      debugPrint('UserService failed, using direct load: $e');
+      await _loadUserDataDirect();
+    }
+  }
+
   Future<void> _refreshProfile() async {
-    await _loadUserData();
+    await _loadUserDataDirect(); // Use direct loading
 
     if (mounted && _errorMessage == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profile refreshed successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      _showSuccess('Profile refreshed successfully!');
     }
+  }
+
+  // Add error/success helpers like EditProfileScreen
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _showSuccess(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   Future<void> _handleLogout() async {
@@ -118,14 +191,7 @@ class _ProfilePageState extends State<ProfilePage> {
         }
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error during logout: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      _showError('Error during logout: ${e.toString()}');
     }
   }
 
@@ -224,7 +290,9 @@ class _ProfilePageState extends State<ProfilePage> {
               radius: 40,
               backgroundColor: colorScheme.primary,
               child: Text(
-                _name.isNotEmpty ? _name[0].toUpperCase() : '?',
+                _name.isNotEmpty && _name != 'No Name'
+                    ? _name[0].toUpperCase()
+                    : '?',
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
@@ -234,20 +302,14 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(height: 16),
             Text(
-              _name.isEmpty ? 'Loading...' : _name,
+              _name,
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            _buildInfoRow(
-              Icons.email_outlined,
-              _email.isEmpty ? 'Loading...' : _email,
-            ),
+            _buildInfoRow(Icons.email_outlined, _email),
             const SizedBox(height: 4),
-            _buildInfoRow(
-              Icons.phone_outlined,
-              _phoneNumber.isEmpty ? 'Loading...' : _phoneNumber,
-            ),
+            _buildInfoRow(Icons.phone_outlined, _phoneNumber),
           ],
         ),
       ),

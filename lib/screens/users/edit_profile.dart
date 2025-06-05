@@ -43,6 +43,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   void _checkForChanges() {
+    // Only check for changes if we have loaded the original data
+    if (_originalName == null &&
+        _originalEmail == null &&
+        _originalPhone == null) {
+      return;
+    }
+
     final hasChanges =
         _nameController.text.trim() != (_originalName ?? '') ||
         _emailController.text.trim() != (_originalEmail ?? '') ||
@@ -79,7 +86,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _setUserData(
           data['name'] ?? '',
           data['emailAddress'] ?? '',
-          data['phone_number'] ?? '',
+          data['phoneNumber'] ??
+              data['phone_number'] ??
+              '', // Check both field names
         );
       } else {
         // Fallback to Firebase Auth data
@@ -107,7 +116,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _emailController.text = email;
     _phoneController.text = phone;
 
-    _hasChanges = false;
+    // Reset hasChanges and trigger a check
+    setState(() {
+      _hasChanges = false;
+    });
+
+    // Schedule a change check for the next frame to ensure UI updates
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForChanges();
+    });
   }
 
   Future<void> _saveProfile() async {
@@ -128,10 +145,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final userData = {
         'name': _nameController.text.trim(),
         'emailAddress': _emailController.text.trim(),
-        'phone_number':
+        'phoneNumber':
             _phoneController.text.trim().isEmpty
                 ? null
                 : _phoneController.text.trim(),
+        'phone_number':
+            _phoneController.text.trim().isEmpty
+                ? null
+                : _phoneController.text.trim(), // Keep both for compatibility
         'updated_at': FieldValue.serverTimestamp(),
       };
 
@@ -160,10 +181,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       _showSuccess('Profile updated successfully!');
 
-      // Navigate back after a short delay
+      // Navigate back to profile page after a short delay
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted) {
-          Navigator.of(context).pop();
+          Navigator.of(context).pushReplacementNamed('/profile');
         }
       });
     } catch (e) {
@@ -267,17 +288,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ),
       centerTitle: true,
       actions: [
-        TextButton(
-          onPressed: (_isLoading || !_hasChanges) ? null : _saveProfile,
-          child: Text(
-            'Save',
-            style: TextStyle(
-              color:
-                  (_isLoading || !_hasChanges)
-                      ? Colors.grey
-                      : theme.colorScheme.primary,
-              fontWeight: FontWeight.w600,
-              fontSize: 16,
+        Padding(
+          padding: const EdgeInsets.only(right: 8.0),
+          child: TextButton(
+            onPressed: _isLoading ? null : _saveProfile,
+            child: Text(
+              'Save',
+              style: TextStyle(
+                color: _isLoading ? Colors.grey : theme.colorScheme.primary,
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+              ),
             ),
           ),
         ),
@@ -429,7 +450,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         width: double.infinity,
         height: 50,
         child: ElevatedButton(
-          onPressed: (_isLoading || !_hasChanges) ? null : _saveProfile,
+          onPressed: _isLoading ? null : _saveProfile,
           style: ElevatedButton.styleFrom(
             backgroundColor: theme.colorScheme.primary,
             foregroundColor: theme.colorScheme.onPrimary,
