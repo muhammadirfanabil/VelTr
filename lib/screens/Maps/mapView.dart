@@ -1,16 +1,22 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_database/firebase_database.dart';
-import 'package:flutter_svg/svg.dart';
-import 'package:intl/intl.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-import '../../services/Auth/AuthService.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+
 import '../../widgets/MapWidget.dart';
 import '../../widgets/stickyFooter.dart';
+import '../../widgets/motoricon.dart';
+import '../../widgets/tracker.dart';
 
 class GPSMapScreen extends StatefulWidget {
-  const GPSMapScreen({super.key});
+  final String deviceId;
+
+  const GPSMapScreen({Key? key, required this.deviceId}) : super(key: key);
 
   @override
   State<GPSMapScreen> createState() => _GPSMapScreenState();
@@ -18,42 +24,24 @@ class GPSMapScreen extends StatefulWidget {
 
 class _GPSMapScreenState extends State<GPSMapScreen> {
   String lastUpdated = '-';
+  int? satellites;
   double? latitude;
   double? longitude;
-  String? locationName = 'Loading Location...';
-  bool isVehicleOn = false; // Menyimpan status kendaraan
-  int? satellites; // Menyimpan jumlah satellites
+  String locationName = 'Loading Location...';
+  String? waktuWita;
+  bool isVehicleOn = false;
+  final MapController _mapController = MapController();
+
+  LatLng get vehicleLocation =>
+      (latitude != null && longitude != null)
+          ? LatLng(latitude!, longitude!)
+          : LatLng(-6.200000, 106.816666);
 
   @override
   void initState() {
     super.initState();
     fetchLastLocation();
     fetchVehicleStatus();
-    fetchRelayStatus();
-  }
-
-  Future<bool> pingESP32(String ip) async {
-    try {
-      final response = await http
-          .get(Uri.parse('http://$ip/ping'))
-          .timeout(
-            const Duration(seconds: 3),
-            onTimeout: () => http.Response('Timeout', 408),
-          );
-
-      if (response.statusCode == 200) {
-        debugPrint("ESP32 responded: ${response.body}");
-        return true;
-      } else {
-        debugPrint(
-          "ESP32 not responding properly. Status: ${response.statusCode}",
-        );
-        return false;
-      }
-    } catch (e) {
-      debugPrint("Error pinging ESP32: $e");
-      return false;
-    }
   }
 
   Future<void> fetchLocationName(double lat, double lon) async {
@@ -64,9 +52,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     try {
       final response = await http.get(
         url,
-        headers: {
-          'User-Agent': 'FlutterApp', // User-Agent wajib diisi
-        },
+        headers: {'User-Agent': 'FlutterApp'},
       );
 
       if (response.statusCode == 200) {
@@ -87,287 +73,205 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   }
 
   void fetchLastLocation() {
-    final ref = FirebaseDatabase.instance.ref('GPS');
-    ref.onValue.listen((event) {
-      final data = Map<String, dynamic>.from(event.snapshot.value as Map);
+    final ref = FirebaseDatabase.instance.ref('devices/${widget.deviceId}/gps');
 
-      setState(() {
-        latitude = double.tryParse(data['latitude'].toString());
-        longitude = double.tryParse(data['longitude'].toString());
+    ref
+        .once()
+        .then((DatabaseEvent event) {
+          if (event.snapshot.exists) {
+            final data = Map<String, dynamic>.from(event.snapshot.value as Map);
 
-        // Ambil data satellites jika ada
-        if (data.containsKey('satellites')) {
-          satellites = int.tryParse(data['satellites'].toString());
-        } else {
-          satellites = null;
-        }
+            final lat = double.tryParse(data['latitude'].toString());
+            final lon = double.tryParse(data['longitude'].toString());
+            final tanggal = data['tanggal'];
+            final waktu = data['waktu_wita'];
+            final sat =
+                data['satellites'] != null
+                    ? int.tryParse(data['satellites'].toString())
+                    : null;
 
-        if (latitude != null && longitude != null) {
-          fetchLocationName(
-            latitude!,
-            longitude!,
-          ); // Pemanggilan API untuk mendapatkan nama lokasi
-        }
+            String? timestamp;
+            if (tanggal != null && waktu != null) {
+              timestamp = '$tanggal $waktu';
+            }
 
-        final waktuWita = data['waktu_wita'];
-        if (waktuWita != null) {
-          try {
-            final dt = DateFormat(
-              'yyyy-MM-dd HH:mm:ss',
-            ).parse(waktuWita.toString());
-            lastUpdated = DateFormat('yyyy-MM-dd HH:mm:ss').format(dt);
-          } catch (e) {
-            lastUpdated = 'Invalid WITA format';
+            debugPrint('DEBUG: Parsed coordinates - lat: $lat, lon: $lon');
+
+            setState(() {
+              latitude = lat;
+              longitude = lon;
+              waktuWita = waktu;
+              satellites = sat;
+
+              if (lat != null && lon != null) {
+                fetchLocationName(lat, lon);
+                _mapController.move(LatLng(lat, lon), 15.0);
+                debugPrint('DEBUG: Map moved to: $lat, $lon');
+              } else {
+                debugPrint('DEBUG: Coordinates are null, marker will not show');
+              }
+
+              if (timestamp != null) {
+                final dt = DateFormat('yyyy-MM-dd HH:mm:ss').parse(timestamp);
+                lastUpdated = DateFormat('yyyy-MM-dd HH:mm:ss').format(dt);
+              } else {
+                lastUpdated = 'Unavailable';
+              }
+            });
+          } else {
+            debugPrint(
+              'DEBUG: No data found at path: devices/${widget.deviceId}/gps',
+            );
           }
-        } else {
-          lastUpdated = 'Unavailable';
-        }
-      });
+        })
+        .catchError((error) {
+          debugPrint('DEBUG: Firebase error: $error');
+        });
+
+    // Fixed: Add null check for real-time updates
+    ref.onValue.listen((event) {
+      if (event.snapshot.exists && event.snapshot.value != null) {
+        final data = Map<String, dynamic>.from(event.snapshot.value as Map);
+
+        final lat = double.tryParse(data['latitude'].toString());
+        final lon = double.tryParse(data['longitude'].toString());
+        final tanggal = data['tanggal'];
+        final waktu = data['waktu_wita'];
+        final sat =
+            data['satellites'] != null
+                ? int.tryParse(data['satellites'].toString())
+                : null;
+
+        setState(() {
+          latitude = lat;
+          longitude = lon;
+          waktuWita = waktu;
+          satellites = sat;
+
+          if (lat != null && lon != null) {
+            fetchLocationName(lat, lon);
+            _mapController.move(LatLng(lat, lon), 15.0);
+          }
+
+          if (tanggal != null && waktu != null) {
+            final timestamp = '$tanggal $waktu';
+            try {
+              final dt = DateFormat('yyyy-MM-dd HH:mm:ss').parse(timestamp);
+              lastUpdated = DateFormat('yyyy-MM-dd HH:mm:ss').format(dt);
+            } catch (_) {
+              lastUpdated = 'Unavailable';
+            }
+          } else {
+            lastUpdated = 'Unavailable';
+          }
+        });
+      }
     });
   }
 
   void fetchVehicleStatus() {
-    final ref = FirebaseDatabase.instance.ref('GPS/status_kendaraan');
+    // Fixed: Use correct Firebase path for isActive
+    final ref = FirebaseDatabase.instance.ref(
+      'devices/${widget.deviceId}/relay',
+    );
     ref.onValue.listen((event) {
       final data = event.snapshot.value;
       setState(() {
-        isVehicleOn = data == true; // Asumsikan status kendaraan adalah boolean
+        isVehicleOn = data == true;
       });
     });
   }
 
-  void toggleVehicleStatus() {
-    final ref = FirebaseDatabase.instance.ref('GPS/status_kendaraan');
-    final relayRef = FirebaseDatabase.instance.ref('GPS/relay');
+  bool get isRecentlyActive {
+    if (lastUpdated == '-' || lastUpdated == 'Unavailable') return false;
 
-    // Toggle status kendaraan dan relay
-    ref.set(!isVehicleOn); // Toggle status kendaraan
-    relayRef.set(isVehicleOn ? true : false); // Kirimkan status relay
+    try {
+      final lastUpdate = DateFormat('yyyy-MM-dd HH:mm:ss').parse(lastUpdated);
+      final now = DateTime.now();
+      final difference = now.difference(lastUpdate);
+
+      // Consider active if updated within last 5 minutes
+      return difference.inMinutes <= 5;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  void toggleVehicleStatus() {
+    // Fixed: Use correct Firebase path - only need to update isActive
+    final relayRef = FirebaseDatabase.instance.ref(
+      'devices/${widget.deviceId}/relay',
+    );
+
+    final newStatus = !isVehicleOn;
+
+    relayRef.set(newStatus);
 
     setState(() {
-      isVehicleOn = !isVehicleOn; // Update status lokal
+      isVehicleOn = newStatus;
     });
   }
 
-  void fetchRelayStatus() {
-    final ref = FirebaseDatabase.instance.ref('GPS/relay');
-    ref.onValue.listen((event) {
-      final data = event.snapshot.value;
-      setState(() {});
-    });
+  void showVehiclePanel() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder:
+          (context) => VehicleStatusPanel(
+            locationName: locationName,
+            latitude: latitude,
+            longitude: longitude,
+            waktuWita: waktuWita,
+            lastUpdated: lastUpdated,
+            isVehicleOn: isVehicleOn,
+            toggleVehicleStatus: toggleVehicleStatus,
+            satellites: satellites,
+          ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       body: Stack(
         children: [
-          const MapWidget(), // Menampilkan Peta
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.92),
-                  borderRadius: BorderRadius.circular(50),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        SvgPicture.asset(
-                          'assets/icons/appicon1.svg',
-                          height: 25,
-                        ),
-                        const SizedBox(width: 10),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(
-                            Icons.notifications,
-                            color: Colors.black,
-                          ),
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/notification');
-                          },
-                        ),
-
-                        IconButton(
-                          icon: const Icon(Icons.person, color: Colors.black),
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/profile');
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+          MapWidget(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: const LatLng(
+                -2.2180,
+                113.9220,
+              ), // Default center, will be updated by GPS
+              initialZoom: 15.0,
+              minZoom: 3.0,
+              maxZoom: 18.0,
             ),
+            deviceId: widget.deviceId, // Pass deviceId to MapWidget
+            children: [
+              TileLayer(
+                urlTemplate:
+                    'https://tile-{s}.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.example.gps_app',
+              ),
+              MarkerLayer(
+                markers: [
+                  // Vehicle marker - show based on recent activity
+                  if (latitude != null && longitude != null)
+                    Marker(
+                      point: LatLng(latitude!, longitude!),
+                      width: 80,
+                      height: 80,
+                      child: GestureDetector(
+                        onTap: showVehiclePanel,
+                        child: VehicleMarkerIcon(isOn: isRecentlyActive),
+                      ),
+                    ),
+                ],
+              ),
+            ],
           ),
-
-          StickyFooter(),
-
-          // Align(
-          //   alignment: Alignment.bottomCenter,
-          //   child: AnimatedContainer(
-          //     duration: const Duration(milliseconds: 300),
-          //     curve: Curves.easeOut,
-          //     padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
-          //     decoration: BoxDecoration(
-          //       color: Colors.white.withOpacity(0.95),
-          //       borderRadius: const BorderRadius.vertical(
-          //         top: Radius.circular(32),
-          //       ),
-          //       boxShadow: [
-          //         BoxShadow(
-          //           color: Colors.black.withOpacity(0.1),
-          //           blurRadius: 12,
-          //           offset: const Offset(0, -4),
-          //         ),
-          //       ],
-          //     ),
-          //     child: Column(
-          //       crossAxisAlignment: CrossAxisAlignment.start,
-          //       mainAxisSize: MainAxisSize.min,
-          //       children: [
-          //         Text(
-          //           locationName ?? 'Loading...',
-          //           style: theme.textTheme.titleMedium?.copyWith(
-          //             fontWeight: FontWeight.bold,
-          //             color: Colors.black87,
-          //           ),
-          //         ),
-          //         const SizedBox(height: 8),
-          //         Row(
-          //           children: [
-          //             (latitude != null && longitude != null)
-          //                 ? Row(
-          //                   mainAxisAlignment: MainAxisAlignment.center,
-          //                   children: [
-          //                     Text(
-          //                       'Lat: ${latitude!.toStringAsFixed(5)}',
-          //                       style: theme.textTheme.bodyMedium?.copyWith(
-          //                         color: Colors.black87,
-          //                       ),
-          //                     ),
-          //                     const SizedBox(width: 12),
-          //                     Text(
-          //                       'Lng: ${longitude!.toStringAsFixed(5)}',
-          //                       style: theme.textTheme.bodyMedium?.copyWith(
-          //                         color: Colors.black87,
-          //                       ),
-          //                     ),
-          //                   ],
-          //                 )
-          //                 : Text(
-          //                   'Unavailable',
-          //                   style: theme.textTheme.bodyMedium?.copyWith(
-          //                     color: Colors.black87,
-          //                   ),
-          //                 ),
-          //           ],
-          //         ),
-          //         const SizedBox(height: 6),
-          //         Text(
-          //           lastUpdated != true
-          //               ? 'Last Active: $lastUpdated'
-          //               : 'Waiting...',
-          //           style: theme.textTheme.bodySmall?.copyWith(
-          //             color: Colors.green[300],
-          //           ),
-          //         ),
-          //         const SizedBox(height: 20),
-          //         SingleChildScrollView(
-          //           child: Padding(
-          //             padding: const EdgeInsets.all(16.0),
-          //             child: Wrap(
-          //               spacing: 50,
-          //               runSpacing: 10,
-          //               alignment: WrapAlignment.start,
-          //               children: [
-          //                 ElevatedButton(
-          //                   onPressed:
-          //                       (latitude != null && longitude != null)
-          //                           ? () {}
-          //                           : null,
-          //                   style: ElevatedButton.styleFrom(
-          //                     minimumSize: const Size(5, 45),
-          //                     backgroundColor: const Color(
-          //                       0xFF7DAEFF,
-          //                     ).withOpacity(0.25),
-          //                     foregroundColor: const Color(0xFF11468F),
-          //                     elevation: 0,
-          //                     shape: RoundedRectangleBorder(
-          //                       borderRadius: BorderRadius.circular(12),
-          //                     ),
-          //                   ),
-          //                   child: Row(
-          //                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          //                     children: [
-          //                       Transform.rotate(
-          //                         angle: 0.45,
-          //                         child: const Icon(Icons.navigation, size: 25),
-          //                       ),
-          //                       const Text('Navigate the Distance From You'),
-          //                     ],
-          //                   ),
-          //                 ),
-          //                 ElevatedButton(
-          //                   onPressed: toggleVehicleStatus,
-          //                   style: ElevatedButton.styleFrom(
-          //                     minimumSize: const Size(5, 45),
-          //                     backgroundColor:
-          //                         isVehicleOn
-          //                             ? Colors.green.shade600
-          //                             : Colors.red.shade600,
-          //                     foregroundColor: Colors.white,
-          //                     elevation: 0,
-          //                     shape: RoundedRectangleBorder(
-          //                       borderRadius: BorderRadius.circular(12),
-          //                     ),
-          //                   ),
-          //                   child: Row(
-          //                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          //                     children: [
-          //                       Icon(
-          //                         isVehicleOn
-          //                             ? Icons.power_settings_new
-          //                             : Icons.power_settings_new_outlined,
-          //                         size: 25,
-          //                       ),
-          //                       Text(
-          //                         isVehicleOn
-          //                             ? 'Turn Off Vehicle'
-          //                             : 'Turn On Vehicle',
-          //                       ),
-          //                     ],
-          //                   ),
-          //                 ),
-          //               ],
-          //             ),
-          //           ),
-          //         ),
-          //       ],
-          //     ),
-          //   ),
-          // ),
+          Align(alignment: Alignment.bottomCenter, child: StickyFooter()),
         ],
       ),
     );

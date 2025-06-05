@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'geofence_list_screen.dart';
+import 'index.dart';
 
 class DeviceListScreen extends StatefulWidget {
-  const DeviceListScreen({super.key});
+  final String deviceId;
+
+  const DeviceListScreen({Key? key, required this.deviceId}) : super(key: key);
 
   @override
   State<DeviceListScreen> createState() => _DeviceListScreenState();

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:gps_app/widgets/MapWidget.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
-import 'geofence_list_screen.dart';
+import 'index.dart';
 
 class GeofenceMapScreen extends StatefulWidget {
   final String deviceId;
@@ -159,7 +160,7 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen> {
       appBar: AppBar(title: const Text('Define Geofence Area')),
       body: Stack(
         children: [
-          FlutterMap(
+          MapWidget(
             options: MapOptions(
               initialCenter: currentLocation!,
               initialZoom: 15.0,
@@ -173,8 +174,9 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen> {
             children: [
               TileLayer(
                 urlTemplate:
-                    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    'https://tile-{s}.openstreetmap.fr/hot/{z}/{x}/{y}.png',
                 subdomains: const ['a', 'b', 'c'],
+                userAgentPackageName: 'com.example.gps_app',
               ),
               if (polygonPoints.length >= 2)
                 PolylineLayer(
