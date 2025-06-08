@@ -38,37 +38,32 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   String? waktuWita;
   bool isVehicleOn = false;
   bool isLoading = true;
+  bool hasGPSData = false; // Add this flag
   final MapController _mapController = MapController();
 
-  LatLng get vehicleLocation =>
+  // Remove the default LatLng getter and make it nullable
+  LatLng? get vehicleLocation =>
       (latitude != null && longitude != null)
           ? LatLng(latitude!, longitude!)
-          : const LatLng(-6.200000, 106.816666);
+          : null;
 
   @override
   void initState() {
     super.initState();
     _deviceService = DeviceService();
-    _initializeWithUserDevice();
+    currentDeviceId = widget.deviceId;
+    _initializeWithDevice();
   }
 
-  Future<void> _initializeWithUserDevice() async {
+  Future<void> _initializeWithDevice() async {
     try {
       setState(() => isLoading = true);
 
-      final macId = await _deviceService.getValidatedDeviceMacIdForMap();
-      if (macId == null) {
-        throw Exception(
-          'No valid devices found or device not connected to GPS system',
-        );
-      }
-
-      final name = await _deviceService.getDeviceNameById(macId);
-      final mapService = mapServices(deviceId: macId);
+      final name = await _deviceService.getDeviceNameById(widget.deviceId);
+      final mapService = mapServices(deviceId: widget.deviceId);
 
       setState(() {
-        currentDeviceId = macId;
-        deviceName = name ?? macId;
+        deviceName = name ?? widget.deviceId;
         _mapService = mapService;
       });
 
@@ -80,23 +75,11 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   }
 
   void _handleInitializationError(dynamic e) {
-    debugPrint('Error initializing with user device: $e');
+    debugPrint('Error initializing device: $e');
     if (mounted) {
       setState(() => isLoading = false);
-
-      String errorMessage = _getErrorMessage(e);
-      _showErrorSnackBar(errorMessage);
+      _showErrorSnackBar('Failed to initialize device: $e');
     }
-  }
-
-  String _getErrorMessage(dynamic e) {
-    final errorString = e.toString();
-    if (errorString.contains('No valid devices found')) {
-      return 'No GPS devices found or device not connected to GPS system. Please check your device setup.';
-    } else if (errorString.contains('not connected to GPS system')) {
-      return 'Device found but not sending GPS data. Please check your physical GPS device connection.';
-    }
-    return 'Failed to initialize device: $e';
   }
 
   void _showErrorSnackBar(String message) {
@@ -110,68 +93,254 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   }
 
   void _setupRealtimeListeners() {
-    if (_mapService == null) return;
-
-    _mapService!.getGPSDataStream().listen((gpsData) {
-      if (mounted && gpsData != null && _mapService!.isGPSDataValid(gpsData)) {
-        _updateGPSData(gpsData);
-      }
-    });
-
-    _mapService!.getRelayStatusStream().listen((relayStatus) {
-      if (mounted) setState(() => isVehicleOn = relayStatus);
-    });
+    _listenToGPSData();
+    _listenToRelayStatus();
   }
 
-  Future<void> _updateGPSData(Map<String, dynamic> gpsData) async {
+  void _listenToGPSData() {
+    final ref = FirebaseDatabase.instance.ref('devices/${widget.deviceId}/gps');
+
+    ref.onValue.listen(
+      (event) {
+        if (event.snapshot.exists && event.snapshot.value != null) {
+          final data = Map<String, dynamic>.from(event.snapshot.value as Map);
+          debugPrint('GPS Data received: $data');
+
+          final lat = _parseDouble(data['latitude']);
+          final lon = _parseDouble(data['longitude']);
+          final tanggal = data['tanggal']?.toString();
+          final waktu = data['waktu_wita']?.toString();
+          final sat = _parseInt(data['satellites']);
+
+          if (lat != null && lon != null) {
+            setState(() {
+              latitude = lat;
+              longitude = lon;
+              waktuWita = waktu;
+              satellites = sat;
+              isLoading = false;
+              hasGPSData = true; // Set GPS data available
+            });
+
+            _fetchLocationName(lat, lon);
+            _mapController.move(LatLng(lat, lon), 15.0);
+
+            if (tanggal != null && waktu != null) {
+              _updateTimestamp('$tanggal $waktu');
+            }
+          } else {
+            setState(() {
+              isLoading = false;
+              hasGPSData = false;
+            });
+            _showNoGPSDataDialog();
+          }
+        } else {
+          debugPrint(
+            'No GPS data found at path: devices/${widget.deviceId}/gps',
+          );
+          setState(() {
+            isLoading = false;
+            hasGPSData = false;
+          });
+          _showNoGPSDataDialog();
+        }
+      },
+      onError: (error) {
+        debugPrint('Firebase GPS listener error: $error');
+        setState(() {
+          isLoading = false;
+          hasGPSData = false;
+        });
+        _showNoGPSDataDialog();
+      },
+    );
+  }
+
+  void _showNoGPSDataDialog() {
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.gps_off, color: Colors.red, size: 28),
+                SizedBox(width: 8),
+                Text('No GPS Data'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'GPS data not found for this device.',
+                  style: TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Device ID: ${widget.deviceId}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                    fontFamily: 'monospace',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Please check:',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                const Text('• Device is powered on'),
+                const Text('• GPS module is functioning'),
+                const Text('• Device has network connection'),
+                const Text('• Device is sending data to Firebase'),
+              ],
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _refreshData();
+                },
+                child: const Text('Retry'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).pop(); // Go back to previous screen
+                },
+                child: const Text('Go Back'),
+              ),
+            ],
+          );
+        },
+      );
+    }
+  }
+
+  void _listenToRelayStatus() {
+    final relayRef = FirebaseDatabase.instance.ref(
+      'devices/${widget.deviceId}/relay',
+    );
+
+    relayRef.onValue.listen(
+      (event) {
+        if (event.snapshot.exists && event.snapshot.value != null) {
+          final status = event.snapshot.value as bool? ?? false;
+          if (mounted) {
+            setState(() => isVehicleOn = status);
+          }
+        }
+      },
+      onError: (error) {
+        debugPrint('Firebase relay listener error: $error');
+      },
+    );
+  }
+
+  double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  int? _parseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  void _updateTimestamp(String timestamp) {
     try {
-      final lat = gpsData['latitude'] as double;
-      final lon = gpsData['longitude'] as double;
-
-      // Fetch location name asynchronously
-      _mapService?.fetchLocationName(lat, lon).then((locationName) {
-        if (mounted) setState(() => this.locationName = locationName);
-      });
-
+      final dt = DateFormat('yyyy-MM-dd HH:mm:ss').parse(timestamp);
       setState(() {
-        latitude = lat;
-        longitude = lon;
-        lastUpdated =
-            gpsData['waktu_wita']?.toString() ??
-            gpsData['time']?.toString() ??
-            DateTime.now().toString();
-        isLoading = false;
+        lastUpdated = DateFormat('yyyy-MM-dd HH:mm:ss').format(dt);
       });
-
-      _mapController.move(LatLng(lat, lon), 15.0);
     } catch (e) {
-      debugPrint('Error updating GPS data: $e');
+      debugPrint('Error parsing timestamp: $e');
+      setState(() {
+        lastUpdated = 'Invalid timestamp';
+      });
     }
   }
 
   Future<void> _loadInitialData() async {
-    if (_mapService == null) return;
+    final ref = FirebaseDatabase.instance.ref('devices/${widget.deviceId}/gps');
 
     try {
-      final gpsData = await _mapService!.getLastGPSLocation();
-      if (gpsData != null && _mapService!.isGPSDataValid(gpsData)) {
-        await _updateGPSData(gpsData);
+      final snapshot = await ref.get();
+      if (snapshot.exists && snapshot.value != null) {
+        final data = Map<String, dynamic>.from(snapshot.value as Map);
+        debugPrint('Initial GPS Data: $data');
+
+        final lat = _parseDouble(data['latitude']);
+        final lon = _parseDouble(data['longitude']);
+
+        if (lat != null && lon != null) {
+          setState(() {
+            latitude = lat;
+            longitude = lon;
+            waktuWita = data['waktu_wita']?.toString();
+            satellites = _parseInt(data['satellites']);
+            isLoading = false;
+            hasGPSData = true;
+          });
+
+          _fetchLocationName(lat, lon);
+          _mapController.move(LatLng(lat, lon), 15.0);
+
+          final tanggal = data['tanggal']?.toString();
+          final waktu = data['waktu_wita']?.toString();
+          if (tanggal != null && waktu != null) {
+            _updateTimestamp('$tanggal $waktu');
+          }
+        } else {
+          setState(() {
+            isLoading = false;
+            hasGPSData = false;
+          });
+          _showNoGPSDataDialog();
+        }
+      } else {
+        setState(() {
+          isLoading = false;
+          hasGPSData = false;
+        });
+        _showNoGPSDataDialog();
       }
 
-      final relayStatus = await _mapService!.getCurrentRelayStatus();
-      if (mounted) {
+      // Get initial relay status
+      final relaySnapshot =
+          await FirebaseDatabase.instance
+              .ref('devices/${widget.deviceId}/relay')
+              .get();
+      if (relaySnapshot.exists) {
         setState(() {
-          isVehicleOn = relayStatus;
-          isLoading = false;
+          isVehicleOn = relaySnapshot.value as bool? ?? false;
         });
       }
     } catch (e) {
       debugPrint('Error loading initial data: $e');
-      if (mounted) setState(() => isLoading = false);
+      setState(() {
+        isLoading = false;
+        hasGPSData = false;
+      });
+      _showNoGPSDataDialog();
     }
   }
 
-  Future<void> fetchLocationName(double lat, double lon) async {
+  Future<void> _fetchLocationName(double lat, double lon) async {
     final url = Uri.parse(
       'https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lon&zoom=18&addressdetails=1',
     );
@@ -182,109 +351,15 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       );
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        setState(() {
-          locationName = data['display_name'] ?? 'Location Not Found';
-        });
+        if (mounted) {
+          setState(() {
+            locationName = data['display_name'] ?? 'Location Not Found';
+          });
+        }
       }
     } catch (e) {
       debugPrint("Error fetching location name: $e");
     }
-  }
-
-  void fetchLastLocation() {
-    final ref = FirebaseDatabase.instance.ref('devices/${widget.deviceId}/gps');
-
-    ref
-        .once()
-        .then((DatabaseEvent event) {
-          if (event.snapshot.exists) {
-            final data = Map<String, dynamic>.from(event.snapshot.value as Map);
-
-            final lat = double.tryParse(data['latitude'].toString());
-            final lon = double.tryParse(data['longitude'].toString());
-            final tanggal = data['tanggal'];
-            final waktu = data['waktu_wita'];
-            final sat =
-                data['satellites'] != null
-                    ? int.tryParse(data['satellites'].toString())
-                    : null;
-
-            String? timestamp;
-            if (tanggal != null && waktu != null) {
-              timestamp = '$tanggal $waktu';
-            }
-
-            debugPrint('DEBUG: Parsed coordinates - lat: $lat, lon: $lon');
-
-            setState(() {
-              latitude = lat;
-              longitude = lon;
-              waktuWita = waktu;
-              satellites = sat;
-
-              if (lat != null && lon != null) {
-                fetchLocationName(lat, lon);
-                _mapController.move(LatLng(lat, lon), 15.0);
-                debugPrint('DEBUG: Map moved to: $lat, $lon');
-              } else {
-                debugPrint('DEBUG: Coordinates are null, marker will not show');
-              }
-
-              if (timestamp != null) {
-                final dt = DateFormat('yyyy-MM-dd HH:mm:ss').parse(timestamp);
-                lastUpdated = DateFormat('yyyy-MM-dd HH:mm:ss').format(dt);
-              } else {
-                lastUpdated = 'Unavailable';
-              }
-            });
-          } else {
-            debugPrint(
-              'DEBUG: No data found at path: devices/${widget.deviceId}/gps',
-            );
-          }
-        })
-        .catchError((error) {
-          debugPrint('DEBUG: Firebase error: $error');
-        });
-
-    ref.onValue.listen((event) {
-      if (event.snapshot.exists && event.snapshot.value != null) {
-        final data = Map<String, dynamic>.from(event.snapshot.value as Map);
-
-        final lat = double.tryParse(data['latitude'].toString());
-        final lon = double.tryParse(data['longitude'].toString());
-        final tanggal = data['tanggal'];
-        final waktu = data['waktu_wita'];
-        final sat =
-            data['satellites'] != null
-                ? int.tryParse(data['satellites'].toString())
-                : null;
-
-        setState(() {
-          latitude = lat;
-          longitude = lon;
-          waktuWita = waktu;
-          satellites = sat;
-
-          if (lat != null && lon != null) {
-            fetchLocationName(lat, lon);
-            _mapController.move(LatLng(lat, lon), 15.0);
-          }
-
-          if (tanggal != null && waktu != null) {
-            final timestamp = '$tanggal $waktu';
-            try {
-              final dt = DateFormat('yyyy-MM-dd HH:mm:ss').parse(timestamp);
-              lastUpdated = DateFormat('yyyy-MM-dd HH:mm:ss').format(dt);
-            } catch (_) {
-              lastUpdated = 'Unavailable';
-            }
-          } else {
-            lastUpdated = 'Unavailable';
-          }
-        });
-      }
-    });
   }
 
   void toggleVehicleStatus() {
@@ -293,7 +368,6 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     );
 
     final newStatus = !isVehicleOn;
-
     relayRef.set(newStatus);
 
     setState(() {
@@ -302,6 +376,8 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   }
 
   void showVehiclePanel() {
+    if (!hasGPSData) return; // Don't show panel if no GPS data
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -324,7 +400,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     setState(() => isLoading = true);
     await _loadInitialData();
 
-    if (mounted) {
+    if (mounted && hasGPSData) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Data refreshed'),
@@ -469,53 +545,115 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     }
   }
 
+  Widget _buildNoGPSContent() {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.gps_off, size: 64, color: Colors.red),
+            const SizedBox(height: 16),
+            const Text(
+              'No GPS Data Available',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Device: ${deviceName ?? widget.deviceId}',
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _refreshData,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          MapWidget(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: vehicleLocation,
-              initialZoom: 15.0,
-              minZoom: 3.0,
-              maxZoom: 18.0,
-            ),
-            deviceId: currentDeviceId,
-            children: [
-              TileLayer(
-                urlTemplate:
-                    'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
-                subdomains: const ['a', 'b', 'c'],
-                userAgentPackageName: 'com.example.gps_app',
-                maxZoom: 18,
+          // Show loading indicator while loading
+          if (isLoading)
+            const Center(child: CircularProgressIndicator())
+          // Show no GPS content if no GPS data
+          else if (!hasGPSData)
+            _buildNoGPSContent()
+          // Show map only if GPS data is available
+          else if (vehicleLocation != null)
+            MapWidget(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter: vehicleLocation!,
+                initialZoom: 15.0,
+                minZoom: 3.0,
+                maxZoom: 18.0,
               ),
-              MarkerLayer(
-                markers: [
-                  Marker(
-                    point: vehicleLocation,
-                    width: 80,
-                    height: 80,
-                    child: GestureDetector(
-                      onTap: showVehiclePanel,
-                      child: VehicleMarkerIcon(isOn: isVehicleOn),
+              deviceId: currentDeviceId,
+              children: [
+                TileLayer(
+                  urlTemplate:
+                      'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+                  subdomains: const ['a', 'b', 'c'],
+                  userAgentPackageName: 'com.example.gps_app',
+                  maxZoom: 18,
+                ),
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: vehicleLocation!,
+                      width: 80,
+                      height: 80,
+                      child: GestureDetector(
+                        onTap: showVehiclePanel,
+                        child: VehicleMarkerIcon(isOn: isVehicleOn),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [_buildDeviceInfoChip(), _buildActionButtons()],
+                  ],
+                ),
+              ],
+            ),
+
+          // Only show top controls if GPS data is available
+          if (hasGPSData && !isLoading)
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [_buildDeviceInfoChip(), _buildActionButtons()],
+                ),
               ),
             ),
-          ),
-          Align(alignment: Alignment.bottomCenter, child: StickyFooter()),
+
+          // Only show footer if GPS data is available
+          if (hasGPSData && !isLoading)
+            Align(alignment: Alignment.bottomCenter, child: StickyFooter()),
         ],
       ),
     );

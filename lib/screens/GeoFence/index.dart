@@ -22,25 +22,33 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
         .where('deviceId', isEqualTo: widget.deviceId);
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       appBar: _buildAppBar(),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: geofencesQuery.snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return _buildErrorState(snapshot.error.toString());
-          }
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.white, Colors.blue.shade50],
+          ),
+        ),
+        child: StreamBuilder<QuerySnapshot>(
+          stream: geofencesQuery.snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return _buildErrorState(snapshot.error.toString());
+            }
 
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return _buildLoadingState();
-          }
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return _buildLoadingState();
+            }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return _buildEmptyState();
-          }
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return _buildEmptyState();
+            }
 
-          return _buildGeofenceList(snapshot.data!.docs);
-        },
+            return _buildGeofenceList(snapshot.data!.docs);
+          },
+        ),
       ),
       floatingActionButton: _buildFloatingActionButton(),
     );
@@ -49,8 +57,8 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       elevation: 0,
-      backgroundColor: Colors.blue[600],
-      foregroundColor: Colors.white,
+      backgroundColor: Colors.white,
+      foregroundColor: Colors.black,
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

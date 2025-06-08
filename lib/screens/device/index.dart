@@ -18,9 +18,8 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('GPS Devices'),
-        backgroundColor: Colors.blue.shade700,
-        foregroundColor: Colors.white,
-        elevation: 2,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -34,7 +33,7 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Colors.blue.shade50, Colors.white],
+            colors: [Colors.white, Colors.blue.shade50],
           ),
         ),
         child: StreamBuilder<List<Device>>(
@@ -59,7 +58,7 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
         onPressed: _showAddDeviceDialog,
         icon: const Icon(Icons.add),
         label: const Text('Add Device'),
-        backgroundColor: Colors.blue.shade700,
+        backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
       ),
     );
@@ -102,7 +101,7 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
           icon: const Icon(Icons.add),
           label: const Text('Add Device'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue.shade700,
+            backgroundColor: Colors.blue,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           ),
@@ -147,10 +146,6 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
       children: [
         Icon(Icons.delete, color: Colors.white, size: 28),
         SizedBox(height: 4),
-        Text(
-          'Delete',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
-        ),
       ],
     ),
   );
@@ -169,6 +164,7 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
           context: context,
           builder:
               (context) => AlertDialog(
+                backgroundColor: Colors.white,
                 title: const Text('Delete Device'),
                 content: Text(
                   'Are you sure you want to delete ${device.name}?',
@@ -176,6 +172,10 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context, false),
+                    style: TextButton.styleFrom(
+                      foregroundColor:
+                          Colors.black, // Set the color of the text to black
+                    ),
                     child: const Text('Cancel'),
                   ),
                   ElevatedButton(
@@ -313,6 +313,7 @@ class DeviceCard extends StatelessWidget {
       elevation: 4,
       shadowColor: Colors.black26,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: Colors.white,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
@@ -395,13 +396,13 @@ class DeviceCard extends StatelessWidget {
       IconButton(
         icon: Icon(
           device.isActive ? Icons.pause : Icons.play_arrow,
-          color: device.isActive ? Colors.orange : Colors.green,
+          color: device.isActive ? Colors.blueGrey.shade300 : Colors.green,
         ),
         onPressed: onToggleStatus,
         tooltip: device.isActive ? 'Deactivate' : 'Activate',
       ),
       IconButton(
-        icon: const Icon(Icons.edit, color: Colors.blue),
+        icon: const Icon(Icons.edit, color: Colors.lightBlue),
         onPressed: onEdit,
         tooltip: 'Edit',
       ),

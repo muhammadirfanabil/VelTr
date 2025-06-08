@@ -70,7 +70,7 @@ class MyApp extends StatelessWidget {
           final args =
               ModalRoute.of(context)?.settings.arguments
                   as Map<String, dynamic>?;
-          final deviceId = args?['deviceId'] as String? ?? 'default_device_id';
+          final deviceId = args?['deviceId'] as String? ?? 'B0A7322B2EC4';
           return DeviceListScreen(deviceId: deviceId);
         },
         '/notifications': (context) => const NotificationsScreen(),
@@ -99,7 +99,7 @@ class MyApp extends StatelessWidget {
             return const LoginScreen();
           }
 
-          return const GPSMapScreen(deviceId: 'default_device_id');
+          return const GPSMapScreen(deviceId: 'B0A7322B2EC4');
 
           // return const GPSMapScreen(deviceId: 'B0A7322B2EC4');
         },
