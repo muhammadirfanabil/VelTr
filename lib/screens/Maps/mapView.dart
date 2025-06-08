@@ -1,12 +1,7 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:firebase_database/firebase_database.dart';
-import 'package:intl/intl.dart';
-import 'package:http/http.dart' as http;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:intl/intl.dart';
 
 import '../../services/Auth/AuthService.dart';
 import '../../services/maps/mapsService.dart';
@@ -42,7 +37,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   LatLng get vehicleLocation =>
       (latitude != null && longitude != null)
           ? LatLng(latitude!, longitude!)
-          : LatLng(-6.200000, 106.816666);
+          : const LatLng(-6.200000, 106.816666);
 
   @override
   void initState() {
@@ -51,86 +46,75 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     _initializeWithUserDevice();
   }
 
-  /// Initialize the map service with the current user's primary device
   Future<void> _initializeWithUserDevice() async {
     try {
-      setState(() {
-        isLoading = true;
-      });
+      setState(() => isLoading = true);
 
-      // Use the enhanced bridge method to get validated MAC ID
       final macId = await _deviceService.getValidatedDeviceMacIdForMap();
-
       if (macId == null) {
         throw Exception(
           'No valid devices found or device not connected to GPS system',
         );
       }
 
-      // Get the device name for display using the MAC ID
       final name = await _deviceService.getDeviceNameById(macId);
-
-      // Initialize the map service with the MAC ID for Firebase Realtime Database access
       final mapService = mapServices(deviceId: macId);
 
       setState(() {
         currentDeviceId = macId;
-        deviceName = name ?? macId; // Show MAC ID if no name available
+        deviceName = name ?? macId;
         _mapService = mapService;
       });
 
-      // Set up real-time listeners and load initial data
       _setupRealtimeListeners();
       await _loadInitialData();
     } catch (e) {
-      debugPrint('Error initializing with user device: $e');
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-
-        // Provide specific error messages for bridge connection issues
-        String errorMessage = 'Failed to initialize device: $e';
-        if (e.toString().contains('No valid devices found')) {
-          errorMessage =
-              'No GPS devices found or device not connected to GPS system. Please check your device setup.';
-        } else if (e.toString().contains('not connected to GPS system')) {
-          errorMessage =
-              'Device found but not sending GPS data. Please check your physical GPS device connection.';
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 8),
-          ),
-        );
-      }
+      _handleInitializationError(e);
     }
+  }
+
+  void _handleInitializationError(dynamic e) {
+    debugPrint('Error initializing with user device: $e');
+    if (mounted) {
+      setState(() => isLoading = false);
+
+      String errorMessage = _getErrorMessage(e);
+      _showErrorSnackBar(errorMessage);
+    }
+  }
+
+  String _getErrorMessage(dynamic e) {
+    final errorString = e.toString();
+    if (errorString.contains('No valid devices found')) {
+      return 'No GPS devices found or device not connected to GPS system. Please check your device setup.';
+    } else if (errorString.contains('not connected to GPS system')) {
+      return 'Device found but not sending GPS data. Please check your physical GPS device connection.';
+    }
+    return 'Failed to initialize device: $e';
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 8),
+      ),
+    );
   }
 
   void _setupRealtimeListeners() {
     if (_mapService == null) return;
 
-    // Listen to GPS data changes
     _mapService!.getGPSDataStream().listen((gpsData) {
       if (mounted && gpsData != null && _mapService!.isGPSDataValid(gpsData)) {
         _updateGPSData(gpsData);
       }
     });
 
-    // Listen to relay status changes
     _mapService!.getRelayStatusStream().listen((relayStatus) {
-      if (mounted) {
-        setState(() {
-          isVehicleOn = relayStatus;
-        });
-      }
+      if (mounted) setState(() => isVehicleOn = relayStatus);
     });
-
-    // Load initial data
-    _loadInitialData();
   }
 
   Future<void> _updateGPSData(Map<String, dynamic> gpsData) async {
@@ -138,13 +122,9 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       final lat = gpsData['latitude'] as double;
       final lon = gpsData['longitude'] as double;
 
-      // Fetch location name (but don't wait for it to update other data)
+      // Fetch location name asynchronously
       _mapService?.fetchLocationName(lat, lon).then((locationName) {
-        if (mounted) {
-          setState(() {
-            this.locationName = locationName;
-          });
-        }
+        if (mounted) setState(() => this.locationName = locationName);
       });
 
       setState(() {
@@ -157,10 +137,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
         isLoading = false;
       });
 
-      // Move map to new position if coordinates are valid
-      if (lat != null && lon != null) {
-        _mapController.move(LatLng(lat, lon), 15.0);
-      }
+      _mapController.move(LatLng(lat, lon), 15.0);
     } catch (e) {
       debugPrint('Error updating GPS data: $e');
     }
@@ -170,13 +147,11 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     if (_mapService == null) return;
 
     try {
-      // Load initial GPS location
       final gpsData = await _mapService!.getLastGPSLocation();
       if (gpsData != null && _mapService!.isGPSDataValid(gpsData)) {
         await _updateGPSData(gpsData);
       }
 
-      // Load initial relay status
       final relayStatus = await _mapService!.getCurrentRelayStatus();
       if (mounted) {
         setState(() {
@@ -186,11 +161,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       }
     } catch (e) {
       debugPrint('Error loading initial data: $e');
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
@@ -199,31 +170,22 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
 
     try {
       final lastUpdate = DateFormat('yyyy-MM-dd HH:mm:ss').parse(lastUpdated);
-      final now = DateTime.now();
-      final difference = now.difference(lastUpdate);
-
-      // Consider active if updated within last 5 minutes
+      final difference = DateTime.now().difference(lastUpdate);
       return difference.inMinutes <= 5;
     } catch (e) {
       return false;
     }
   }
 
-  void toggleVehicleStatus() async {
+  Future<void> toggleVehicleStatus() async {
     if (_mapService == null) return;
 
     try {
       await _mapService!.toggleRelayStatus();
-      // Status will be updated automatically through the stream listener
     } catch (e) {
       debugPrint('Error toggling vehicle status: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to toggle vehicle: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showErrorSnackBar('Failed to toggle vehicle: $e');
       }
     }
   }
@@ -246,10 +208,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   }
 
   Future<void> _refreshData() async {
-    setState(() {
-      isLoading = true;
-    });
-
+    setState(() => isLoading = true);
     await _loadInitialData();
 
     if (mounted) {
@@ -262,14 +221,146 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     }
   }
 
+  Widget _buildDeviceInfoChip() {
+    if (deviceName == null) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        deviceName!,
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Row(
+      children: [
+        _buildFloatingButton(
+          child:
+              isLoading
+                  ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                  : const Icon(Icons.refresh),
+          onPressed: isLoading ? null : _refreshData,
+        ),
+        const SizedBox(width: 8),
+        _buildUserMenu(),
+      ],
+    );
+  }
+
+  Widget _buildFloatingButton({
+    required Widget child,
+    VoidCallback? onPressed,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: IconButton(icon: child, onPressed: onPressed),
+    );
+  }
+
+  Widget _buildUserMenu() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: PopupMenuButton<String>(
+        icon: const Icon(Icons.person, color: Colors.black),
+        offset: const Offset(0, 45),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 8,
+        color: Colors.white,
+        onSelected: _handleMenuSelection,
+        itemBuilder:
+            (context) => const [
+              PopupMenuItem(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person_outline),
+                    SizedBox(width: 8),
+                    Text('Profile'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'settings',
+                child: Row(
+                  children: [
+                    Icon(Icons.settings_outlined),
+                    SizedBox(width: 8),
+                    Text('Settings'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout_outlined),
+                    SizedBox(width: 8),
+                    Text('Logout'),
+                  ],
+                ),
+              ),
+            ],
+      ),
+    );
+  }
+
+  Future<void> _handleMenuSelection(String value) async {
+    switch (value) {
+      case 'profile':
+        Navigator.pushNamed(context, '/profile');
+        break;
+      case 'settings':
+        Navigator.pushNamed(context, '/settings');
+        break;
+      case 'logout':
+        await AuthService.signOut();
+        Navigator.pushReplacementNamed(context, '/login');
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       body: Stack(
         children: [
-          // Use MapWidget with both backend service and direct Firebase support
           MapWidget(
             mapController: _mapController,
             options: MapOptions(
@@ -280,7 +371,6 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
             ),
             deviceId: currentDeviceId,
             children: [
-              // OSM Humanitarian tile layer
               TileLayer(
                 urlTemplate:
                     'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
@@ -290,7 +380,6 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
               ),
               MarkerLayer(
                 markers: [
-                  // Vehicle marker - always show if we have coordinates
                   Marker(
                     point: vehicleLocation,
                     width: 80,
@@ -304,152 +393,18 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
               ),
             ],
           ),
-
-          // Top floating controls - simplified without app bar
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Device info
-                  if (deviceName != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                  // Action buttons
-                  Row(
-                    children: [
-                      // Refresh button
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: IconButton(
-                          icon:
-                              isLoading
-                                  ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                  : const Icon(Icons.refresh),
-                          onPressed: isLoading ? null : _refreshData,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // User menu
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: PopupMenuButton<String>(
-                          icon: const Icon(Icons.person, color: Colors.black),
-                          offset: const Offset(0, 45),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          elevation: 8,
-                          color: Colors.white,
-                          shadowColor: Colors.black.withOpacity(0.2),
-                          onSelected: (value) async {
-                            switch (value) {
-                              case 'profile':
-                                Navigator.pushNamed(context, '/profile');
-                                break;
-                              case 'settings':
-                                Navigator.pushNamed(context, '/settings');
-                                break;
-                              case 'logout':
-                                await AuthService.signOut();
-                                Navigator.pushReplacementNamed(
-                                  context,
-                                  '/login',
-                                );
-                                break;
-                            }
-                          },
-                          itemBuilder:
-                              (context) => const [
-                                PopupMenuItem(
-                                  value: 'profile',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.person_outline),
-                                      SizedBox(width: 8),
-                                      Text('Profile'),
-                                    ],
-                                  ),
-                                ),
-                                PopupMenuItem(
-                                  value: 'settings',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.settings_outlined),
-                                      SizedBox(width: 8),
-                                      Text('Settings'),
-                                    ],
-                                  ),
-                                ),
-                                PopupMenuItem(
-                                  value: 'logout',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.logout_outlined),
-                                      SizedBox(width: 8),
-                                      Text('Logout'),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                children: [_buildDeviceInfoChip(), _buildActionButtons()],
               ),
             ),
           ),
-
-          // Sticky footer
           Align(alignment: Alignment.bottomCenter, child: StickyFooter()),
         ],
       ),
     );
   }
 }
-
-// VehicleMarkerIcon widget from motoricon.dart is used

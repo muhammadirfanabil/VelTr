@@ -38,6 +38,7 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginScreen(),
 
         '/map': (context) => const IndexScreen(),
+
         // Home Page
         '/home': (context) {
           final args =
