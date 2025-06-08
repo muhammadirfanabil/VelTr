@@ -50,24 +50,31 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
               child: Column(
                 children: [
                   const SizedBox(height: 8),
-                  _buildSettingsSection([                    _SettingItem(
+                  _buildSettingsSection([
+                    _SettingItem(
                       icon: Icons.directions_car_outlined,
                       title: 'Manage Vehicle',
                       subtitle: 'Add, edit, or remove vehicles',
                       onTap:
                           () => Navigator.pushNamed(context, '/manage-vehicle'),
                     ),
-                    _SettingItem(
-                      icon: Icons.devices_outlined,
-                      title: 'Vehicle-Device Management',
-                      subtitle: 'Attach or detach devices to vehicles',
-                      onTap: () => _showDeviceManagementModal(context),
-                    ),
+                    // _SettingItem(
+                    //   icon: Icons.devices_outlined,
+                    //   title: 'Vehicle-Device Management',
+                    //   subtitle: 'Attach or detach devices to vehicles',
+                    //   onTap: () => _showDeviceManagementModal(context),
+                    // ),
                     _SettingItem(
                       icon: Icons.location_on_outlined,
                       title: 'Set Geofence',
                       subtitle: 'Create safe zones and boundaries',
                       onTap: () => Navigator.pushNamed(context, '/geofence'),
+                    ),
+                    _SettingItem(
+                      icon: Icons.location_on_outlined,
+                      title: 'Manage Device',
+                      subtitle: 'Manage your devices',
+                      onTap: () => Navigator.pushNamed(context, '/device'),
                     ),
                     _SettingItem(
                       icon: Icons.straighten_outlined,
@@ -150,68 +157,72 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
         onTap: item.onTap,
       ),
     );
-  }  void _showDeviceManagementModal(BuildContext context) {
+  }
+
+  void _showDeviceManagementModal(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        minChildSize: 0.5,
-        maxChildSize: 0.9,
-        builder: (context, scrollController) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(20),
-              topRight: Radius.circular(20),
-            ),
-          ),
-          child: Column(
-            children: [
-              // Handle bar
-              Container(
-                width: 50,
-                height: 5,
-                margin: const EdgeInsets.only(top: 12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2.5),
-                ),
-              ),
-              // Header
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Vehicle-Device Management',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black,
+      builder:
+          (context) => DraggableScrollableSheet(
+            initialChildSize: 0.7,
+            minChildSize: 0.5,
+            maxChildSize: 0.9,
+            builder:
+                (context, scrollController) => Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      // Handle bar
+                      Container(
+                        width: 50,
+                        height: 5,
+                        margin: const EdgeInsets.only(top: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(2.5),
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
+                      // Header
+                      Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Vehicle-Device Management',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Content
+                      Expanded(
+                        child: DeviceManagementContent(
+                          vehicleService: _vehicleService,
+                          deviceService: _deviceService,
+                          scrollController: scrollController,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              // Content
-              Expanded(
-                child: DeviceManagementContent(
-                  vehicleService: _vehicleService,
-                  deviceService: _deviceService,
-                  scrollController: scrollController,
-                ),
-              ),
-            ],
           ),
-        ),
-      ),
     );
   }
 }
@@ -229,7 +240,8 @@ class DeviceManagementContent extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  _DeviceManagementContentState createState() => _DeviceManagementContentState();
+  _DeviceManagementContentState createState() =>
+      _DeviceManagementContentState();
 }
 
 class _DeviceManagementContentState extends State<DeviceManagementContent> {
@@ -247,15 +259,15 @@ class _DeviceManagementContentState extends State<DeviceManagementContent> {
   Future<void> _loadData() async {
     try {
       setState(() => isLoading = true);
-      
+
       // Load vehicles from stream (take first value)
       final vehicleStream = widget.vehicleService.getVehiclesStream();
       final loadedVehicles = await vehicleStream.first;
-      
+
       // Load devices from stream (take first value)
       final deviceStream = widget.deviceService.getDevicesStream();
       final loadedDevices = await deviceStream.first;
-      
+
       setState(() {
         vehicles = loadedVehicles;
         devices = loadedDevices;
@@ -263,9 +275,9 @@ class _DeviceManagementContentState extends State<DeviceManagementContent> {
       });
     } catch (e) {
       setState(() => isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading data: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error loading data: $e')));
     }
   }
 
@@ -284,7 +296,7 @@ class _DeviceManagementContentState extends State<DeviceManagementContent> {
         const SizedBox(height: 10),
         _buildVehicleSelection(),
         const SizedBox(height: 20),
-        
+
         // Device Management
         if (selectedVehicleId != null) ...[
           _buildSectionHeader('Attached Devices'),
@@ -323,12 +335,14 @@ class _DeviceManagementContentState extends State<DeviceManagementContent> {
           contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           border: InputBorder.none,
           hintText: 'Choose a vehicle',
-        ),        items: vehicles.map((vehicle) {
-          return DropdownMenuItem<String>(
-            value: vehicle.id,
-            child: Text(vehicle.name),
-          );
-        }).toList(),
+        ),
+        items:
+            vehicles.map((vehicle) {
+              return DropdownMenuItem<String>(
+                value: vehicle.id,
+                child: Text(vehicle.name),
+              );
+            }).toList(),
         onChanged: (value) {
           setState(() {
             selectedVehicleId = value;
@@ -340,10 +354,11 @@ class _DeviceManagementContentState extends State<DeviceManagementContent> {
 
   Widget _buildAttachedDevices() {
     if (selectedVehicleId == null) return const SizedBox.shrink();
-    
-    final attachedDevices = devices.where((device) => 
-      device.vehicleId == selectedVehicleId
-    ).toList();
+
+    final attachedDevices =
+        devices
+            .where((device) => device.vehicleId == selectedVehicleId)
+            .toList();
 
     if (attachedDevices.isEmpty) {
       return Container(
@@ -363,22 +378,30 @@ class _DeviceManagementContentState extends State<DeviceManagementContent> {
     }
 
     return Column(
-      children: attachedDevices.map((device) => _buildDeviceCard(
-        device: device,
-        isAttached: true,
-        onTap: () => _detachDevice(device),
-        actionIcon: Icons.remove_circle_outline,
-        actionColor: Colors.red,
-      )).toList(),
+      children:
+          attachedDevices
+              .map(
+                (device) => _buildDeviceCard(
+                  device: device,
+                  isAttached: true,
+                  onTap: () => _detachDevice(device),
+                  actionIcon: Icons.remove_circle_outline,
+                  actionColor: Colors.red,
+                ),
+              )
+              .toList(),
     );
   }
 
   Widget _buildAvailableDevices() {
     if (selectedVehicleId == null) return const SizedBox.shrink();
-    
-    final availableDevices = devices.where((device) => 
-      device.vehicleId == null || device.vehicleId!.isEmpty
-    ).toList();
+
+    final availableDevices =
+        devices
+            .where(
+              (device) => device.vehicleId == null || device.vehicleId!.isEmpty,
+            )
+            .toList();
 
     if (availableDevices.isEmpty) {
       return Container(
@@ -398,13 +421,18 @@ class _DeviceManagementContentState extends State<DeviceManagementContent> {
     }
 
     return Column(
-      children: availableDevices.map((device) => _buildDeviceCard(
-        device: device,
-        isAttached: false,
-        onTap: () => _attachDevice(device),
-        actionIcon: Icons.add_circle_outline,
-        actionColor: Colors.green,
-      )).toList(),
+      children:
+          availableDevices
+              .map(
+                (device) => _buildDeviceCard(
+                  device: device,
+                  isAttached: false,
+                  onTap: () => _attachDevice(device),
+                  actionIcon: Icons.add_circle_outline,
+                  actionColor: Colors.green,
+                ),
+              )
+              .toList(),
     );
   }
 
@@ -435,18 +463,14 @@ class _DeviceManagementContentState extends State<DeviceManagementContent> {
             color: isAttached ? Colors.green : Colors.blue,
             size: 20,
           ),
-        ),        title: Text(
+        ),
+        title: Text(
           device.name,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-        ),subtitle: Text(
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        ),
+        subtitle: Text(
           'ID: ${device.id}',
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey[600],
-          ),
+          style: TextStyle(fontSize: 14, color: Colors.grey[600]),
         ),
         trailing: IconButton(
           icon: Icon(actionIcon, color: actionColor),
@@ -455,6 +479,7 @@ class _DeviceManagementContentState extends State<DeviceManagementContent> {
       ),
     );
   }
+
   Future<void> _attachDevice(Device device) async {
     if (selectedVehicleId == null) return;
 
@@ -462,34 +487,32 @@ class _DeviceManagementContentState extends State<DeviceManagementContent> {
       await widget.deviceService.updateDevice(
         device.copyWith(vehicleId: selectedVehicleId),
       );
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Device attached successfully')),
       );
-      
+
       _loadData(); // Refresh data
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error attaching device: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error attaching device: $e')));
     }
   }
 
   Future<void> _detachDevice(Device device) async {
     try {
-      await widget.deviceService.updateDevice(
-        device.copyWith(vehicleId: null),
-      );
-      
+      await widget.deviceService.updateDevice(device.copyWith(vehicleId: null));
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Device detached successfully')),
       );
-      
+
       _loadData(); // Refresh data
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error detaching device: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error detaching device: $e')));
     }
   }
 }

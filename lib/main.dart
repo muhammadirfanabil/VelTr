@@ -54,6 +54,7 @@ class MyApp extends StatelessWidget {
         '/manage-vehicle': (context) => const ManageVehicle(),
         '/geofence': (context) => const DeviceManagerScreen(),
         '/drive-history': (context) => const DrivingHistory(),
+        
         // '/geofence': (context) => const GeofenceListScreen(),
         // '/geofence': (context) {
         //   // Extract deviceId from route arguments
