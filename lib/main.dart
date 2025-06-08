@@ -54,7 +54,7 @@ class MyApp extends StatelessWidget {
         '/manage-vehicle': (context) => const ManageVehicle(),
         '/geofence': (context) => const DeviceManagerScreen(),
         '/drive-history': (context) => const DrivingHistory(),
-        
+
         // '/geofence': (context) => const GeofenceListScreen(),
         // '/geofence': (context) {
         //   // Extract deviceId from route arguments
@@ -69,7 +69,7 @@ class MyApp extends StatelessWidget {
           final args =
               ModalRoute.of(context)?.settings.arguments
                   as Map<String, dynamic>?;
-          final deviceId = args?['deviceId'] as String? ?? 'B0A7322B2EC4';
+          final deviceId = args?['deviceId'] as String? ?? 'No Device';
           return DeviceListScreen(deviceId: deviceId);
         },
         '/notifications': (context) => const NotificationsScreen(),
@@ -98,9 +98,7 @@ class MyApp extends StatelessWidget {
             return const LoginScreen();
           }
 
-          return const GPSMapScreen(deviceId: 'B0A7322B2EC4');
-
-          // return const GPSMapScreen(deviceId: 'B0A7322B2EC4');
+          return const GPSMapScreen(deviceId: 'No Device');
         },
       ),
     );
