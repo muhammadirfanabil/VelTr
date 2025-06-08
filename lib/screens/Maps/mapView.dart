@@ -1,7 +1,11 @@
+import 'dart:convert';
+import 'package:firebase_database/firebase_database.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
 
 import '../../services/Auth/AuthService.dart';
 import '../../services/maps/mapsService.dart';
@@ -167,19 +171,15 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     }
   }
 
-  void fetchLocationName(double lat, double lon) async {
+  Future<void> fetchLocationName(double lat, double lon) async {
     final url = Uri.parse(
       'https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lon&zoom=18&addressdetails=1',
     );
-
     try {
       final response = await http.get(
         url,
-        headers: {
-          'User-Agent': 'FlutterApp', // User-Agent wajib diisi
-        },
+        headers: {'User-Agent': 'FlutterApp'},
       );
-
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         setState(() {
@@ -247,7 +247,6 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
           debugPrint('DEBUG: Firebase error: $error');
         });
 
-    // Fixed: Add null check for real-time updates
     ref.onValue.listen((event) {
       if (event.snapshot.exists && event.snapshot.value != null) {
         final data = Map<String, dynamic>.from(event.snapshot.value as Map);
@@ -494,17 +493,15 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
               ),
               MarkerLayer(
                 markers: [
-                  // Vehicle marker - show based on recent activity
-                  if (latitude != null && longitude != null)
-                    Marker(
-                      point: LatLng(latitude!, longitude!),
-                      width: 80,
-                      height: 80,
-                      child: GestureDetector(
-                        onTap: showVehiclePanel,
-                        child: VehicleMarkerIcon(isOn: isVehicleOn),
-                      ),
+                  Marker(
+                    point: vehicleLocation,
+                    width: 80,
+                    height: 80,
+                    child: GestureDetector(
+                      onTap: showVehiclePanel,
+                      child: VehicleMarkerIcon(isOn: isVehicleOn),
                     ),
+                  ),
                 ],
               ),
             ],
