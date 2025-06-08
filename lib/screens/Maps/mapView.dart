@@ -1,14 +1,18 @@
+import 'dart:convert';
+import 'package:firebase_database/firebase_database.dart';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:intl/intl.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
 
 import '../../services/Auth/AuthService.dart';
 import '../../services/maps/mapsService.dart';
 import '../../services/device/deviceService.dart';
 import '../../widgets/mapWidget.dart';
 import '../../widgets/stickyFooter.dart';
+import '../../widgets/motoricon.dart';
 import '../../widgets/tracker.dart';
 
 class GPSMapScreen extends StatefulWidget {
@@ -27,9 +31,11 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   String? deviceName;
 
   String lastUpdated = '-';
+  int? satellites;
   double? latitude;
   double? longitude;
   String locationName = 'Loading Location...';
+  String? waktuWita;
   bool isVehicleOn = false;
   bool isLoading = true;
   final MapController _mapController = MapController();
@@ -37,7 +43,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   LatLng get vehicleLocation =>
       (latitude != null && longitude != null)
           ? LatLng(latitude!, longitude!)
-          : LatLng(-6.200000, 106.816666);
+          : const LatLng(-6.200000, 106.816666);
 
   @override
   void initState() {
@@ -46,86 +52,75 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     _initializeWithUserDevice();
   }
 
-  /// Initialize the map service with the current user's primary device
   Future<void> _initializeWithUserDevice() async {
     try {
-      setState(() {
-        isLoading = true;
-      });
+      setState(() => isLoading = true);
 
-      // Use the enhanced bridge method to get validated MAC ID
       final macId = await _deviceService.getValidatedDeviceMacIdForMap();
-
       if (macId == null) {
         throw Exception(
           'No valid devices found or device not connected to GPS system',
         );
       }
 
-      // Get the device name for display using the MAC ID
       final name = await _deviceService.getDeviceNameById(macId);
-
-      // Initialize the map service with the MAC ID for Firebase Realtime Database access
       final mapService = mapServices(deviceId: macId);
 
       setState(() {
         currentDeviceId = macId;
-        deviceName = name ?? macId; // Show MAC ID if no name available
+        deviceName = name ?? macId;
         _mapService = mapService;
       });
 
-      // Set up real-time listeners and load initial data
       _setupRealtimeListeners();
       await _loadInitialData();
     } catch (e) {
-      debugPrint('Error initializing with user device: $e');
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-
-        // Provide specific error messages for bridge connection issues
-        String errorMessage = 'Failed to initialize device: $e';
-        if (e.toString().contains('No valid devices found')) {
-          errorMessage =
-              'No GPS devices found or device not connected to GPS system. Please check your device setup.';
-        } else if (e.toString().contains('not connected to GPS system')) {
-          errorMessage =
-              'Device found but not sending GPS data. Please check your physical GPS device connection.';
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 8),
-          ),
-        );
-      }
+      _handleInitializationError(e);
     }
+  }
+
+  void _handleInitializationError(dynamic e) {
+    debugPrint('Error initializing with user device: $e');
+    if (mounted) {
+      setState(() => isLoading = false);
+
+      String errorMessage = _getErrorMessage(e);
+      _showErrorSnackBar(errorMessage);
+    }
+  }
+
+  String _getErrorMessage(dynamic e) {
+    final errorString = e.toString();
+    if (errorString.contains('No valid devices found')) {
+      return 'No GPS devices found or device not connected to GPS system. Please check your device setup.';
+    } else if (errorString.contains('not connected to GPS system')) {
+      return 'Device found but not sending GPS data. Please check your physical GPS device connection.';
+    }
+    return 'Failed to initialize device: $e';
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 8),
+      ),
+    );
   }
 
   void _setupRealtimeListeners() {
     if (_mapService == null) return;
 
-    // Listen to GPS data changes
     _mapService!.getGPSDataStream().listen((gpsData) {
       if (mounted && gpsData != null && _mapService!.isGPSDataValid(gpsData)) {
         _updateGPSData(gpsData);
       }
     });
 
-    // Listen to relay status changes
     _mapService!.getRelayStatusStream().listen((relayStatus) {
-      if (mounted) {
-        setState(() {
-          isVehicleOn = relayStatus;
-        });
-      }
+      if (mounted) setState(() => isVehicleOn = relayStatus);
     });
-
-    // Load initial data
-    _loadInitialData();
   }
 
   Future<void> _updateGPSData(Map<String, dynamic> gpsData) async {
@@ -133,14 +128,11 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       final lat = gpsData['latitude'] as double;
       final lon = gpsData['longitude'] as double;
 
-      // Fetch location name (but don't wait for it to update other data)
+      // Fetch location name asynchronously
       _mapService?.fetchLocationName(lat, lon).then((locationName) {
-        if (mounted) {
-          setState(() {
-            this.locationName = locationName;
-          });
-        }
+        if (mounted) setState(() => this.locationName = locationName);
       });
+
       setState(() {
         latitude = lat;
         longitude = lon;
@@ -151,8 +143,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
         isLoading = false;
       });
 
-      // MapWidget will automatically follow the GPS coordinates
-      // No need to manually move the map controller here
+      _mapController.move(LatLng(lat, lon), 15.0);
     } catch (e) {
       debugPrint('Error updating GPS data: $e');
     }
@@ -162,13 +153,11 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     if (_mapService == null) return;
 
     try {
-      // Load initial GPS location
       final gpsData = await _mapService!.getLastGPSLocation();
       if (gpsData != null && _mapService!.isGPSDataValid(gpsData)) {
         await _updateGPSData(gpsData);
       }
 
-      // Load initial relay status
       final relayStatus = await _mapService!.getCurrentRelayStatus();
       if (mounted) {
         setState(() {
@@ -178,46 +167,138 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       }
     } catch (e) {
       debugPrint('Error loading initial data: $e');
-      if (mounted) {
+      if (mounted) setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> fetchLocationName(double lat, double lon) async {
+    final url = Uri.parse(
+      'https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lon&zoom=18&addressdetails=1',
+    );
+    try {
+      final response = await http.get(
+        url,
+        headers: {'User-Agent': 'FlutterApp'},
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
         setState(() {
-          isLoading = false;
+          locationName = data['display_name'] ?? 'Location Not Found';
         });
       }
+    } catch (e) {
+      debugPrint("Error fetching location name: $e");
     }
   }
 
-  bool get isRecentlyActive {
-    if (lastUpdated == '-' || lastUpdated == 'Unavailable') return false;
+  void fetchLastLocation() {
+    final ref = FirebaseDatabase.instance.ref('devices/${widget.deviceId}/gps');
 
-    try {
-      final lastUpdate = DateFormat('yyyy-MM-dd HH:mm:ss').parse(lastUpdated);
-      final now = DateTime.now();
-      final difference = now.difference(lastUpdate);
+    ref
+        .once()
+        .then((DatabaseEvent event) {
+          if (event.snapshot.exists) {
+            final data = Map<String, dynamic>.from(event.snapshot.value as Map);
 
-      // Consider active if updated within last 5 minutes
-      return difference.inMinutes <= 5;
-    } catch (e) {
-      return false;
-    }
-  }
+            final lat = double.tryParse(data['latitude'].toString());
+            final lon = double.tryParse(data['longitude'].toString());
+            final tanggal = data['tanggal'];
+            final waktu = data['waktu_wita'];
+            final sat =
+                data['satellites'] != null
+                    ? int.tryParse(data['satellites'].toString())
+                    : null;
 
-  void toggleVehicleStatus() async {
-    if (_mapService == null) return;
+            String? timestamp;
+            if (tanggal != null && waktu != null) {
+              timestamp = '$tanggal $waktu';
+            }
 
-    try {
-      await _mapService!.toggleRelayStatus();
-      // Status will be updated automatically through the stream listener
-    } catch (e) {
-      debugPrint('Error toggling vehicle status: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to toggle vehicle: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+            debugPrint('DEBUG: Parsed coordinates - lat: $lat, lon: $lon');
+
+            setState(() {
+              latitude = lat;
+              longitude = lon;
+              waktuWita = waktu;
+              satellites = sat;
+
+              if (lat != null && lon != null) {
+                fetchLocationName(lat, lon);
+                _mapController.move(LatLng(lat, lon), 15.0);
+                debugPrint('DEBUG: Map moved to: $lat, $lon');
+              } else {
+                debugPrint('DEBUG: Coordinates are null, marker will not show');
+              }
+
+              if (timestamp != null) {
+                final dt = DateFormat('yyyy-MM-dd HH:mm:ss').parse(timestamp);
+                lastUpdated = DateFormat('yyyy-MM-dd HH:mm:ss').format(dt);
+              } else {
+                lastUpdated = 'Unavailable';
+              }
+            });
+          } else {
+            debugPrint(
+              'DEBUG: No data found at path: devices/${widget.deviceId}/gps',
+            );
+          }
+        })
+        .catchError((error) {
+          debugPrint('DEBUG: Firebase error: $error');
+        });
+
+    ref.onValue.listen((event) {
+      if (event.snapshot.exists && event.snapshot.value != null) {
+        final data = Map<String, dynamic>.from(event.snapshot.value as Map);
+
+        final lat = double.tryParse(data['latitude'].toString());
+        final lon = double.tryParse(data['longitude'].toString());
+        final tanggal = data['tanggal'];
+        final waktu = data['waktu_wita'];
+        final sat =
+            data['satellites'] != null
+                ? int.tryParse(data['satellites'].toString())
+                : null;
+
+        setState(() {
+          latitude = lat;
+          longitude = lon;
+          waktuWita = waktu;
+          satellites = sat;
+
+          if (lat != null && lon != null) {
+            fetchLocationName(lat, lon);
+            _mapController.move(LatLng(lat, lon), 15.0);
+          }
+
+          if (tanggal != null && waktu != null) {
+            final timestamp = '$tanggal $waktu';
+            try {
+              final dt = DateFormat('yyyy-MM-dd HH:mm:ss').parse(timestamp);
+              lastUpdated = DateFormat('yyyy-MM-dd HH:mm:ss').format(dt);
+            } catch (_) {
+              lastUpdated = 'Unavailable';
+            }
+          } else {
+            lastUpdated = 'Unavailable';
+          }
+        });
       }
-    }
+    });
+  }
+
+  void toggleVehicleStatus() {
+    final relayRef = FirebaseDatabase.instance.ref(
+      'devices/${widget.deviceId}/relay',
+    );
+
+    final newStatus = !isVehicleOn;
+
+    relayRef.set(newStatus);
+
+    setState(() {
+      isVehicleOn = newStatus;
+    });
   }
 
   void showVehiclePanel() {
@@ -230,18 +311,17 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
             locationName: locationName,
             latitude: latitude,
             longitude: longitude,
+            waktuWita: waktuWita,
             lastUpdated: lastUpdated,
             isVehicleOn: isVehicleOn,
             toggleVehicleStatus: toggleVehicleStatus,
+            satellites: satellites,
           ),
     );
   }
 
   Future<void> _refreshData() async {
-    setState(() {
-      isLoading = true;
-    });
-
+    setState(() => isLoading = true);
     await _loadInitialData();
 
     if (mounted) {
@@ -254,183 +334,187 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     }
   }
 
+  Widget _buildDeviceInfoChip() {
+    if (deviceName == null) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        deviceName!,
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Row(
+      children: [
+        _buildFloatingButton(
+          child:
+              isLoading
+                  ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                  : const Icon(Icons.refresh),
+          onPressed: isLoading ? null : _refreshData,
+        ),
+        const SizedBox(width: 8),
+        _buildUserMenu(),
+      ],
+    );
+  }
+
+  Widget _buildFloatingButton({
+    required Widget child,
+    VoidCallback? onPressed,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: IconButton(icon: child, onPressed: onPressed),
+    );
+  }
+
+  Widget _buildUserMenu() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: PopupMenuButton<String>(
+        icon: const Icon(Icons.person, color: Colors.black),
+        offset: const Offset(0, 45),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 8,
+        color: Colors.white,
+        onSelected: _handleMenuSelection,
+        itemBuilder:
+            (context) => const [
+              PopupMenuItem(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person_outline),
+                    SizedBox(width: 8),
+                    Text('Profile'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'settings',
+                child: Row(
+                  children: [
+                    Icon(Icons.settings_outlined),
+                    SizedBox(width: 8),
+                    Text('Settings'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout_outlined),
+                    SizedBox(width: 8),
+                    Text('Logout'),
+                  ],
+                ),
+              ),
+            ],
+      ),
+    );
+  }
+
+  Future<void> _handleMenuSelection(String value) async {
+    switch (value) {
+      case 'profile':
+        Navigator.pushNamed(context, '/profile');
+        break;
+      case 'settings':
+        Navigator.pushNamed(context, '/settings');
+        break;
+      case 'logout':
+        await AuthService.signOut();
+        Navigator.pushReplacementNamed(context, '/login');
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          // Use MapWidget with backend service integration and auto-follow enabled
           MapWidget(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: vehicleLocation,
+              initialZoom: 15.0,
+              minZoom: 3.0,
+              maxZoom: 18.0,
+            ),
             deviceId: currentDeviceId,
-            autoFollow: true, // Enable automatic following of GPS coordinates
-            followThreshold: 30.0, // Follow when device moves 30+ meters
-            mapController: _mapController, // Use existing map controller
-            initialCenter: vehicleLocation, // Start at vehicle location
             children: [
-              // OpenStreetMap tile layer
               TileLayer(
                 urlTemplate:
-                    'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-                subdomains: const ['a', 'b', 'c', 'd'],
+                    'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+                subdomains: const ['a', 'b', 'c'],
                 userAgentPackageName: 'com.example.gps_app',
                 maxZoom: 18,
               ),
+              MarkerLayer(
+                markers: [
+                  Marker(
+                    point: vehicleLocation,
+                    width: 80,
+                    height: 80,
+                    child: GestureDetector(
+                      onTap: showVehiclePanel,
+                      child: VehicleMarkerIcon(isOn: isVehicleOn),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
-
-          // Top navigation bar
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.92),
-                  borderRadius: BorderRadius.circular(50),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        SvgPicture.asset(
-                          'assets/icons/appicon1.svg',
-                          height: 25,
-                        ),
-                        const SizedBox(width: 10),
-                        // Display current device name
-                        if (deviceName != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: Colors.blue.withOpacity(0.3),
-                                width: 1,
-                              ),
-                            ),
-                            child: Text(
-                              deviceName!,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.blue,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        IconButton(
-                          icon:
-                              isLoading
-                                  ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                  : const Icon(Icons.refresh),
-                          onPressed: isLoading ? null : _refreshData,
-                        ),
-                        PopupMenuButton<String>(
-                          icon: const Icon(Icons.person, color: Colors.black),
-                          offset: const Offset(0, 45),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          elevation: 8,
-                          color: Colors.white,
-                          shadowColor: Colors.black.withOpacity(0.2),
-                          onSelected: (value) async {
-                            switch (value) {
-                              case 'profile':
-                                Navigator.pushNamed(context, '/profile');
-                                break;
-                              case 'settings':
-                                Navigator.pushNamed(context, '/settings');
-                                break;
-                              case 'logout':
-                                await AuthService.signOut();
-                                Navigator.pushReplacementNamed(
-                                  context,
-                                  '/login',
-                                );
-                                break;
-                            }
-                          },
-                          itemBuilder:
-                              (context) => const [
-                                PopupMenuItem(
-                                  value: 'profile',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.person_outline),
-                                      SizedBox(width: 8),
-                                      Text('Profile'),
-                                    ],
-                                  ),
-                                ),
-                                PopupMenuItem(
-                                  value: 'settings',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.settings_outlined),
-                                      SizedBox(width: 8),
-                                      Text('Settings'),
-                                    ],
-                                  ),
-                                ),
-                                PopupMenuItem(
-                                  value: 'logout',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.logout_outlined),
-                                      SizedBox(width: 8),
-                                      Text('Logout'),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [_buildDeviceInfoChip(), _buildActionButtons()],
               ),
             ),
           ),
-
-          // Bottom information panel - Use VehicleStatusPanel for consistency
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: VehicleStatusPanel(
-              locationName: locationName,
-              latitude: latitude,
-              longitude: longitude,
-              lastUpdated: lastUpdated,
-              isVehicleOn: isVehicleOn,
-              toggleVehicleStatus: toggleVehicleStatus,
-            ),
-          ),
-
-          // Sticky footer
           Align(alignment: Alignment.bottomCenter, child: StickyFooter()),
         ],
       ),

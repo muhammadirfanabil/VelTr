@@ -4,16 +4,20 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:gps_app/screens/Auth/RegisterOne.dart';
 import 'package:gps_app/screens/Auth/GoogleSignupScreen.dart';
 import 'package:gps_app/screens/GeoFence/device_geofence.dart';
+// import 'package:gps_app/screens/GeoFence/index.dart';
+import 'package:gps_app/screens/Index.dart';
 import 'package:gps_app/screens/Users/Profile.dart';
+import 'package:gps_app/screens/device/index.dart';
 import 'package:gps_app/screens/users/edit_profile.dart';
 import 'package:gps_app/screens/vehicle/manage.dart';
+import 'package:gps_app/screens/vehicle/history.dart';
 
 import 'firebase_options.dart';
 import 'screens/Auth/login.dart';
 import 'screens/Vehicle/index.dart';
-import 'screens/Device/index.dart';
 import 'screens/Maps/mapView.dart';
 import 'screens/GeoFence/index.dart';
+import 'screens/notifications/notifications_screen.dart';
 import 'screens/index.dart';
 
 void main() async {
@@ -32,26 +36,34 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(primarySwatch: Colors.blue, fontFamily: 'PlusJakarta'),
       debugShowCheckedModeBanner: false,
       routes: {
+        // Authentications
         '/registerone': (context) => const RegisterOne(),
         '/login': (context) => const LoginScreen(),
+
+        // Home Page
         '/home': (context) {
           final args =
               ModalRoute.of(context)?.settings.arguments
                   as Map<String, dynamic>?;
-          final deviceId = args?['deviceId'] as String? ?? 'default_device_id';
+          final deviceId = args?['deviceId'] as String? ?? 'No Device';
           return GPSMapScreen(deviceId: deviceId);
         },
+
+        // Vehicle
         '/vehicle': (context) => const VehicleIndexScreen(),
-        '/device': (context) => const DeviceIndexScreen(),
         '/manage-vehicle': (context) => const ManageVehicle(),
-        '/geofence': (context) {
-          // Extract deviceId from route arguments
-          final args =
-              ModalRoute.of(context)?.settings.arguments
-                  as Map<String, dynamic>?;
-          final deviceId = args?['deviceId'] as String? ?? 'default_device_id';
-          return DeviceListScreen(deviceId: deviceId);
-        },
+        '/geofence': (context) => const DeviceManagerScreen(),
+        '/drive-history': (context) => const DrivingHistory(),
+        
+        // '/geofence': (context) => const GeofenceListScreen(),
+        // '/geofence': (context) {
+        //   // Extract deviceId from route arguments
+        //   final args =
+        //       ModalRoute.of(context)?.settings.arguments
+        //           as Map<String, dynamic>?;
+        //   final deviceId = args?['deviceId'] as String? ?? 'default_device_id';
+        //   return DeviceListScreen(deviceId: deviceId);
+        // },
         '/set-range': (context) {
           // Extract deviceId from route arguments
           final args =
@@ -60,6 +72,7 @@ class MyApp extends StatelessWidget {
           final deviceId = args?['deviceId'] as String? ?? 'default_device_id';
           return DeviceListScreen(deviceId: deviceId);
         },
+        '/notifications': (context) => const NotificationsScreen(),
         '/profile': (context) => const ProfilePage(),
         '/edit-profile': (context) => const EditProfileScreen(),
         '/google-signup': (context) {
@@ -86,6 +99,8 @@ class MyApp extends StatelessWidget {
           }
 
           return const GPSMapScreen(deviceId: 'default_device_id');
+
+          // return const GPSMapScreen(deviceId: 'B0A7322B2EC4');
         },
       ),
     );

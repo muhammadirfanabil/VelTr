@@ -6,8 +6,10 @@ class VehicleStatusPanel extends StatelessWidget {
   final double? latitude;
   final double? longitude;
   final String? lastUpdated;
+  final String? waktuWita;
   final bool isVehicleOn;
   final VoidCallback toggleVehicleStatus;
+  final int? satellites;
 
   const VehicleStatusPanel({
     super.key,
@@ -15,9 +17,36 @@ class VehicleStatusPanel extends StatelessWidget {
     required this.latitude,
     required this.longitude,
     required this.lastUpdated,
+    required this.waktuWita,
     required this.isVehicleOn,
     required this.toggleVehicleStatus,
+    required this.satellites,
   });
+
+  bool get hasValidCoordinates => latitude != null && longitude != null;
+
+  String get coordinatesText =>
+      hasValidCoordinates
+          ? 'Lat: ${latitude!.toStringAsFixed(5)} | Lng: ${longitude!.toStringAsFixed(5)}'
+          : 'Coordinates Unavailable';
+
+  String get lastActiveText =>
+      (lastUpdated?.isNotEmpty ?? false)
+          ? 'Last Active: $lastUpdated'
+          : 'Waiting...';
+
+  bool get isOnline {
+    if (lastUpdated == null || lastUpdated!.isEmpty) return false;
+
+    try {
+      final updatedTime = DateTime.parse(lastUpdated!);
+      final now = DateTime.now();
+      final difference = now.difference(updatedTime).inMinutes;
+      return difference <= 1;
+    } catch (_) {
+      return false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +73,28 @@ class VehicleStatusPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Online/offline status at the top-right corner
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Icon(
+                  Icons.fiber_manual_record,
+                  size: 14,
+                  color: isOnline ? Colors.green : Colors.red,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  isOnline ? 'Online' : 'Offline',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: isOnline ? Colors.green : Colors.red,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // Location name display
             Text(
               locationName ?? 'Loading...',
               style: theme.textTheme.titleMedium?.copyWith(
@@ -52,6 +103,18 @@ class VehicleStatusPanel extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
+
+            // Satellites count, if available
+            if (isOnline && satellites != null)
+              Text(
+                'Satellites: $satellites',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.black87,
+                ),
+              ),
+            const SizedBox(height: 8),
+
+            // GPS coordinates or unavailable message
             if (latitude != null && longitude != null)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -83,6 +146,8 @@ class VehicleStatusPanel extends StatelessWidget {
                 ),
               ),
             const SizedBox(height: 6),
+
+            // Last active time display
             Text(
               (lastUpdated?.isNotEmpty ?? false)
                   ? 'Last Active: $lastUpdated'
@@ -92,69 +157,66 @@ class VehicleStatusPanel extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed:
-                        (latitude != null && longitude != null)
-                            ? () {
-                              // TODO: Implement navigation logic
-                            }
-                            : null,
-                    icon: Transform.rotate(
-                      angle: 0.25 * math.pi,
-                      child: const Icon(Icons.navigation, size: 20),
-                    ),
-                    label: const Text(
-                      'Navigate',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      backgroundColor: const Color(
-                        0xFF7DAEFF,
-                      ).withOpacity(0.25),
-                      foregroundColor: const Color(0xFF11468F),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: toggleVehicleStatus,
-                    icon: Icon(
-                      isVehicleOn
-                          ? Icons.power_settings_new
-                          : Icons.power_settings_new_outlined,
-                      size: 20,
-                    ),
-                    label: Text(
-                      isVehicleOn ? 'Turn Off' : 'Turn On',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      backgroundColor:
-                          isVehicleOn
-                              ? Colors.green.shade600
-                              : Colors.red.shade600,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            _buildActionButtons(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Row(
+      children: [
+        Expanded(child: _buildNavigateButton()),
+        const SizedBox(width: 12),
+        Expanded(child: _buildToggleButton()),
+      ],
+    );
+  }
+
+  Widget _buildNavigateButton() {
+    return ElevatedButton.icon(
+      onPressed:
+          hasValidCoordinates
+              ? () {
+                // TODO: Implement navigation logic
+              }
+              : null,
+      icon: Transform.rotate(
+        angle: 0.25 * math.pi,
+        child: const Icon(Icons.navigation, size: 20),
+      ),
+      label: const Text('Navigate', overflow: TextOverflow.ellipsis),
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        backgroundColor: const Color(0xFF7DAEFF).withOpacity(0.25),
+        foregroundColor: const Color(0xFF11468F),
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  Widget _buildToggleButton() {
+    return ElevatedButton.icon(
+      onPressed: toggleVehicleStatus,
+      icon: Icon(
+        isVehicleOn
+            ? Icons.power_settings_new
+            : Icons.power_settings_new_outlined,
+        size: 20,
+      ),
+      label: Text(
+        isVehicleOn ? 'Turn Off' : 'Turn On',
+        overflow: TextOverflow.ellipsis,
+      ),
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        backgroundColor:
+            isVehicleOn ? Colors.green.shade600 : Colors.red.shade600,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }

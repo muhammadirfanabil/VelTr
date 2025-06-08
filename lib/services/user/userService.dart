@@ -8,8 +8,18 @@ class UserService {
     'users_information', // Name of the collection in Firestore
   );
 
-  /// Add a new user to Firestore
+  /// Add a new user to Firestore with Firebase Auth UID as document ID
   Future<void> addUser(userInformation user) async {
+    try {
+      // Use the user's Firebase Auth UID as the document ID
+      await usersRef.doc(user.id).set(user.toMap());
+    } catch (e) {
+      throw Exception('Failed to add user: $e');
+    }
+  }
+
+  /// Add a new user with auto-generated ID (for cases where you don't have UID)
+  Future<void> addUserWithAutoId(userInformation user) async {
     try {
       final docRef = usersRef.doc(); // Auto-generates ID
       await docRef.set(user.copyWith(id: docRef.id).toMap());
@@ -50,7 +60,7 @@ class UserService {
     }
   }
 
-  /// Fetch a single user by ID
+  /// Fetch a single user by ID (Firebase Auth UID)
   Future<userInformation?> getUserById(String id) async {
     try {
       final doc = await usersRef.doc(id).get();
@@ -66,13 +76,18 @@ class UserService {
     }
   }
 
+  /// Get user information by Firebase Auth UID (alias for getUserById)
+  Future<userInformation?> getUserInformation(String uid) async {
+    return await getUserById(uid);
+  }
+
   /// Load user data with fallback to Firebase Auth user data
   Future<Map<String, dynamic>> loadUserData() async {
     try {
       final User? currentUser = FirebaseAuth.instance.currentUser;
 
       if (currentUser != null) {
-        // Get user data from Firestore
+        // Get user data from Firestore using Firebase Auth UID
         userInformation? userInfo = await getUserById(currentUser.uid);
 
         if (userInfo != null) {
@@ -81,7 +96,8 @@ class UserService {
             'name': userInfo.name,
             'email': userInfo.emailAddress,
             'phoneNumber':
-                '-', // UserInformation model doesn't have phone field yet
+                currentUser.phoneNumber ??
+                'No phone number', // Get from Firebase Auth
             'isLoading': false,
           };
         } else {
@@ -90,7 +106,7 @@ class UserService {
             'userInfo': null,
             'name': currentUser.displayName ?? 'No name found',
             'email': currentUser.email ?? 'No email found',
-            'phoneNumber': '-',
+            'phoneNumber': currentUser.phoneNumber ?? 'No phone number',
             'isLoading': false,
           };
         }
@@ -102,7 +118,7 @@ class UserService {
     }
   }
 
-  /// Update user data or create new user if doesn't exist
+  /// Create or update user data using Firebase Auth UID as document ID
   Future<userInformation> updateUserData(
     String name,
     String email,
@@ -123,9 +139,9 @@ class UserService {
           await updateUser(updatedUser);
           return updatedUser;
         } else {
-          // Create new user info if it doesn't exist
+          // Create new user info with Firebase Auth UID as document ID
           final newUserInfo = userInformation(
-            id: currentUser.uid,
+            id: currentUser.uid, // Use Firebase Auth UID
             name: name,
             emailAddress: email,
             vehicleIds: [], // Initialize with empty vehicle list
@@ -133,7 +149,7 @@ class UserService {
             updatedAt: DateTime.now(),
           );
 
-          await addUser(newUserInfo);
+          await addUser(newUserInfo); // This will use UID as document ID
           return newUserInfo;
         }
       } else {
@@ -237,15 +253,15 @@ class UserService {
     }
   }
 
-  /// Initialize user with empty vehicle list (for new registrations)
+  /// Initialize user with empty vehicle list using Firebase Auth UID
   Future<userInformation> createUserWithEmptyVehicles(
     String name,
     String email,
-    String userId,
+    String userId, // This should be the Firebase Auth UID
   ) async {
     try {
       final newUserInfo = userInformation(
-        id: userId,
+        id: userId, // Use Firebase Auth UID as document ID
         name: name,
         emailAddress: email,
         vehicleIds: [], // Initialize with empty vehicle list
@@ -253,10 +269,75 @@ class UserService {
         updatedAt: DateTime.now(),
       );
 
-      await addUser(newUserInfo);
+      await addUser(newUserInfo); // This will use UID as document ID
       return newUserInfo;
     } catch (e) {
       throw Exception('Failed to create user: $e');
+    }
+  }
+
+  /// Create user document immediately after Firebase Auth registration
+  Future<userInformation> createUserAfterRegistration(
+    String name,
+    String email,
+  ) async {
+    try {
+      final User? currentUser = FirebaseAuth.instance.currentUser;
+
+      if (currentUser != null) {
+        final newUserInfo = userInformation(
+          id: currentUser.uid, // Use Firebase Auth UID
+          name: name,
+          emailAddress: email,
+          vehicleIds: [],
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+
+        await addUser(newUserInfo);
+        return newUserInfo;
+      } else {
+        throw Exception('No authenticated user found');
+      }
+    } catch (e) {
+      throw Exception('Failed to create user after registration: $e');
+    }
+  }
+
+  /// Check if user document exists in Firestore
+  Future<bool> userDocumentExists(String uid) async {
+    try {
+      final doc = await usersRef.doc(uid).get();
+      return doc.exists;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Ensure user document exists, create if it doesn't
+  Future<userInformation> ensureUserDocument() async {
+    try {
+      final User? currentUser = FirebaseAuth.instance.currentUser;
+
+      if (currentUser != null) {
+        final exists = await userDocumentExists(currentUser.uid);
+
+        if (!exists) {
+          // Create user document with Firebase Auth data as fallback
+          return await createUserAfterRegistration(
+            currentUser.displayName ?? 'User',
+            currentUser.email ?? 'No email',
+          );
+        } else {
+          // Return existing user data
+          final userInfo = await getUserById(currentUser.uid);
+          return userInfo!;
+        }
+      } else {
+        throw Exception('No authenticated user found');
+      }
+    } catch (e) {
+      throw Exception('Failed to ensure user document: $e');
     }
   }
 }

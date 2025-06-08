@@ -1,660 +1,484 @@
 import 'package:flutter/material.dart';
 import '../../models/Device/device.dart';
-import '../../models/vehicle/vehicle.dart';
 import '../../services/device/deviceService.dart';
-import '../../services/vehicle/vehicleService.dart';
+import '../GeoFence/index.dart';
 
-class DeviceIndexScreen extends StatefulWidget {
-  const DeviceIndexScreen({Key? key}) : super(key: key);
+class DeviceManagerScreen extends StatefulWidget {
+  const DeviceManagerScreen({Key? key}) : super(key: key);
 
   @override
-  _DeviceIndexScreenState createState() => _DeviceIndexScreenState();
+  _DeviceManagerScreenState createState() => _DeviceManagerScreenState();
 }
 
-class _DeviceIndexScreenState extends State<DeviceIndexScreen> {
+class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
   final DeviceService _deviceService = DeviceService();
-  final vehicleService _vehicleService = vehicleService();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('GPS Devices'),
+        backgroundColor: Colors.blue.shade700,
+        foregroundColor: Colors.white,
+        elevation: 2,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => setState(() {}),
+            tooltip: 'Refresh',
           ),
         ],
       ),
-      body: StreamBuilder<List<Device>>(
-        stream: _deviceService.getDevicesStream(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.blue.shade50, Colors.white],
+          ),
+        ),
+        child: StreamBuilder<List<Device>>(
+          stream: _deviceService.getDevicesStream(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
+            if (snapshot.hasError) {
+              return _buildErrorState(snapshot.error.toString());
+            }
 
-          final devices = snapshot.data ?? [];
-
-          if (devices.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    'No GPS devices found',
-                    style: TextStyle(fontSize: 18),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => _showAddDeviceDialog(context),
-                    child: const Text('Add your first device'),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return ListView.builder(
-            itemCount: devices.length,
-            itemBuilder: (context, index) {
-              final device = devices[index];
-              return DeviceCard(
-                device: device,
-                onEdit: () => _showEditDeviceDialog(context, device),
-                onDelete: () => _deleteDevice(device.id),
-                onToggleStatus: () => _toggleDeviceStatus(device),
-                onManageVehicle:
-                    () => _showVehicleAssignmentDialog(context, device),
-                onUpdateGPS: () => _showGPSUpdateDialog(context, device),
-              );
-            },
-          );
-        },
+            final devices = snapshot.data ?? [];
+            return devices.isEmpty
+                ? _buildEmptyState()
+                : _buildDeviceList(devices);
+          },
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddDeviceDialog(context),
+        onPressed: _showAddDeviceDialog,
         icon: const Icon(Icons.add),
         label: const Text('Add Device'),
+        backgroundColor: Colors.blue.shade700,
+        foregroundColor: Colors.white,
       ),
     );
   }
 
-  void _showAddDeviceDialog(BuildContext context) {
-    final nameController = TextEditingController();
+  Widget _buildErrorState(String error) => Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
+        const SizedBox(height: 16),
+        Text('Error: $error', style: TextStyle(color: Colors.red.shade600)),
+        const SizedBox(height: 16),
+        ElevatedButton(
+          onPressed: () => setState(() {}),
+          child: const Text('Retry'),
+        ),
+      ],
+    ),
+  );
 
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Add New GPS Device'),
-            content: TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Device Name',
-                hintText: 'e.g., GPS Tracker 1',
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  if (nameController.text.trim().isNotEmpty) {
-                    _addDevice(nameController.text.trim());
-                    Navigator.pop(context);
-                  }
-                },
-                child: const Text('Add'),
-              ),
-            ],
+  Widget _buildEmptyState() => Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.devices_other, size: 64, color: Colors.grey.shade400),
+        const SizedBox(height: 16),
+        const Text(
+          'No GPS devices found',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Add your first device to get started',
+          style: TextStyle(color: Colors.grey.shade600),
+        ),
+        const SizedBox(height: 24),
+        ElevatedButton.icon(
+          onPressed: _showAddDeviceDialog,
+          icon: const Icon(Icons.add),
+          label: const Text('Add Device'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue.shade700,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildDeviceList(List<Device> devices) => ListView.builder(
+    padding: const EdgeInsets.all(16),
+    itemCount: devices.length,
+    itemBuilder: (context, index) {
+      final device = devices[index];
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Dismissible(
+          key: Key(device.id),
+          direction: DismissDirection.endToStart,
+          background: _buildDismissBackground(),
+          confirmDismiss: (_) => _showDeleteConfirmation(device),
+          onDismissed: (_) => _deleteDevice(device.id),
+          child: DeviceCard(
+            device: device,
+            onTap: () => _navigateToGeofence(device),
+            onEdit: () => _showEditDeviceDialog(device),
+            onToggleStatus: () => _toggleDeviceStatus(device),
+          ),
+        ),
+      );
+    },
+  );
+
+  Widget _buildDismissBackground() => Container(
+    decoration: BoxDecoration(
+      color: Colors.red.shade400,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    alignment: Alignment.centerRight,
+    padding: const EdgeInsets.only(right: 20),
+    child: const Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.delete, color: Colors.white, size: 28),
+        SizedBox(height: 4),
+        Text(
+          'Delete',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+        ),
+      ],
+    ),
+  );
+
+  void _navigateToGeofence(Device device) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => GeofenceListScreen(deviceId: device.id),
+      ),
     );
   }
 
-  void _showEditDeviceDialog(BuildContext context, Device device) {
-    final nameController = TextEditingController(text: device.name);
-
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Edit Device'),
-            content: TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: 'Device Name'),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  if (nameController.text.trim().isNotEmpty) {
-                    _updateDevice(device, nameController.text.trim());
-                    Navigator.pop(context);
-                  }
-                },
-                child: const Text('Update'),
-              ),
-            ],
-          ),
-    );
-  }
-
-  void _showVehicleAssignmentDialog(BuildContext context, Device device) async {
-    final vehicles = await _vehicleService.getVehiclesWithoutDevice();
-    vehicle? currentVehicle;
-
-    if (device.vehicleId != null) {
-      currentVehicle = await _vehicleService.getVehicleById(device.vehicleId!);
-    }
-
-    if (!mounted) return;
-
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text('Manage Vehicle for ${device.name}'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (currentVehicle != null) ...[
-                    Text(
-                      'Currently assigned to:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    Card(
-                      color: Colors.green.shade50,
-                      child: ListTile(
-                        leading: Icon(
-                          Icons.directions_car,
-                          color: Colors.green,
-                        ),
-                        title: Text(currentVehicle.name),
-                        subtitle: Text(
-                          '${currentVehicle.vehicleTypes} • ${currentVehicle.plateNumber}',
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 16),
-                  ],
-                  Text(
-                    'Available vehicles:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 8),
-                  if (vehicles.isEmpty)
-                    Text(
-                      'No vehicles available for assignment',
-                      style: TextStyle(color: Colors.grey),
-                    )
-                  else
-                    ...vehicles
-                        .map(
-                          (vehicle) => Card(
-                            child: ListTile(
-                              leading: Icon(Icons.directions_car),
-                              title: Text(vehicle.name),
-                              subtitle: Text(
-                                '${vehicle.vehicleTypes} • ${vehicle.plateNumber}',
-                              ),
-                              trailing: IconButton(
-                                icon: Icon(Icons.link, color: Colors.blue),
-                                onPressed: () async {
-                                  await _assignDeviceToVehicle(
-                                    device.id,
-                                    vehicle.id,
-                                  );
-                                  Navigator.pop(context);
-                                },
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                ],
-              ),
-            ),
-            actions: [
-              if (device.vehicleId != null)
-                TextButton(
-                  onPressed: () async {
-                    await _unassignDeviceFromVehicle(device.id);
-                    Navigator.pop(context);
-                  },
-                  child: Text('Unassign', style: TextStyle(color: Colors.red)),
+  Future<bool> _showDeleteConfirmation(Device device) async {
+    return await showDialog<bool>(
+          context: context,
+          builder:
+              (context) => AlertDialog(
+                title: const Text('Delete Device'),
+                content: Text(
+                  'Are you sure you want to delete ${device.name}?',
                 ),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text('Close'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Delete'),
+                  ),
+                ],
               ),
-            ],
-          ),
-    );
+        ) ??
+        false;
   }
 
-  void _showGPSUpdateDialog(BuildContext context, Device device) {
-    final latController = TextEditingController(
-      text: device.gpsData?['latitude']?.toString() ?? '',
-    );
-    final lngController = TextEditingController(
-      text: device.gpsData?['longitude']?.toString() ?? '',
-    );
-    final altController = TextEditingController(
-      text: device.gpsData?['altitude']?.toString() ?? '',
-    );
-    final speedController = TextEditingController(
-      text: device.gpsData?['speed']?.toString() ?? '',
-    );
+  void _showAddDeviceDialog() => _showDeviceDialog();
+
+  void _showEditDeviceDialog(Device device) =>
+      _showDeviceDialog(device: device);
+
+  void _showDeviceDialog({Device? device}) {
+    final nameController = TextEditingController(text: device?.name ?? '');
+    final isEdit = device != null;
 
     showDialog(
       context: context,
       builder:
           (context) => AlertDialog(
-            title: Text('Update GPS Data for ${device.name}'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: latController,
-                    decoration: InputDecoration(labelText: 'Latitude'),
-                    keyboardType: TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                  ),
-                  TextField(
-                    controller: lngController,
-                    decoration: InputDecoration(labelText: 'Longitude'),
-                    keyboardType: TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                  ),
-                  TextField(
-                    controller: altController,
-                    decoration: InputDecoration(
-                      labelText: 'Altitude (optional)',
-                    ),
-                    keyboardType: TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                  ),
-                  TextField(
-                    controller: speedController,
-                    decoration: InputDecoration(labelText: 'Speed (optional)'),
-                    keyboardType: TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                  ),
-                ],
+            title: Text(isEdit ? 'Edit Device' : 'Add New GPS Device'),
+            content: TextField(
+              controller: nameController,
+              decoration: InputDecoration(
+                labelText: 'Device Name',
+                hintText: isEdit ? null : 'e.g., GPS Tracker 1',
+                border: const OutlineInputBorder(),
               ),
+              autofocus: true,
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text('Cancel'),
+                child: const Text('Cancel'),
               ),
-              TextButton(
+              ElevatedButton(
                 onPressed: () {
-                  final lat = double.tryParse(latController.text);
-                  final lng = double.tryParse(lngController.text);
-
-                  if (lat != null && lng != null) {
-                    _updateDeviceGPS(
-                      device.id,
-                      lat,
-                      lng,
-                      double.tryParse(altController.text),
-                      double.tryParse(speedController.text),
-                    );
+                  final name = nameController.text.trim();
+                  if (name.isNotEmpty) {
+                    isEdit ? _updateDevice(device!, name) : _addDevice(name);
                     Navigator.pop(context);
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Please enter valid latitude and longitude',
-                        ),
-                      ),
-                    );
                   }
                 },
-                child: Text('Update'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade700,
+                  foregroundColor: Colors.white,
+                ),
+                child: Text(isEdit ? 'Update' : 'Add'),
               ),
             ],
           ),
     );
   }
 
-  void _addDevice(String name) async {
+  Future<void> _addDevice(String name) async {
     try {
       await _deviceService.addDevice(name: name);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Device added successfully')),
-      );
+      if (mounted)
+        _showSnackBar('Device "$name" added successfully', Colors.green);
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error adding device: $e')));
+      if (mounted) _showSnackBar('Error adding device: $e', Colors.red);
     }
   }
 
-  void _updateDevice(Device device, String newName) async {
+  Future<void> _updateDevice(Device device, String newName) async {
     try {
-      final updatedDevice = device.copyWith(name: newName);
-      await _deviceService.updateDevice(updatedDevice);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Device updated successfully')),
-      );
+      await _deviceService.updateDevice(device.copyWith(name: newName));
+      if (mounted) _showSnackBar('Device renamed to "$newName"', Colors.green);
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error updating device: $e')));
+      if (mounted) _showSnackBar('Error updating device: $e', Colors.red);
     }
   }
 
-  void _deleteDevice(String id) async {
+  Future<void> _deleteDevice(String id) async {
     try {
       await _deviceService.deleteDevice(id);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Device deleted successfully')),
-      );
+      if (mounted) _showSnackBar('Device deleted successfully', Colors.green);
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error deleting device: $e')));
+      if (mounted) _showSnackBar('Error deleting device: $e', Colors.red);
     }
   }
 
-  void _toggleDeviceStatus(Device device) async {
+  Future<void> _toggleDeviceStatus(Device device) async {
     try {
       await _deviceService.toggleDeviceStatus(device.id, !device.isActive);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Device ${device.isActive ? 'deactivated' : 'activated'} successfully',
-          ),
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error updating device status: $e')),
-      );
-    }
-  }
-
-  Future<void> _assignDeviceToVehicle(String deviceId, String vehicleId) async {
-    try {
-      await _deviceService.assignDeviceToVehicle(deviceId, vehicleId);
-      await _vehicleService.attachDeviceToVehicle(vehicleId, deviceId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Device assigned to vehicle successfully'),
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error assigning device: $e')));
-    }
-  }
-
-  Future<void> _unassignDeviceFromVehicle(String deviceId) async {
-    try {
-      final device = await _deviceService.getDeviceById(deviceId);
-      if (device?.vehicleId != null) {
-        await _vehicleService.detachDeviceFromVehicle(device!.vehicleId!);
+      if (mounted) {
+        _showSnackBar(
+          'Device ${device.isActive ? 'deactivated' : 'activated'} successfully',
+          Colors.green,
+        );
       }
-      await _deviceService.unassignDeviceFromVehicle(deviceId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Device unassigned successfully')),
-      );
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error unassigning device: $e')));
+      if (mounted)
+        _showSnackBar('Error updating device status: $e', Colors.red);
     }
   }
 
-  void _updateDeviceGPS(
-    String deviceId,
-    double lat,
-    double lng,
-    double? alt,
-    double? speed,
-  ) async {
-    try {
-      await _deviceService.updateDeviceGPS(
-        deviceId: deviceId,
-        latitude: lat,
-        longitude: lng,
-        altitude: alt,
-        speed: speed,
-      );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('GPS data updated successfully')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error updating GPS data: $e')));
-    }
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 }
 
 class DeviceCard extends StatelessWidget {
   final Device device;
+  final VoidCallback onTap;
   final VoidCallback onEdit;
-  final VoidCallback onDelete;
   final VoidCallback onToggleStatus;
-  final VoidCallback onManageVehicle;
-  final VoidCallback onUpdateGPS;
 
   const DeviceCard({
     Key? key,
     required this.device,
+    required this.onTap,
     required this.onEdit,
-    required this.onDelete,
     required this.onToggleStatus,
-    required this.onManageVehicle,
-    required this.onUpdateGPS,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        device.name,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          Icon(
-                            device.isActive
-                                ? Icons.signal_cellular_4_bar
-                                : Icons.signal_cellular_off,
-                            size: 16,
-                            color: device.isActive ? Colors.green : Colors.red,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            device.isActive ? 'Active' : 'Inactive',
-                            style: TextStyle(
-                              color:
-                                  device.isActive ? Colors.green : Colors.red,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: Icon(
-                        device.isActive ? Icons.pause : Icons.play_arrow,
-                        color: device.isActive ? Colors.orange : Colors.green,
-                      ),
-                      onPressed: onToggleStatus,
-                      tooltip: device.isActive ? 'Deactivate' : 'Activate',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.blue),
-                      onPressed: onEdit,
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        Icons.directions_car,
-                        color:
-                            device.vehicleId != null
-                                ? Colors.green
-                                : Colors.orange,
-                      ),
-                      onPressed: onManageVehicle,
-                      tooltip:
-                          device.vehicleId != null
-                              ? 'Manage Vehicle'
-                              : 'Assign Vehicle',
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        Icons.gps_fixed,
-                        color: device.hasValidGPS ? Colors.green : Colors.grey,
-                      ),
-                      onPressed: onUpdateGPS,
-                      tooltip: 'Update GPS',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder:
-                              (context) => AlertDialog(
-                                title: const Text('Confirm Deletion'),
-                                content: Text('Delete ${device.name}?'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.pop(context);
-                                      onDelete();
-                                    },
-                                    child: const Text('Delete'),
-                                  ),
-                                ],
-                              ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (device.vehicleId != null)
-              FutureBuilder<vehicle?>(
-                future: vehicleService().getVehicleById(device.vehicleId!),
-                builder: (context, snapshot) {
-                  if (snapshot.hasData && snapshot.data != null) {
-                    final vehicle = snapshot.data!;
-                    return Row(
-                      children: [
-                        Icon(
-                          Icons.directions_car,
-                          size: 16,
-                          color: Colors.green,
-                        ),
-                        SizedBox(width: 4),
-                        Text('Vehicle: ${vehicle.name}'),
-                      ],
-                    );
-                  }
-                  return Row(
-                    children: [
-                      Icon(
-                        Icons.directions_car_outlined,
-                        size: 16,
-                        color: Colors.orange,
-                      ),
-                      SizedBox(width: 4),
-                      Text('Loading vehicle info...'),
-                    ],
-                  );
-                },
-              )
-            else
-              Row(
-                children: [
-                  Icon(
-                    Icons.directions_car_outlined,
-                    size: 16,
-                    color: Colors.grey,
-                  ),
-                  SizedBox(width: 4),
-                  Text('No vehicle assigned'),
-                ],
-              ),
-            SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(
-                  device.hasValidGPS ? Icons.gps_fixed : Icons.gps_off,
-                  size: 16,
-                  color: device.hasValidGPS ? Colors.green : Colors.red,
-                ),
-                SizedBox(width: 4),
-                Text(
-                  device.hasValidGPS
-                      ? 'GPS: ${device.coordinatesString}'
-                      : 'No GPS data',
-                  style: TextStyle(
-                    color: device.hasValidGPS ? Colors.green : Colors.red,
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 4),
-            Text('Created: ${_formatDate(device.createdAt)}'),
-            Text('Last Updated: ${_formatDate(device.updatedAt)}'),
-          ],
+      elevation: 4,
+      shadowColor: Colors.black26,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(),
+              const SizedBox(height: 12),
+              _buildGPSInfo(),
+              const SizedBox(height: 8),
+              _buildFooter(),
+              const SizedBox(height: 8),
+              _buildTapHint(),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  String _formatDate(DateTime dateTime) {
-    return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
-  }
+  Widget _buildHeader() => Row(
+    children: [
+      Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: device.isActive ? Colors.green.shade100 : Colors.red.shade100,
+        ),
+        child: Icon(
+          Icons.devices,
+          color: device.isActive ? Colors.green : Colors.red,
+          size: 24,
+        ),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              device.name,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            _buildStatusIndicator(),
+          ],
+        ),
+      ),
+      _buildActionButtons(),
+    ],
+  );
+
+  Widget _buildStatusIndicator() => Row(
+    children: [
+      Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: device.isActive ? Colors.green : Colors.red,
+        ),
+      ),
+      const SizedBox(width: 6),
+      Text(
+        device.isActive ? 'Active' : 'Inactive',
+        style: TextStyle(
+          color: device.isActive ? Colors.green : Colors.red,
+          fontWeight: FontWeight.w500,
+          fontSize: 12,
+        ),
+      ),
+    ],
+  );
+
+  Widget _buildActionButtons() => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      IconButton(
+        icon: Icon(
+          device.isActive ? Icons.pause : Icons.play_arrow,
+          color: device.isActive ? Colors.orange : Colors.green,
+        ),
+        onPressed: onToggleStatus,
+        tooltip: device.isActive ? 'Deactivate' : 'Activate',
+      ),
+      IconButton(
+        icon: const Icon(Icons.edit, color: Colors.blue),
+        onPressed: onEdit,
+        tooltip: 'Edit',
+      ),
+    ],
+  );
+
+  Widget _buildGPSInfo() => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: Colors.grey.shade100,
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Row(
+      children: [
+        Icon(
+          device.hasValidGPS ? Icons.gps_fixed : Icons.gps_off,
+          size: 16,
+          color: device.hasValidGPS ? Colors.green : Colors.grey,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            device.hasValidGPS
+                ? 'GPS: ${device.coordinatesString}'
+                : 'No GPS data',
+            style: TextStyle(
+              color: device.hasValidGPS ? Colors.green : Colors.grey,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildFooter() => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(
+        'Created: ${_formatDate(device.createdAt)}',
+        style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
+      ),
+      Text(
+        'ID: ${device.id.substring(0, 8)}...',
+        style: TextStyle(
+          color: Colors.grey.shade600,
+          fontSize: 11,
+          fontFamily: 'monospace',
+        ),
+      ),
+    ],
+  );
+
+  Widget _buildTapHint() => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+      color: Colors.blue.shade50,
+      borderRadius: BorderRadius.circular(4),
+      border: Border.all(color: Colors.blue.shade200),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.touch_app, size: 14, color: Colors.blue.shade700),
+        const SizedBox(width: 4),
+        Text(
+          'Tap to view geofences',
+          style: TextStyle(
+            color: Colors.blue.shade700,
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    ),
+  );
+
+  String _formatDate(DateTime dateTime) =>
+      '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
 }

@@ -24,10 +24,7 @@ class vehicle {
   });
 
   /// Creates a vehicle instance from Firestore data.
-  factory vehicle.fromMap(
-    Map<String, dynamic> data,
-    String documentId,
-  ) {
+  factory vehicle.fromMap(Map<String, dynamic> data, String documentId) {
     return vehicle(
       id: documentId,
       name: data['name'] ?? '',
@@ -39,6 +36,7 @@ class vehicle {
       updatedAt: (data['updated_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
+
   /// Converts this vehicle to a map for Firestore storage.
   Map<String, dynamic> toMap() {
     return {
@@ -76,7 +74,8 @@ class vehicle {
   }
 
   @override
-  String toString() => 'vehicle(id: $id, name: $name, ownerId: $ownerId, deviceId: $deviceId, vehicleTypes: $vehicleTypes, plateNumber: $plateNumber)';
+  String toString() =>
+      'vehicle(id: $id, name: $name, ownerId: $ownerId, deviceId: $deviceId, vehicleTypes: $vehicleTypes, plateNumber: $plateNumber)';
 
   @override
   bool operator ==(Object other) =>
