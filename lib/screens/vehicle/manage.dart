@@ -13,7 +13,7 @@ class ManageVehicle extends StatefulWidget {
 }
 
 class _ManageVehicleState extends State<ManageVehicle> {
-  final vehicleService _vehicleService = vehicleService();
+  final VehicleService _vehicleService = VehicleService();
   final DeviceService _deviceService = DeviceService();
   String _selectedDeviceId = '';
 
@@ -208,24 +208,6 @@ class _ManageVehicleState extends State<ManageVehicle> {
     );
   }
 
-  Container _buildStatusChip(String text, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 12,
-          color: color, // Changed from Colors.grey[400] to use the actual color
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
 
   InputDecoration _buildInputDecoration(String label, IconData icon) {
     return InputDecoration(
