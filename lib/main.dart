@@ -40,14 +40,12 @@ class MyApp extends StatelessWidget {
         '/registerone': (context) => const RegisterOne(),
         '/login': (context) => const LoginScreen(),
 
-        // '/map': (context) => const IndexScreen(),
-
         // Home Page
         '/home': (context) {
           final args =
               ModalRoute.of(context)?.settings.arguments
                   as Map<String, dynamic>?;
-          final deviceId = args?['deviceId'] as String? ?? 'B0A7322B2EC4';
+          final deviceId = args?['deviceId'] as String? ?? 'No Device';
           return GPSMapScreen(deviceId: deviceId);
         },
 
@@ -56,6 +54,7 @@ class MyApp extends StatelessWidget {
         '/manage-vehicle': (context) => const ManageVehicle(),
         '/geofence': (context) => const DeviceManagerScreen(),
         '/drive-history': (context) => const DrivingHistory(),
+        
         // '/geofence': (context) => const GeofenceListScreen(),
         // '/geofence': (context) {
         //   // Extract deviceId from route arguments

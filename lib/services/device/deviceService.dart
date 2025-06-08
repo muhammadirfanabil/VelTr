@@ -47,6 +47,29 @@ class DeviceService {
         );
   }
 
+  // Helper method to check device name uniqueness
+  Future<bool> _checkDeviceNameUniqueness(
+    String name, {
+    String? excludeDeviceId,
+  }) async {
+    final query = _firestore
+        .collection('devices')
+        .where('name', isEqualTo: name);
+
+    final snapshot = await query.get();
+
+    if (snapshot.docs.isEmpty) {
+      return true; // Name is unique
+    }
+
+    // If we're updating a device, exclude the current device from the check
+    if (excludeDeviceId != null) {
+      return snapshot.docs.every((doc) => doc.id == excludeDeviceId);
+    }
+
+    return false; // Name already exists
+  }
+
   // CRUD Operations
   Future<Device> addDevice({
     required String name,
@@ -55,6 +78,14 @@ class DeviceService {
     bool isActive = true,
   }) async {
     if (_currentUserId == null) throw Exception('User not authenticated');
+
+    // Check if device name is unique
+    final isUnique = await _checkDeviceNameUniqueness(name);
+    if (!isUnique) {
+      throw Exception(
+        'Device name "$name" is already in use. Please choose a different name.',
+      );
+    }
 
     final docRef = _firestore.collection('devices').doc();
     final device = Device(
@@ -72,10 +103,23 @@ class DeviceService {
     return device;
   }
 
-  Future<void> updateDevice(Device device) => _firestore
-      .collection('devices')
-      .doc(device.id)
-      .update(device.copyWith(updatedAt: DateTime.now()).toMap());
+  Future<void> updateDevice(Device device) async {
+    // Check if device name is unique (excluding the current device)
+    final isUnique = await _checkDeviceNameUniqueness(
+      device.name,
+      excludeDeviceId: device.id,
+    );
+    if (!isUnique) {
+      throw Exception(
+        'Device name "${device.name}" is already in use. Please choose a different name.',
+      );
+    }
+
+    await _firestore
+        .collection('devices')
+        .doc(device.id)
+        .update(device.copyWith(updatedAt: DateTime.now()).toMap());
+  }
 
   Future<void> deleteDevice(String id) =>
       _firestore.collection('devices').doc(id).delete();

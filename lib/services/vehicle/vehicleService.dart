@@ -3,12 +3,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/vehicle/vehicle.dart';
 
 /// Service class for handling vehicle-related operations
-class vehicleService {
+class VehicleService {
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
 
   /// Creates a new VehicleService instance
-  vehicleService({FirebaseFirestore? firestore, FirebaseAuth? auth})
+  VehicleService({FirebaseFirestore? firestore, FirebaseAuth? auth})
     : _firestore = firestore ?? FirebaseFirestore.instance,
       _auth = auth ?? FirebaseAuth.instance;
 
