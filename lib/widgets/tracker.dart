@@ -6,8 +6,10 @@ class VehicleStatusPanel extends StatelessWidget {
   final double? latitude;
   final double? longitude;
   final String? lastUpdated;
+  final String? waktuWita;
   final bool isVehicleOn;
   final VoidCallback toggleVehicleStatus;
+  final int? satellites;
 
   const VehicleStatusPanel({
     super.key,
@@ -15,8 +17,10 @@ class VehicleStatusPanel extends StatelessWidget {
     required this.latitude,
     required this.longitude,
     required this.lastUpdated,
+    required this.waktuWita,
     required this.isVehicleOn,
     required this.toggleVehicleStatus,
+    required this.satellites,
   });
 
   bool get hasValidCoordinates => latitude != null && longitude != null;
@@ -30,6 +34,19 @@ class VehicleStatusPanel extends StatelessWidget {
       (lastUpdated?.isNotEmpty ?? false)
           ? 'Last Active: $lastUpdated'
           : 'Waiting...';
+
+  bool get isOnline {
+    if (lastUpdated == null || lastUpdated!.isEmpty) return false;
+
+    try {
+      final updatedTime = DateTime.parse(lastUpdated!);
+      final now = DateTime.now();
+      final difference = now.difference(updatedTime).inMinutes;
+      return difference <= 1;
+    } catch (_) {
+      return false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,39 +73,94 @@ class VehicleStatusPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildLocationInfo(theme),
+            // Online/offline status at the top-right corner
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Icon(
+                  Icons.fiber_manual_record,
+                  size: 14,
+                  color: isOnline ? Colors.green : Colors.red,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  isOnline ? 'Online' : 'Offline',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: isOnline ? Colors.green : Colors.red,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // Location name display
+            Text(
+              locationName ?? 'Loading...',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Satellites count, if available
+            if (isOnline && satellites != null)
+              Text(
+                'Satellites: $satellites',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.black87,
+                ),
+              ),
+            const SizedBox(height: 8),
+
+            // GPS coordinates or unavailable message
+            if (latitude != null && longitude != null)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Lat: ${latitude!.toStringAsFixed(5)}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      'Lng: ${longitude!.toStringAsFixed(5)}',
+                      textAlign: TextAlign.end,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            else
+              Text(
+                'Coordinates Unavailable',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.black54,
+                ),
+              ),
+            const SizedBox(height: 6),
+
+            // Last active time display
+            Text(
+              (lastUpdated?.isNotEmpty ?? false)
+                  ? 'Last Active: $lastUpdated'
+                  : 'Waiting...',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: Colors.green[400],
+              ),
+            ),
             const SizedBox(height: 20),
             _buildActionButtons(),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildLocationInfo(ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          locationName ?? 'Loading...',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          coordinatesText,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: hasValidCoordinates ? Colors.black87 : Colors.black54,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          lastActiveText,
-          style: theme.textTheme.bodySmall?.copyWith(color: Colors.green[400]),
-        ),
-      ],
     );
   }
 

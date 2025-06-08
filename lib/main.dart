@@ -16,6 +16,9 @@ import 'firebase_options.dart';
 import 'screens/Auth/login.dart';
 import 'screens/Vehicle/index.dart';
 import 'screens/Maps/mapView.dart';
+import 'screens/GeoFence/index.dart';
+import 'screens/notifications/notifications_screen.dart';
+import 'screens/index.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,14 +40,14 @@ class MyApp extends StatelessWidget {
         '/registerone': (context) => const RegisterOne(),
         '/login': (context) => const LoginScreen(),
 
-        '/map': (context) => const IndexScreen(),
+        // '/map': (context) => const IndexScreen(),
 
         // Home Page
         '/home': (context) {
           final args =
               ModalRoute.of(context)?.settings.arguments
                   as Map<String, dynamic>?;
-          final deviceId = args?['deviceId'] as String? ?? 'default_device_id';
+          final deviceId = args?['deviceId'] as String? ?? 'B0A7322B2EC4';
           return GPSMapScreen(deviceId: deviceId);
         },
 
@@ -70,8 +73,7 @@ class MyApp extends StatelessWidget {
           final deviceId = args?['deviceId'] as String? ?? 'default_device_id';
           return DeviceListScreen(deviceId: deviceId);
         },
-
-        // Profile
+        '/notifications': (context) => const NotificationsScreen(),
         '/profile': (context) => const ProfilePage(),
         '/edit-profile': (context) => const EditProfileScreen(),
         '/google-signup': (context) {
@@ -99,7 +101,7 @@ class MyApp extends StatelessWidget {
 
           return const GPSMapScreen(deviceId: 'default_device_id');
 
-          // return const IndexScreen();
+          // return const GPSMapScreen(deviceId: 'B0A7322B2EC4');
         },
       ),
     );

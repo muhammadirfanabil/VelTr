@@ -18,6 +18,7 @@ class VehicleMarkerIcon extends StatelessWidget {
             width: 20,
             height: 20,
           ),
+          // child: Icon(Icons.motorcycle, size: 30, color: Colors.black),
         ),
         Positioned(
           top: 2,
