@@ -13,14 +13,14 @@ class GeofenceService {
       _auth = auth ?? FirebaseAuth.instance;
 
   String? get _currentUserId => _auth.currentUser?.uid;
-
-  /// Get all geofences for a specific device
+  /// Get all geofences for a specific device (filtered by current user)
   Stream<List<Geofence>> getGeofencesStream(String deviceId) {
     if (_currentUserId == null) return Stream.value([]);
 
     return _firestore
         .collection('geofences')
         .where('deviceId', isEqualTo: deviceId)
+        .where('ownerId', isEqualTo: _currentUserId)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map(
@@ -30,14 +30,19 @@ class GeofenceService {
                   .toList(),
         );
   }
-
-  /// Get a single geofence by ID
+  /// Get a single geofence by ID (with ownership verification)
   Future<Geofence?> getGeofenceById(String geofenceId) async {
+    if (_currentUserId == null) return null;
+
     try {
       final doc =
           await _firestore.collection('geofences').doc(geofenceId).get();
       if (doc.exists && doc.data() != null) {
-        return Geofence.fromMap(doc.data()!, doc.id);
+        final geofence = Geofence.fromMap(doc.data()!, doc.id);
+        // Verify ownership
+        if (geofence.ownerId == _currentUserId) {
+          return geofence;
+        }
       }
       return null;
     } catch (e) {
@@ -54,9 +59,7 @@ class GeofenceService {
 
     if (!geofence.isValid) {
       throw Exception('Geofence must have at least 3 points');
-    }
-
-    try {
+    }    try {
       // Generate address if not provided
       String? address = geofence.address;
       if (address == null || address.isEmpty) {
@@ -65,9 +68,12 @@ class GeofenceService {
           centerPoint.latitude,
           centerPoint.longitude,
         );
-      } // Create geofence data for Firestore
+      }
+
+      // Create geofence data for Firestore
       final geofenceData = {
         'deviceId': geofence.deviceId,
+        'ownerId': _currentUserId,
         'name': geofence.name,
         'address': address,
         'points':
@@ -92,8 +98,7 @@ class GeofenceService {
       throw Exception('Failed to create geofence: $e');
     }
   }
-
-  /// Update an existing geofence
+  /// Update an existing geofence (with ownership verification)
   Future<void> updateGeofence(Geofence geofence) async {
     if (_currentUserId == null) {
       throw Exception('User not authenticated');
@@ -101,6 +106,11 @@ class GeofenceService {
 
     if (!geofence.isValid) {
       throw Exception('Geofence must have at least 3 points');
+    }
+
+    // Verify ownership before update
+    if (geofence.ownerId != _currentUserId) {
+      throw Exception('Unauthorized: Cannot update geofence owned by another user');
     }
 
     try {
@@ -112,7 +122,9 @@ class GeofenceService {
           centerPoint.latitude,
           centerPoint.longitude,
         );
-      } // Update geofence data
+      }
+
+      // Update geofence data
       final updateData = {
         'name': geofence.name,
         'address': address,
@@ -140,14 +152,19 @@ class GeofenceService {
       throw Exception('Failed to update geofence: $e');
     }
   }
-
-  /// Delete a geofence
+  /// Delete a geofence (with ownership verification)
   Future<void> deleteGeofence(String geofenceId) async {
     if (_currentUserId == null) {
       throw Exception('User not authenticated');
     }
 
     try {
+      // Verify ownership before deletion
+      final geofence = await getGeofenceById(geofenceId);
+      if (geofence == null) {
+        throw Exception('Geofence not found or access denied');
+      }
+
       await _firestore.collection('geofences').doc(geofenceId).delete();
       debugPrint('Geofence deleted: $geofenceId');
     } catch (e) {
@@ -156,13 +173,19 @@ class GeofenceService {
     }
   }
 
-  /// Toggle geofence status (active/inactive)
+  /// Toggle geofence status (active/inactive) with ownership verification
   Future<void> toggleGeofenceStatus(String geofenceId, bool status) async {
     if (_currentUserId == null) {
       throw Exception('User not authenticated');
     }
 
     try {
+      // Verify ownership before status change
+      final geofence = await getGeofenceById(geofenceId);
+      if (geofence == null) {
+        throw Exception('Geofence not found or access denied');
+      }
+
       await _firestore.collection('geofences').doc(geofenceId).update({
         'status': status,
         'updatedAt': FieldValue.serverTimestamp(),

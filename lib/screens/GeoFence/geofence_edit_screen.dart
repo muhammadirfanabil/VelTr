@@ -116,11 +116,11 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
                   latitude: latLng.latitude,
                   longitude: latLng.longitude,
                 ),
-              )
-              .toList(); // Create updated Geofence object
+              )              .toList(); // Create updated Geofence object
       final updatedGeofence = Geofence(
         id: widget.geofence.id,
         deviceId: widget.geofence.deviceId,
+        ownerId: widget.geofence.ownerId,
         name: nameController.text.trim(),
         address: widget.geofence.address,
         points: geofencePoints,

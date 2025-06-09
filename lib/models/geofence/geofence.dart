@@ -37,6 +37,7 @@ class GeofencePoint {
 class Geofence {
   final String id;
   final String deviceId;
+  final String ownerId;
   final String name;
   final String? address;
   final List<GeofencePoint> points;
@@ -47,6 +48,7 @@ class Geofence {
   const Geofence({
     required this.id,
     required this.deviceId,
+    required this.ownerId,
     required this.name,
     this.address,
     required this.points,
@@ -60,6 +62,7 @@ class Geofence {
     return Geofence(
       id: documentId,
       deviceId: data['deviceId'] ?? '',
+      ownerId: data['ownerId'] ?? '',
       name: data['name'] ?? '',
       address: data['address'],
       points:
@@ -76,6 +79,7 @@ class Geofence {
   Map<String, dynamic> toMap() {
     return {
       'deviceId': deviceId,
+      'ownerId': ownerId,
       'name': name,
       'address': address,
       'points': points.map((point) => point.toMap()).toList(),
@@ -89,6 +93,7 @@ class Geofence {
   Geofence copyWith({
     String? id,
     String? deviceId,
+    String? ownerId,
     String? name,
     String? address,
     List<GeofencePoint>? points,
@@ -99,6 +104,7 @@ class Geofence {
     return Geofence(
       id: id ?? this.id,
       deviceId: deviceId ?? this.deviceId,
+      ownerId: ownerId ?? this.ownerId,
       name: name ?? this.name,
       address: address ?? this.address,
       points: points ?? this.points,
@@ -113,7 +119,7 @@ class Geofence {
 
   /// Calculate the center point of the geofence
   GeofencePoint get centerPoint {
-    if (points.isEmpty) return GeofencePoint(latitude: 0, longitude: 0);
+    if (points.isEmpty) return const GeofencePoint(latitude: 0, longitude: 0);
 
     double totalLat = 0;
     double totalLng = 0;
@@ -131,7 +137,7 @@ class Geofence {
 
   @override
   String toString() {
-    return 'Geofence(id: $id, name: $name, deviceId: $deviceId, points: ${points.length}, status: $status)';
+    return 'Geofence(id: $id, name: $name, deviceId: $deviceId, ownerId: $ownerId, points: ${points.length}, status: $status)';
   }
 
   @override
@@ -140,6 +146,7 @@ class Geofence {
     return other is Geofence &&
         other.id == id &&
         other.deviceId == deviceId &&
+        other.ownerId == ownerId &&
         other.name == name &&
         other.address == address &&
         other.status == status;
@@ -149,12 +156,13 @@ class Geofence {
   int get hashCode {
     return id.hashCode ^
         deviceId.hashCode ^
+        ownerId.hashCode ^
         name.hashCode ^
         address.hashCode ^
         status.hashCode;
   }
 
-  /// Helper method to convert Firestore Timestamp to DateTime
+  /// Helper method to convert various timestamp formats to DateTime
   static DateTime _timestampToDateTime(dynamic timestamp) {
     if (timestamp == null) return DateTime.now();
     if (timestamp is Timestamp) return timestamp.toDate();
