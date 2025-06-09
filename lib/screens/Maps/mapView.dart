@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -9,6 +10,8 @@ import 'package:http/http.dart' as http;
 
 import '../../services/Auth/AuthService.dart';
 import '../../services/maps/mapsService.dart';
+import '../../services/vehicle/vehicleService.dart';
+import '../../models/vehicle/vehicle.dart';
 import '../../services/device/deviceService.dart';
 import '../../widgets/mapWidget.dart';
 import '../../widgets/stickyFooter.dart';
@@ -17,8 +20,11 @@ import '../../widgets/tracker.dart';
 
 class GPSMapScreen extends StatefulWidget {
   final String deviceId;
+  final String userId;
 
-  const GPSMapScreen({Key? key, required this.deviceId}) : super(key: key);
+  GPSMapScreen({Key? key, required this.deviceId})
+    : userId = AuthService.getCurrentUserId() ?? '',
+      super(key: key);
 
   @override
   State<GPSMapScreen> createState() => _GPSMapScreenState();
@@ -26,9 +32,14 @@ class GPSMapScreen extends StatefulWidget {
 
 class _GPSMapScreenState extends State<GPSMapScreen> {
   late final DeviceService _deviceService;
+  late final VehicleService _vehicleService;
   mapServices? _mapService;
   String? currentDeviceId;
   String? deviceName;
+
+  // Vehicle selection
+  List<vehicle> availableVehicles = [];
+  bool isLoadingVehicles = false;
 
   String lastUpdated = '-';
   int? satellites;
@@ -38,10 +49,16 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   String? waktuWita;
   bool isVehicleOn = false;
   bool isLoading = true;
-  bool hasGPSData = false; // Add this flag
+  bool hasGPSData = false;
+  bool showNoGPSDialog = false;
   final MapController _mapController = MapController();
 
-  // Remove the default LatLng getter and make it nullable
+  // Default location (you can change this to your preferred default location)
+  static const LatLng defaultLocation = LatLng(
+    -6.2088,
+    106.8456,
+  ); // Jakarta, Indonesia
+
   LatLng? get vehicleLocation =>
       (latitude != null && longitude != null)
           ? LatLng(latitude!, longitude!)
@@ -51,19 +68,227 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   void initState() {
     super.initState();
     _deviceService = DeviceService();
+    _vehicleService = VehicleService();
     currentDeviceId = widget.deviceId;
+    _loadAvailableVehicles();
     _initializeWithDevice();
+  }
+
+  void _loadAvailableVehicles() {
+    setState(() => isLoadingVehicles = true);
+
+    // Use the stream to get real-time updates of vehicles
+    _vehicleService.getVehiclesStream().listen(
+      (vehicles) {
+        if (mounted) {
+          setState(() {
+            availableVehicles = vehicles;
+            isLoadingVehicles = false;
+          });
+        }
+      },
+      onError: (e) {
+        debugPrint('Error loading vehicles: $e');
+        if (mounted) {
+          setState(() {
+            availableVehicles = [];
+            isLoadingVehicles = false;
+          });
+        }
+      },
+    );
+  }
+
+  Future<void> _switchToVehicle(String vehicleId, String vehicleName) async {
+    if (vehicleId == currentDeviceId) return;
+
+    setState(() {
+      isLoading = true;
+      currentDeviceId = vehicleId;
+      deviceName = vehicleName;
+      // Reset current data
+      latitude = null;
+      longitude = null;
+      locationName = 'Loading Location...';
+      lastUpdated = '-';
+      satellites = null;
+      waktuWita = null;
+      isVehicleOn = false;
+      hasGPSData = false;
+      showNoGPSDialog = false;
+    });
+
+    // Initialize with new vehicle
+    await _initializeWithDevice();
+  }
+
+  void _showVehicleSelector() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder:
+          (context) => Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle bar
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+
+                // Header
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.directions_car, size: 24),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Select Vehicle',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Divider(height: 1),
+
+                // Vehicle list
+                if (isLoadingVehicles)
+                  const Padding(
+                    padding: EdgeInsets.all(40),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (availableVehicles.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(40),
+                    child: Column(
+                      children: [
+                        Icon(Icons.error_outline, size: 48, color: Colors.grey),
+                        SizedBox(height: 12),
+                        Text(
+                          'No vehicles available',
+                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.6,
+                    ),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: availableVehicles.length,
+                      itemBuilder: (context, index) {
+                        final vehicle = availableVehicles[index];
+                        final isSelected = vehicle.deviceId == currentDeviceId;
+
+                        return ListTile(
+                          leading: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color:
+                                  isSelected
+                                      ? Colors.blue.withOpacity(0.1)
+                                      : Colors.grey.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Icon(
+                              Icons.directions_car,
+                              color: isSelected ? Colors.blue : Colors.grey,
+                            ),
+                          ),
+                          title: Text(
+                            vehicle.name,
+                            style: TextStyle(
+                              fontWeight:
+                                  isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                              color: isSelected ? Colors.blue : Colors.black,
+                            ),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (vehicle.plateNumber != null)
+                                Text(
+                                  vehicle.plateNumber!,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              if (vehicle.deviceId != null)
+                                Text(
+                                  'Device: ${vehicle.deviceId}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                            ],
+                          ),
+                          trailing:
+                              isSelected
+                                  ? const Icon(
+                                    Icons.check_circle,
+                                    color: Colors.blue,
+                                  )
+                                  : const Icon(
+                                    Icons.radio_button_unchecked,
+                                    color: Colors.grey,
+                                  ),
+                          onTap: () {
+                            Navigator.pop(context);
+                            if (!isSelected && vehicle.deviceId != null) {
+                              _switchToVehicle(vehicle.deviceId!, vehicle.name);
+                            }
+                          },
+                        );
+                      },
+                    ),
+                  ),
+
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+    );
   }
 
   Future<void> _initializeWithDevice() async {
     try {
       setState(() => isLoading = true);
 
-      final name = await _deviceService.getDeviceNameById(widget.deviceId);
-      final mapService = mapServices(deviceId: widget.deviceId);
+      final name = await _deviceService.getDeviceNameById(currentDeviceId!);
+      final mapService = mapServices(deviceId: currentDeviceId!);
 
       setState(() {
-        deviceName = name ?? widget.deviceId;
+        deviceName = name ?? currentDeviceId!;
         _mapService = mapService;
       });
 
@@ -98,7 +323,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   }
 
   void _listenToGPSData() {
-    final ref = FirebaseDatabase.instance.ref('devices/${widget.deviceId}/gps');
+    final ref = FirebaseDatabase.instance.ref('devices/$currentDeviceId/gps');
 
     ref.onValue.listen(
       (event) {
@@ -119,7 +344,8 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
               waktuWita = waktu;
               satellites = sat;
               isLoading = false;
-              hasGPSData = true; // Set GPS data available
+              hasGPSData = true;
+              showNoGPSDialog = false;
             });
 
             _fetchLocationName(lat, lon);
@@ -133,17 +359,19 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
               isLoading = false;
               hasGPSData = false;
             });
-            _showNoGPSDataDialog();
+            if (!showNoGPSDialog) {
+              _showNoGPSInfoBanner();
+            }
           }
         } else {
-          debugPrint(
-            'No GPS data found at path: devices/${widget.deviceId}/gps',
-          );
+          debugPrint('No GPS data found at path: devices/$currentDeviceId/gps');
           setState(() {
             isLoading = false;
             hasGPSData = false;
           });
-          _showNoGPSDataDialog();
+          if (!showNoGPSDialog) {
+            _showNoGPSInfoBanner();
+          }
         }
       },
       onError: (error) {
@@ -152,23 +380,53 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
           isLoading = false;
           hasGPSData = false;
         });
-        _showNoGPSDataDialog();
+        if (!showNoGPSDialog) {
+          _showNoGPSInfoBanner();
+        }
       },
     );
   }
 
-  void _showNoGPSDataDialog() {
+  void _showNoGPSInfoBanner() {
+    if (mounted && !showNoGPSDialog) {
+      setState(() => showNoGPSDialog = true);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.gps_off, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'No GPS data available for ${deviceName ?? currentDeviceId}',
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'Details',
+            textColor: Colors.white,
+            onPressed: _showNoGPSDetailsDialog,
+          ),
+        ),
+      );
+    }
+  }
+
+  void _showNoGPSDetailsDialog() {
     if (mounted) {
       showDialog(
         context: context,
-        barrierDismissible: false,
         builder: (BuildContext context) {
           return AlertDialog(
             title: const Row(
               children: [
-                Icon(Icons.gps_off, color: Colors.red, size: 28),
+                Icon(Icons.info_outline, color: Colors.blue, size: 28),
                 SizedBox(width: 8),
-                Text('No GPS Data'),
+                Text('GPS Information'),
               ],
             ),
             content: Column(
@@ -176,12 +434,12 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'GPS data not found for this device.',
+                  'GPS data is not currently available for this device.',
                   style: TextStyle(fontSize: 16),
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Device ID: ${widget.deviceId}',
+                  'Device: ${deviceName ?? currentDeviceId}',
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey[600],
@@ -190,14 +448,25 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                 ),
                 const SizedBox(height: 16),
                 const Text(
-                  'Please check:',
+                  'You can still:',
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 8),
-                const Text('• Device is powered on'),
-                const Text('• GPS module is functioning'),
-                const Text('• Device has network connection'),
-                const Text('• Device is sending data to Firebase'),
+                const Text('• View the map interface'),
+                const Text('• Access other app features'),
+                const Text('• Control device relay status'),
+                const Text('• Switch to another vehicle'),
+                const Text('• Return later when GPS is available'),
+                const SizedBox(height: 16),
+                const Text(
+                  'To enable GPS tracking:',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                const Text('• Ensure device is powered on'),
+                const Text('• Check GPS module functionality'),
+                const Text('• Verify network connection'),
+                const Text('• Confirm data transmission to server'),
               ],
             ),
             shape: RoundedRectangleBorder(
@@ -212,11 +481,8 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                 child: const Text('Retry'),
               ),
               TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).pop(); // Go back to previous screen
-                },
-                child: const Text('Go Back'),
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Continue'),
               ),
             ],
           );
@@ -227,7 +493,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
 
   void _listenToRelayStatus() {
     final relayRef = FirebaseDatabase.instance.ref(
-      'devices/${widget.deviceId}/relay',
+      'devices/$currentDeviceId/relay',
     );
 
     relayRef.onValue.listen(
@@ -276,7 +542,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   }
 
   Future<void> _loadInitialData() async {
-    final ref = FirebaseDatabase.instance.ref('devices/${widget.deviceId}/gps');
+    final ref = FirebaseDatabase.instance.ref('devices/$currentDeviceId/gps');
 
     try {
       final snapshot = await ref.get();
@@ -310,20 +576,20 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
             isLoading = false;
             hasGPSData = false;
           });
-          _showNoGPSDataDialog();
+          _showNoGPSInfoBanner();
         }
       } else {
         setState(() {
           isLoading = false;
           hasGPSData = false;
         });
-        _showNoGPSDataDialog();
+        _showNoGPSInfoBanner();
       }
 
       // Get initial relay status
       final relaySnapshot =
           await FirebaseDatabase.instance
-              .ref('devices/${widget.deviceId}/relay')
+              .ref('devices/$currentDeviceId/relay')
               .get();
       if (relaySnapshot.exists) {
         setState(() {
@@ -336,7 +602,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
         isLoading = false;
         hasGPSData = false;
       });
-      _showNoGPSDataDialog();
+      _showNoGPSInfoBanner();
     }
   }
 
@@ -364,7 +630,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
 
   void toggleVehicleStatus() {
     final relayRef = FirebaseDatabase.instance.ref(
-      'devices/${widget.deviceId}/relay',
+      'devices/$currentDeviceId/relay',
     );
 
     final newStatus = !isVehicleOn;
@@ -376,19 +642,17 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   }
 
   void showVehiclePanel() {
-    if (!hasGPSData) return; // Don't show panel if no GPS data
-
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder:
           (context) => VehicleStatusPanel(
-            locationName: locationName,
+            locationName: hasGPSData ? locationName : 'GPS not available',
             latitude: latitude,
             longitude: longitude,
             waktuWita: waktuWita,
-            lastUpdated: lastUpdated,
+            lastUpdated: hasGPSData ? lastUpdated : 'No GPS data',
             isVehicleOn: isVehicleOn,
             toggleVehicleStatus: toggleVehicleStatus,
             satellites: satellites,
@@ -397,14 +661,20 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   }
 
   Future<void> _refreshData() async {
-    setState(() => isLoading = true);
+    setState(() {
+      isLoading = true;
+      showNoGPSDialog = false;
+    });
     await _loadInitialData();
 
-    if (mounted && hasGPSData) {
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Data refreshed'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text(
+            hasGPSData ? 'GPS data refreshed' : 'Still no GPS data available',
+          ),
+          backgroundColor: hasGPSData ? Colors.green : Colors.orange,
+          duration: const Duration(seconds: 2),
         ),
       );
     }
@@ -413,22 +683,38 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   Widget _buildDeviceInfoChip() {
     if (deviceName == null) return const SizedBox.shrink();
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Text(
-        deviceName!,
-        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+    return GestureDetector(
+      onTap: _showVehicleSelector,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.9),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.directions_car, size: 16, color: Colors.blue),
+            const SizedBox(width: 4),
+            if (!hasGPSData) ...[
+              const Icon(Icons.gps_off, size: 16, color: Colors.orange),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              deviceName!,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.grey),
+          ],
+        ),
       ),
     );
   }
@@ -447,6 +733,12 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                   : const Icon(Icons.refresh),
           onPressed: isLoading ? null : _refreshData,
         ),
+        const SizedBox(width: 8),
+        if (!hasGPSData)
+          _buildFloatingButton(
+            child: const Icon(Icons.info_outline),
+            onPressed: _showNoGPSDetailsDialog,
+          ),
         const SizedBox(width: 8),
         _buildUserMenu(),
       ],
@@ -494,8 +786,18 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
         color: Colors.white,
         onSelected: _handleMenuSelection,
         itemBuilder:
-            (context) => const [
-              PopupMenuItem(
+            (context) => [
+              const PopupMenuItem(
+                value: 'home',
+                child: Row(
+                  children: [
+                    Icon(Icons.home_outlined),
+                    SizedBox(width: 8),
+                    Text('Home'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
                 value: 'profile',
                 child: Row(
                   children: [
@@ -505,7 +807,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                   ],
                 ),
               ),
-              PopupMenuItem(
+              const PopupMenuItem(
                 value: 'settings',
                 child: Row(
                   children: [
@@ -515,7 +817,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                   ],
                 ),
               ),
-              PopupMenuItem(
+              const PopupMenuItem(
                 value: 'logout',
                 child: Row(
                   children: [
@@ -532,6 +834,9 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
 
   Future<void> _handleMenuSelection(String value) async {
     switch (value) {
+      case 'home':
+        Navigator.pushReplacementNamed(context, '/home');
+        break;
       case 'profile':
         Navigator.pushNamed(context, '/profile');
         break;
@@ -545,51 +850,117 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     }
   }
 
-  Widget _buildNoGPSContent() {
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.all(32),
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+  Widget _buildMapWithOverlay() {
+    return Stack(
+      children: [
+        // Always show the map, with GPS location if available, otherwise default location
+        MapWidget(
+          mapController: _mapController,
+          options: MapOptions(
+            initialCenter: vehicleLocation ?? defaultLocation,
+            initialZoom: hasGPSData ? 15.0 : 10.0,
+            minZoom: 3.0,
+            maxZoom: 18.0,
+          ),
+          deviceId: currentDeviceId,
+          children: [
+            TileLayer(
+              urlTemplate:
+                  'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+              subdomains: const ['a', 'b', 'c'],
+              userAgentPackageName: 'com.example.gps_app',
+              maxZoom: 18,
             ),
+            if (hasGPSData && vehicleLocation != null)
+              MarkerLayer(
+                markers: [
+                  Marker(
+                    point: vehicleLocation!,
+                    width: 80,
+                    height: 80,
+                    child: GestureDetector(
+                      onTap: showVehiclePanel,
+                      child: VehicleMarkerIcon(isOn: isVehicleOn),
+                    ),
+                  ),
+                ],
+              ),
           ],
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.gps_off, size: 64, color: Colors.red),
-            const SizedBox(height: 16),
-            const Text(
-              'No GPS Data Available',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Device: ${deviceName ?? widget.deviceId}',
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _refreshData,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
+        // Show overlay message when no GPS data
+        if (!hasGPSData && !isLoading)
+          Center(
+            child: Container(
+              margin: const EdgeInsets.all(32),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.95),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.gps_off, size: 48, color: Colors.orange),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'GPS Not Available',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Device: ${deviceName ?? currentDeviceId}',
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'You can switch to another vehicle or control this device.',
+                    style: TextStyle(fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: _showVehicleSelector,
+                        icon: const Icon(Icons.directions_car, size: 18),
+                        label: const Text('Switch Vehicle'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        onPressed: _refreshData,
+                        icon: const Icon(Icons.refresh, size: 18),
+                        label: const Text('Retry'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-      ),
+          ),
+      ],
     );
   }
 
@@ -601,46 +972,12 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
           // Show loading indicator while loading
           if (isLoading)
             const Center(child: CircularProgressIndicator())
-          // Show no GPS content if no GPS data
-          else if (!hasGPSData)
-            _buildNoGPSContent()
-          // Show map only if GPS data is available
-          else if (vehicleLocation != null)
-            MapWidget(
-              mapController: _mapController,
-              options: MapOptions(
-                initialCenter: vehicleLocation!,
-                initialZoom: 15.0,
-                minZoom: 3.0,
-                maxZoom: 18.0,
-              ),
-              deviceId: currentDeviceId,
-              children: [
-                TileLayer(
-                  urlTemplate:
-                      'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
-                  subdomains: const ['a', 'b', 'c'],
-                  userAgentPackageName: 'com.example.gps_app',
-                  maxZoom: 18,
-                ),
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: vehicleLocation!,
-                      width: 80,
-                      height: 80,
-                      child: GestureDetector(
-                        onTap: showVehiclePanel,
-                        child: VehicleMarkerIcon(isOn: isVehicleOn),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+          // Always show map (with overlay if no GPS data)
+          else
+            _buildMapWithOverlay(),
 
-          // Only show top controls if GPS data is available
-          if (hasGPSData && !isLoading)
+          // Always show top controls
+          if (!isLoading)
             SafeArea(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -651,8 +988,8 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
               ),
             ),
 
-          // Only show footer if GPS data is available
-          if (hasGPSData && !isLoading)
+          // Always show footer
+          if (!isLoading)
             Align(alignment: Alignment.bottomCenter, child: StickyFooter()),
         ],
       ),

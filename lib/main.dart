@@ -4,8 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:gps_app/screens/Auth/RegisterOne.dart';
 import 'package:gps_app/screens/Auth/GoogleSignupScreen.dart';
 import 'package:gps_app/screens/GeoFence/device_geofence.dart';
+// import 'package:gps_app/screens/Index.dart';
 // import 'package:gps_app/screens/GeoFence/index.dart';
-import 'package:gps_app/screens/Index.dart';
 import 'package:gps_app/screens/Users/Profile.dart';
 import 'package:gps_app/screens/device/index.dart';
 import 'package:gps_app/screens/users/edit_profile.dart';
@@ -18,7 +18,7 @@ import 'screens/Vehicle/index.dart';
 import 'screens/Maps/mapView.dart';
 import 'screens/GeoFence/index.dart';
 import 'screens/notifications/notifications_screen.dart';
-import 'screens/index.dart';
+// import 'screens/index.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -52,7 +52,15 @@ class MyApp extends StatelessWidget {
         // Vehicle
         '/vehicle': (context) => const VehicleIndexScreen(),
         '/manage-vehicle': (context) => const ManageVehicle(),
-        '/geofence': (context) => const DeviceManagerScreen(),
+        '/geofence': (context) {
+          // Extract deviceId from route arguments
+          final args =
+              ModalRoute.of(context)?.settings.arguments
+                  as Map<String, dynamic>?;
+          final deviceId = args?['deviceId'] as String? ?? 'No Device';
+          return GeofenceListScreen(deviceId: deviceId);
+        },
+        '/device': (context) => const DeviceManagerScreen(),
         '/drive-history': (context) => const DrivingHistory(),
 
         // '/geofence': (context) => const GeofenceListScreen(),
@@ -98,7 +106,7 @@ class MyApp extends StatelessWidget {
             return const LoginScreen();
           }
 
-          return const GPSMapScreen(deviceId: 'No Device');
+          return GPSMapScreen(deviceId: 'No Device');
         },
       ),
     );

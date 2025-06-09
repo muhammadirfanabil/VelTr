@@ -30,6 +30,12 @@ class VehicleService {
         );
   }
 
+  Future<bool> verifyDeviceAvailability(String deviceId) async {
+    final deviceDoc =
+        await _firestore.collection('devices').doc(deviceId).get();
+    return deviceDoc.exists;
+  }
+
   /// Adds a new vehicle for the current user
   Future<vehicle> addVehicle({
     required String name,
@@ -78,11 +84,48 @@ class VehicleService {
   }
 
   /// Detach device from vehicle
-  Future<void> detachDeviceFromVehicle(String vehicleId) async {
-    await _firestore.collection('vehicles').doc(vehicleId).update({
-      'deviceId': null,
-      'updated_at': Timestamp.fromDate(DateTime.now()),
-    });
+  Future<void> detachDeviceFromVehicle(String deviceId) async {
+    try {
+      // First, find the vehicle that has this device
+      final vehicleQuery =
+          await _firestore
+              .collection('vehicles')
+              .where('deviceId', isEqualTo: deviceId)
+              .get();
+
+      if (vehicleQuery.docs.isNotEmpty) {
+        final vehicleDoc = vehicleQuery.docs.first;
+
+        // Start a batch write
+        final batch = _firestore.batch();
+
+        // Update vehicle document
+        batch.update(vehicleDoc.reference, {
+          'deviceId': null,
+          'updated_at': Timestamp.fromDate(DateTime.now()),
+        });
+
+        // Check if device document exists before trying to update it
+        final deviceDoc =
+            await _firestore.collection('devices').doc(deviceId).get();
+        if (deviceDoc.exists) {
+          // Only update device if it exists
+          batch.update(deviceDoc.reference, {
+            'vehicleId': null,
+            'updated_at': Timestamp.fromDate(DateTime.now()),
+          });
+        }
+
+        // Commit the updates
+        await batch.commit();
+      }
+    } catch (e) {
+      print('Error detaching device: $e');
+      // Don't throw an error if it's just because the device doesn't exist
+      if (!e.toString().contains('NOT_FOUND')) {
+        throw Exception('Failed to detach device: $e');
+      }
+    }
   }
 
   /// Deletes a vehicle
@@ -97,6 +140,47 @@ class VehicleService {
       return vehicle.fromMap(doc.data()!, doc.id);
     }
     return null;
+  }
+
+  Future<void> assignDevice(String deviceId, String vehicleId) async {
+    // Start a batch write
+    final batch = _firestore.batch();
+
+    // Update vehicle with device ID
+    final vehicleRef = _firestore.collection('vehicles').doc(vehicleId);
+    batch.update(vehicleRef, {
+      'deviceId': deviceId,
+      'updatedAt': DateTime.now(),
+    });
+
+    // Update device with vehicle ID
+    final deviceRef = _firestore.collection('devices').doc(deviceId);
+    batch.update(deviceRef, {
+      'vehicleId': vehicleId,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    // Commit the batch
+    await batch.commit();
+  }
+
+  Future<void> unassignDevice(String deviceId, String vehicleId) async {
+    // Start a batch write
+    final batch = _firestore.batch();
+
+    // Remove device ID from vehicle
+    final vehicleRef = _firestore.collection('vehicles').doc(vehicleId);
+    batch.update(vehicleRef, {'deviceId': null, 'updatedAt': DateTime.now()});
+
+    // Remove vehicle ID from device
+    final deviceRef = _firestore.collection('devices').doc(deviceId);
+    batch.update(deviceRef, {
+      'vehicleId': null,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    // Commit the batch
+    await batch.commit();
   }
 
   /// Get vehicles that have no assigned device

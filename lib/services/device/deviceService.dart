@@ -26,11 +26,18 @@ class DeviceService {
         .map(_docsToDevices);
   }
 
-  Stream<Device> getDeviceStream(String deviceId) => _firestore
-      .collection('devices')
-      .doc(deviceId)
-      .snapshots()
-      .map((doc) => Device.fromMap(doc.data()!, doc.id));
+  Stream<Device?> getDeviceStream(String deviceId) {
+    return _firestore
+        .collection('devices')
+        .doc(deviceId)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.exists
+                  ? Device.fromMap(snapshot.data()!, snapshot.id)
+                  : null,
+        );
+  }
 
   Stream<List<Device>> getActiveDevicesWithGPSStream() {
     if (_currentUserId == null) return Stream.value([]);

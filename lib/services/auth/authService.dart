@@ -3,6 +3,22 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService {
+  /// Get current user ID
+  static String? getCurrentUserId() {
+    final User? user = FirebaseAuth.instance.currentUser;
+    return user?.uid;
+  }
+
+  /// Get current user
+  static User? getCurrentUser() {
+    return FirebaseAuth.instance.currentUser;
+  }
+
+  /// Check if user is logged in
+  static bool isUserLoggedIn() {
+    return FirebaseAuth.instance.currentUser != null;
+  }
+
   /// Login with email and password
   static Future<UserCredential> loginWithEmail(String email, String password) {
     return FirebaseAuth.instance.signInWithEmailAndPassword(
