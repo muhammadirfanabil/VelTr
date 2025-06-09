@@ -1,17 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../models/Geofence/Geofence.dart';
+import '../../services/Geofence/geofenceService.dart';
 
 class GeofenceEditScreen extends StatefulWidget {
-  final String geofenceId;
-  final Map<String, dynamic> geofenceData;
+  final Geofence geofence;
 
-  const GeofenceEditScreen({
-    super.key,
-    required this.geofenceId,
-    required this.geofenceData,
-  });
+  const GeofenceEditScreen({super.key, required this.geofence});
 
   @override
   State<GeofenceEditScreen> createState() => _GeofenceEditScreenState();
@@ -24,6 +20,9 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
   late TextEditingController nameController;
   bool isSaving = false;
   bool hasUnsavedChanges = false;
+
+  // Services
+  final GeofenceService _geofenceService = GeofenceService();
 
   // Animation - Initialize with nullable types first
   AnimationController? _animationController;
@@ -44,12 +43,13 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
   }
 
   void _initializeData() {
+    // Convert GeofencePoint objects to LatLng for the map
     polygonPoints =
-        List<Map<String, dynamic>>.from(
-          widget.geofenceData['points'],
-        ).map((p) => LatLng(p['lat'], p['lng'])).toList();
+        widget.geofence.points
+            .map((point) => LatLng(point.latitude, point.longitude))
+            .toList();
 
-    nameController = TextEditingController(text: widget.geofenceData['name']);
+    nameController = TextEditingController(text: widget.geofence.name);
     nameController.addListener(_onDataChanged);
   }
 
@@ -108,17 +108,38 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
     setState(() => isSaving = true);
 
     try {
-      await FirebaseFirestore.instance
-          .collection('geofences')
-          .doc(widget.geofenceId)
-          .update({
-            'name': nameController.text.trim(),
-            'points':
-                polygonPoints
-                    .map((p) => {'lat': p.latitude, 'lng': p.longitude})
-                    .toList(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
+      // Convert LatLng points to GeofencePoint objects
+      final geofencePoints =
+          polygonPoints
+              .map(
+                (latLng) => GeofencePoint(
+                  latitude: latLng.latitude,
+                  longitude: latLng.longitude,
+                ),
+              )
+              .toList(); // Create updated Geofence object
+      final updatedGeofence = Geofence(
+        id: widget.geofence.id,
+        deviceId: widget.geofence.deviceId,
+        name: nameController.text.trim(),
+        address: widget.geofence.address,
+        points: geofencePoints,
+        status: widget.geofence.status,
+        createdAt: widget.geofence.createdAt,
+        updatedAt: DateTime.now(),
+      );
+
+      // Validate geofence
+      final validationError = _geofenceService.validateGeofence(
+        updatedGeofence,
+      );
+      if (validationError != null) {
+        _showSnackBar(validationError, Colors.orange, Icons.warning);
+        return;
+      }
+
+      // Update using service layer
+      await _geofenceService.updateGeofence(updatedGeofence);
 
       if (mounted) {
         _showSnackBar(
