@@ -469,6 +469,114 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     }
   }
 
+  // Enhanced device validation methods
+  Future<void> _addNewDeviceWithValidation(String deviceName) async {
+    try {
+      setState(() => isLoading = true);
+
+      // Show validation progress
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Validating device...'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+
+      // Use enhanced validation
+      final device = await _deviceService.addDeviceWithValidation(
+        deviceName: deviceName,
+      );
+
+      if (mounted) {
+        _showErrorSnackBar('Device "${device.name}" added successfully');
+
+        // Optionally switch to the new device
+        setState(() {
+          currentDeviceId = device.name;
+          deviceName = device.name;
+          _mapService = mapServices(deviceId: device.name);
+        });
+
+        _setupRealtimeListeners();
+        await _loadInitialData();
+      }
+    } catch (e) {
+      if (mounted) {
+        String errorMessage = _getDeviceValidationErrorMessage(e);
+        _showErrorSnackBar(errorMessage);
+      }
+    } finally {
+      if (mounted) setState(() => isLoading = false);
+    }
+  }
+
+  String _getDeviceValidationErrorMessage(dynamic e) {
+    final errorString = e.toString();
+
+    if (errorString.contains('already registered')) {
+      return 'This device is already in your account. Choose a different device.';
+    } else if (errorString.contains('not found in GPS system')) {
+      return 'Device not found in GPS system. Ensure your ESP32 is online and sending data.';
+    } else if (errorString.contains('name validation failed')) {
+      return 'Device validation failed. The device ID does not match the expected format.';
+    }
+
+    return 'Failed to add device: $errorString';
+  }
+
+  // Show available devices dialog
+  Future<void> _showAvailableDevicesDialog() async {
+    try {
+      final availableDevices =
+          await _deviceService.getAvailableDevicesFromRealtimeDB();
+
+      if (!mounted) return;
+
+      if (availableDevices.isEmpty) {
+        _showErrorSnackBar('No available devices found in GPS system');
+        return;
+      }
+
+      showDialog(
+        context: context,
+        builder:
+            (context) => AlertDialog(
+              title: const Text('Available GPS Devices'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: availableDevices.length,
+                  itemBuilder: (context, index) {
+                    final deviceName = availableDevices[index];
+                    return ListTile(
+                      leading: const Icon(Icons.gps_fixed, color: Colors.green),
+                      title: Text(deviceName),
+                      subtitle: const Text('Ready to add'),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.add_circle, color: Colors.blue),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _addNewDeviceWithValidation(deviceName);
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+              ],
+            ),
+      );
+    } catch (e) {
+      _showErrorSnackBar('Error loading available devices: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

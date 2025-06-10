@@ -7,12 +7,15 @@ import '../../models/Device/device.dart';
 class DeviceService {
   final firestore.FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
+  final database.FirebaseDatabase _realtimeDB;
 
   DeviceService({
     firestore.FirebaseFirestore? firestoreInstance,
     FirebaseAuth? auth,
+    database.FirebaseDatabase? realtimeDB,
   }) : _firestore = firestoreInstance ?? firestore.FirebaseFirestore.instance,
-       _auth = auth ?? FirebaseAuth.instance;
+       _auth = auth ?? FirebaseAuth.instance,
+       _realtimeDB = realtimeDB ?? database.FirebaseDatabase.instance;
 
   String? get _currentUserId => _auth.currentUser?.uid;
 
@@ -46,7 +49,6 @@ class DeviceService {
               ).where((device) => device.hasValidGPS).toList(),
         );
   }
-
   // Helper method to check device name uniqueness
   Future<bool> _checkDeviceNameUniqueness(
     String name, {
@@ -70,6 +72,128 @@ class DeviceService {
     return false; // Name already exists
   }
 
+  /// Enhanced validation: Check if device exists in Firebase Realtime Database
+  Future<bool> _validateDeviceExistsInRealtimeDB(String deviceName) async {
+    try {
+      debugPrint('🔍 Checking if device "$deviceName" exists in FRDB...');
+      
+      final ref = _realtimeDB.ref('devices/$deviceName');
+      final snapshot = await ref.get();
+      
+      if (snapshot.exists) {
+        debugPrint('✅ Device "$deviceName" found in FRDB');
+        return true;
+      } else {
+        debugPrint('❌ Device "$deviceName" not found in FRDB');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('❌ Error checking device existence in FRDB: $e');
+      return false;
+    }
+  }
+
+  /// Enhanced validation: Check if device.name matches devices/{deviceId} in FRDB
+  /// This ensures the device name corresponds to the actual device ID in the system
+  Future<bool> _validateDeviceNameMatchesRealtimeDBId(String deviceName) async {
+    try {
+      debugPrint('🔍 Validating device name matches FRDB device ID: "$deviceName"');
+      
+      // Check if the path devices/{deviceName} exists and has valid data structure
+      final ref = _realtimeDB.ref('devices/$deviceName');
+      final snapshot = await ref.get();
+      
+      if (!snapshot.exists) {
+        debugPrint('❌ Device path "devices/$deviceName" does not exist in FRDB');
+        return false;
+      }
+
+      // Get the device data and validate structure
+      final deviceData = Map<String, dynamic>.from(snapshot.value as Map);
+      
+      // Check if device has essential data structure (GPS data, relay control, etc.)
+      final hasGpsData = deviceData.containsKey('gps');
+      final hasRelayControl = deviceData.containsKey('relay');
+      final hasValidStructure = hasGpsData || hasRelayControl;
+      
+      if (!hasValidStructure) {
+        debugPrint('❌ Device "$deviceName" exists but has invalid data structure');
+        return false;
+      }
+
+      // Optional: Additional validation - check if device has recent GPS activity
+      if (hasGpsData) {
+        final gpsData = deviceData['gps'] as Map<String, dynamic>?;
+        if (gpsData != null) {
+          final lat = gpsData['latitude'];
+          final lng = gpsData['longitude'];
+          
+          // Check if GPS coordinates are valid (not 0,0 or null)
+          if (lat == null || lng == null || (lat == 0 && lng == 0)) {
+            debugPrint('⚠️ Device "$deviceName" has invalid GPS coordinates');
+            // Don't fail validation, just warn - device might be offline temporarily
+          }
+        }
+      }
+
+      debugPrint('✅ Device name "$deviceName" matches FRDB device ID and has valid structure');
+      return true;
+      
+    } catch (e) {
+      debugPrint('❌ Error validating device name match: $e');
+      return false;
+    }
+  }
+
+  /// Get device metadata from Firebase Realtime Database
+  Future<Map<String, dynamic>?> _getDeviceMetadataFromRealtimeDB(String deviceName) async {
+    try {
+      final ref = _realtimeDB.ref('devices/$deviceName');
+      final snapshot = await ref.get();
+      
+      if (snapshot.exists && snapshot.value != null) {
+        final data = Map<String, dynamic>.from(snapshot.value as Map);
+        debugPrint('📋 Device metadata retrieved for "$deviceName": ${data.keys.toList()}');
+        return data;
+      }
+      
+      debugPrint('📋 No metadata found for device "$deviceName"');
+      return null;
+    } catch (e) {
+      debugPrint('❌ Error getting device metadata: $e');
+      return null;
+    }
+  }
+
+  /// Extract GPS data from FRDB metadata and convert to Firestore format
+  Map<String, double>? _extractGPSDataFromMetadata(Map<String, dynamic>? metadata) {
+    if (metadata == null) return null;
+    
+    final gpsData = metadata['gps'] as Map<String, dynamic>?;
+    if (gpsData != null) {
+      final extractedData = <String, double>{};
+      
+      // Extract and convert GPS data to double format for Firestore
+      if (gpsData['latitude'] != null) {
+        extractedData['latitude'] = (gpsData['latitude'] as num).toDouble();
+      }
+      if (gpsData['longitude'] != null) {
+        extractedData['longitude'] = (gpsData['longitude'] as num).toDouble();
+      }
+      if (gpsData['altitude_m'] != null) {
+        extractedData['altitude'] = (gpsData['altitude_m'] as num).toDouble();
+      }
+      if (gpsData['speed_kmph'] != null) {
+        extractedData['speed'] = (gpsData['speed_kmph'] as num).toDouble();
+      }
+      if (gpsData['course_deg'] != null) {
+        extractedData['heading'] = (gpsData['course_deg'] as num).toDouble();
+      }
+      
+      return extractedData.isNotEmpty ? extractedData : null;
+    }
+    return null;
+  }
   // CRUD Operations
   Future<Device> addDevice({
     required String name,
@@ -77,29 +201,77 @@ class DeviceService {
     Map<String, double>? gpsData,
     bool isActive = true,
   }) async {
+    // Use enhanced validation method
+    return await addDeviceWithValidation(
+      deviceName: name,
+      vehicleId: vehicleId,
+      gpsData: gpsData,
+      isActive: isActive,
+    );
+  }
+
+  /// Enhanced add device with complete validation flow
+  /// Step 1: Check Firestore uniqueness
+  /// Step 2: Check FRDB existence 
+  /// Step 3: Validate device.name == devices/{deviceId} in FRDB
+  /// Step 4: Add to Firestore collection
+  Future<Device> addDeviceWithValidation({
+    required String deviceName,
+    String? vehicleId,
+    Map<String, double>? gpsData,
+    bool isActive = true,
+  }) async {
     if (_currentUserId == null) throw Exception('User not authenticated');
 
-    // Check if device name is unique
-    final isUnique = await _checkDeviceNameUniqueness(name);
-    if (!isUnique) {
+    debugPrint('🚀 Starting complete device validation for: "$deviceName"');
+
+    // Step 1: Check if device name is unique in Firestore
+    final isUniqueInFirestore = await _checkDeviceNameUniqueness(deviceName);
+    if (!isUniqueInFirestore) {
       throw Exception(
-        'Device name "$name" is already in use. Please choose a different name.',
+        'Device name "$deviceName" is already registered to your account. Please choose a different name.',
       );
     }
+    debugPrint('✅ Step 1: Device name is unique in Firestore');
 
+    // Step 2: Check if device exists in Firebase Realtime Database
+    final existsInRealtimeDB = await _validateDeviceExistsInRealtimeDB(deviceName);
+    if (!existsInRealtimeDB) {
+      throw Exception(
+        'Device "$deviceName" not found in GPS system. Please ensure the ESP32 device is online and sending data.',
+      );
+    }
+    debugPrint('✅ Step 2: Device exists in Firebase Realtime Database');
+
+    // Step 3: Validate device name matches FRDB device ID
+    final isValidMatch = await _validateDeviceNameMatchesRealtimeDBId(deviceName);
+    if (!isValidMatch) {
+      throw Exception(
+        'Device name validation failed. The device ID in GPS system does not match "$deviceName".',
+      );
+    }
+    debugPrint('✅ Step 3: Device name matches FRDB device ID');
+
+    // Step 4: Get device metadata from FRDB for additional GPS data
+    final deviceMetadata = await _getDeviceMetadataFromRealtimeDB(deviceName);
+    final extractedGpsData = _extractGPSDataFromMetadata(deviceMetadata);
+
+    // Step 5: Create device in Firestore
     final docRef = _firestore.collection('devices').doc();
     final device = Device(
       id: docRef.id,
-      name: name,
+      name: deviceName,
       ownerId: _currentUserId!,
       vehicleId: vehicleId,
-      gpsData: gpsData ?? {},
+      gpsData: extractedGpsData ?? gpsData ?? {},
       isActive: isActive,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
 
     await docRef.set(device.toMap());
+    debugPrint('✅ Step 4: Device "$deviceName" successfully added to Firestore');
+    
     return device;
   }
 
@@ -195,6 +367,131 @@ class DeviceService {
       });
     }
     await batch.commit();
+  }
+
+  // Device Validation Public Methods
+  
+  /// Check if device exists in Firebase Realtime Database
+  /// Returns true if device exists and is sending data
+  Future<bool> validateDeviceInRealtimeDB(String deviceName) async {
+    return await _validateDeviceExistsInRealtimeDB(deviceName);
+  }
+
+  /// Check if device is actively sending data to FRDB
+  Future<bool> isDeviceActiveInRealtimeDB(String deviceName) async {
+    try {
+      final metadata = await _getDeviceMetadataFromRealtimeDB(deviceName);
+      if (metadata == null) return false;
+
+      // Check if device has recent GPS data
+      final gpsData = metadata['gps'] as Map<String, dynamic>?;
+      if (gpsData == null) return false;
+
+      // Check if device has valid coordinates
+      final lat = gpsData['latitude'];
+      final lng = gpsData['longitude'];
+      
+      return lat != null && lng != null && lat != 0 && lng != 0;
+    } catch (e) {
+      debugPrint('❌ Error checking device activity: $e');
+      return false;
+    }
+  }
+
+  /// Get all available devices from FRDB that are not yet added to user's Firestore
+  Future<List<String>> getAvailableDevicesFromRealtimeDB() async {
+    try {
+      debugPrint('🔍 Getting available devices from FRDB...');
+      
+      // Get all devices from FRDB
+      final ref = _realtimeDB.ref('devices');
+      final snapshot = await ref.get();
+      
+      if (!snapshot.exists) {
+        debugPrint('📋 No devices found in FRDB');
+        return [];
+      }
+      
+      final realtimeDevices = Map<String, dynamic>.from(snapshot.value as Map);
+      final realtimeDeviceNames = realtimeDevices.keys.toList();
+      
+      // Get user's devices from Firestore
+      final userDevices = await _getUserDevices();
+      final firestoreDeviceNames = userDevices.map((d) => d.name).toList();
+      
+      // Return devices that exist in FRDB but not in user's Firestore collection
+      final availableDevices = realtimeDeviceNames
+          .where((name) => !firestoreDeviceNames.contains(name))
+          .toList();
+      
+      debugPrint('📋 Available devices: $availableDevices');
+      debugPrint('📋 User already has: $firestoreDeviceNames');
+      
+      return availableDevices;
+    } catch (e) {
+      debugPrint('❌ Error getting available devices: $e');
+      return [];
+    }
+  }
+
+  /// Batch validate multiple device names
+  Future<Map<String, DeviceValidationResult>> batchValidateDeviceNames(List<String> deviceNames) async {
+    final results = <String, DeviceValidationResult>{};
+    
+    for (final deviceName in deviceNames) {
+      try {
+        // Check Firestore uniqueness
+        final isUnique = await _checkDeviceNameUniqueness(deviceName);
+        if (!isUnique) {
+          results[deviceName] = DeviceValidationResult(
+            isValid: false,
+            error: 'Device name already exists in your account',
+          );
+          continue;
+        }
+
+        // Check FRDB existence
+        final existsInFRDB = await _validateDeviceExistsInRealtimeDB(deviceName);
+        if (!existsInFRDB) {
+          results[deviceName] = DeviceValidationResult(
+            isValid: false,
+            error: 'Device not found in GPS system',
+          );
+          continue;
+        }
+
+        // Check name matches FRDB ID
+        final isValidMatch = await _validateDeviceNameMatchesRealtimeDBId(deviceName);
+        if (!isValidMatch) {
+          results[deviceName] = DeviceValidationResult(
+            isValid: false,
+            error: 'Device name does not match GPS system ID',
+          );
+          continue;
+        }
+
+        results[deviceName] = DeviceValidationResult(isValid: true);
+        
+      } catch (e) {
+        results[deviceName] = DeviceValidationResult(
+          isValid: false,
+          error: 'Validation error: $e',
+        );
+      }
+    }
+    
+    return results;
+  }
+
+  /// Get real-time device status from FRDB
+  Stream<Map<String, dynamic>?> getDeviceRealtimeStatus(String deviceName) {
+    final ref = _realtimeDB.ref('devices/$deviceName');
+    return ref.onValue.map((event) {
+      if (event.snapshot.exists && event.snapshot.value != null) {
+        return Map<String, dynamic>.from(event.snapshot.value as Map);
+      }
+      return null;
+    });
   }
 
   // Bridge Methods for Realtime Database Integration
@@ -339,17 +636,32 @@ class DeviceService {
     final snapshot = await whereClause(query).get();
     return _docsToDevices(snapshot);
   }
-
   Future<bool> _validateDeviceInRealtimeDB(String deviceMacId) async {
     try {
       final snapshot =
-          await database.FirebaseDatabase.instance
-              .ref('devices/$deviceMacId')
-              .get();
+          await _realtimeDB.ref('devices/$deviceMacId').get();
       return snapshot.exists;
     } catch (e) {
       debugPrint('Error validating device in FRDB: $e');
       return false;
     }
+  }
+}
+
+/// Device validation result class
+class DeviceValidationResult {
+  final bool isValid;
+  final String? error;
+  final Map<String, dynamic>? metadata;
+
+  DeviceValidationResult({
+    required this.isValid,
+    this.error,
+    this.metadata,
+  });
+
+  @override
+  String toString() {
+    return 'DeviceValidationResult(isValid: $isValid, error: $error)';
   }
 }

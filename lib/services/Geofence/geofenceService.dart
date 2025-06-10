@@ -13,6 +13,7 @@ class GeofenceService {
       _auth = auth ?? FirebaseAuth.instance;
 
   String? get _currentUserId => _auth.currentUser?.uid;
+
   /// Get all geofences for a specific device (filtered by current user)
   Stream<List<Geofence>> getGeofencesStream(String deviceId) {
     if (_currentUserId == null) return Stream.value([]);
@@ -21,15 +22,22 @@ class GeofenceService {
         .collection('geofences')
         .where('deviceId', isEqualTo: deviceId)
         .where('ownerId', isEqualTo: _currentUserId)
-        .orderBy('createdAt', descending: true)
+        // ❌ Remove .orderBy() to avoid composite index requirement
         .snapshots()
-        .map(
-          (snapshot) =>
+        .map((snapshot) {
+          // ✅ Sort in Dart instead
+          final geofences =
               snapshot.docs
                   .map((doc) => Geofence.fromMap(doc.data(), doc.id))
-                  .toList(),
-        );
+                  .toList();
+
+          // Sort by createdAt in descending order
+          geofences.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+          return geofences;
+        });
   }
+
   /// Get a single geofence by ID (with ownership verification)
   Future<Geofence?> getGeofenceById(String geofenceId) async {
     if (_currentUserId == null) return null;
@@ -59,7 +67,8 @@ class GeofenceService {
 
     if (!geofence.isValid) {
       throw Exception('Geofence must have at least 3 points');
-    }    try {
+    }
+    try {
       // Generate address if not provided
       String? address = geofence.address;
       if (address == null || address.isEmpty) {
@@ -98,6 +107,7 @@ class GeofenceService {
       throw Exception('Failed to create geofence: $e');
     }
   }
+
   /// Update an existing geofence (with ownership verification)
   Future<void> updateGeofence(Geofence geofence) async {
     if (_currentUserId == null) {
@@ -110,7 +120,9 @@ class GeofenceService {
 
     // Verify ownership before update
     if (geofence.ownerId != _currentUserId) {
-      throw Exception('Unauthorized: Cannot update geofence owned by another user');
+      throw Exception(
+        'Unauthorized: Cannot update geofence owned by another user',
+      );
     }
 
     try {
@@ -152,6 +164,7 @@ class GeofenceService {
       throw Exception('Failed to update geofence: $e');
     }
   }
+
   /// Delete a geofence (with ownership verification)
   Future<void> deleteGeofence(String geofenceId) async {
     if (_currentUserId == null) {
@@ -203,14 +216,19 @@ class GeofenceService {
 
     return _firestore
         .collection('geofences')
-        .orderBy('createdAt', descending: true)
+        .where('ownerId', isEqualTo: _currentUserId)
+        // ❌ Remove .orderBy() to avoid index requirement
         .snapshots()
-        .map(
-          (snapshot) =>
+        .map((snapshot) {
+          final geofences =
               snapshot.docs
                   .map((doc) => Geofence.fromMap(doc.data(), doc.id))
-                  .toList(),
-        );
+                  .toList();
+
+          // ✅ Sort in Dart
+          geofences.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return geofences;
+        });
   }
 
   /// Get active geofences for a device
@@ -220,15 +238,20 @@ class GeofenceService {
     return _firestore
         .collection('geofences')
         .where('deviceId', isEqualTo: deviceId)
+        .where('ownerId', isEqualTo: _currentUserId)
         .where('status', isEqualTo: true)
-        .orderBy('createdAt', descending: true)
+        // ❌ Remove .orderBy() to avoid triple-filter index
         .snapshots()
-        .map(
-          (snapshot) =>
+        .map((snapshot) {
+          final geofences =
               snapshot.docs
                   .map((doc) => Geofence.fromMap(doc.data(), doc.id))
-                  .toList(),
-        );
+                  .toList();
+
+          // ✅ Sort in Dart
+          geofences.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return geofences;
+        });
   }
 
   /// Check if a geofence name already exists for a device
@@ -238,12 +261,13 @@ class GeofenceService {
     String? excludeId,
   }) async {
     try {
-      Query query = _firestore
-          .collection('geofences')
-          .where('deviceId', isEqualTo: deviceId)
-          .where('name', isEqualTo: name);
-
-      final snapshot = await query.get();
+      final snapshot =
+          await _firestore
+              .collection('geofences')
+              .where('deviceId', isEqualTo: deviceId)
+              .where('ownerId', isEqualTo: _currentUserId)
+              .where('name', isEqualTo: name)
+              .get();
 
       if (snapshot.docs.isEmpty) return true;
 
@@ -478,24 +502,29 @@ class GeofenceService {
     }
   }
 
-  /// Get recently created geofences (last 7 days)
+  /// Get recently created geofences (FIXED - Client-side filtering)
   Stream<List<Geofence>> getRecentGeofencesStream(String deviceId) {
     if (_currentUserId == null) return Stream.value([]);
-
-    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
 
     return _firestore
         .collection('geofences')
         .where('deviceId', isEqualTo: deviceId)
-        .where('createdAt', isGreaterThan: Timestamp.fromDate(sevenDaysAgo))
-        .orderBy('createdAt', descending: true)
+        .where('ownerId', isEqualTo: _currentUserId)
+        // ❌ Remove .where('createdAt', isGreaterThan: ...) and .orderBy()
         .snapshots()
-        .map(
-          (snapshot) =>
+        .map((snapshot) {
+          final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+
+          final geofences =
               snapshot.docs
                   .map((doc) => Geofence.fromMap(doc.data(), doc.id))
-                  .toList(),
-        );
+                  .where((geofence) => geofence.createdAt.isAfter(sevenDaysAgo))
+                  .toList();
+
+          // Sort by creation date
+          geofences.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return geofences;
+        });
   }
 
   /// Archive/Unarchive a geofence (soft delete)
@@ -521,21 +550,31 @@ class GeofenceService {
     }
   }
 
-  /// Get archived geofences
+  /// Get archived geofences (FIXED - No index needed)
   Stream<List<Geofence>> getArchivedGeofencesStream(String deviceId) {
     if (_currentUserId == null) return Stream.value([]);
 
     return _firestore
         .collection('geofences')
         .where('deviceId', isEqualTo: deviceId)
+        .where('ownerId', isEqualTo: _currentUserId)
         .where('isArchived', isEqualTo: true)
-        .orderBy('archivedAt', descending: true)
+        // ❌ Remove .orderBy() to avoid composite index
         .snapshots()
-        .map(
-          (snapshot) =>
+        .map((snapshot) {
+          final geofences =
               snapshot.docs
                   .map((doc) => Geofence.fromMap(doc.data(), doc.id))
-                  .toList(),
-        );
+                  .toList();
+
+          // Sort by archivedAt if available, otherwise by updatedAt
+          geofences.sort((a, b) {
+            final aTime = a.updatedAt ?? a.createdAt;
+            final bTime = b.updatedAt ?? b.createdAt;
+            return bTime.compareTo(aTime);
+          });
+
+          return geofences;
+        });
   }
 }
