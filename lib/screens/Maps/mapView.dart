@@ -1,6 +1,6 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -9,7 +9,6 @@ import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 
 import '../../services/Auth/AuthService.dart';
-import '../../services/maps/mapsService.dart';
 import '../../services/vehicle/vehicleService.dart';
 import '../../models/vehicle/vehicle.dart';
 import '../../services/device/deviceService.dart';
@@ -33,9 +32,13 @@ class GPSMapScreen extends StatefulWidget {
 class _GPSMapScreenState extends State<GPSMapScreen> {
   late final DeviceService _deviceService;
   late final VehicleService _vehicleService;
-  mapServices? _mapService;
   String? currentDeviceId;
   String? deviceName;
+
+  // Firebase listeners for proper disposal
+  StreamSubscription<DatabaseEvent>? _gpsListener;
+  StreamSubscription<DatabaseEvent>? _relayListener;
+  StreamSubscription<List<vehicle>>? _vehicleListener;
 
   // Vehicle selection
   List<vehicle> availableVehicles = [];
@@ -63,22 +66,63 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       (latitude != null && longitude != null)
           ? LatLng(latitude!, longitude!)
           : null;
-
   @override
   void initState() {
     super.initState();
     _deviceService = DeviceService();
     _vehicleService = VehicleService();
-    currentDeviceId = widget.deviceId;
+
+    // Initialize with device name resolution
+    _initializeDeviceId();
     _loadAvailableVehicles();
-    _initializeWithDevice();
+  }
+
+  Future<void> _initializeDeviceId() async {
+    try {
+      // If widget.deviceId is passed, it might be a Firestore device ID
+      // We need to get the actual device name (MAC address) for Firebase Realtime Database
+      final deviceName = await _deviceService.getDeviceNameById(
+        widget.deviceId,
+      );
+
+      setState(() {
+        currentDeviceId =
+            deviceName ??
+            widget.deviceId; // Use device.name or fallback to widget.deviceId
+      });
+
+      debugPrint(
+        'Initialized with device: $currentDeviceId (from widget.deviceId: ${widget.deviceId})',
+      );
+
+      await _initializeWithDevice();
+    } catch (e) {
+      debugPrint('Error initializing device ID: $e');
+      // Fallback to using widget.deviceId directly
+      setState(() {
+        currentDeviceId = widget.deviceId;
+      });
+      await _initializeWithDevice();
+    }
+  }
+
+  @override
+  void dispose() {
+    // Cancel all listeners to prevent memory leaks
+    _gpsListener?.cancel();
+    _relayListener?.cancel();
+    _vehicleListener?.cancel();
+    super.dispose();
   }
 
   void _loadAvailableVehicles() {
     setState(() => isLoadingVehicles = true);
 
+    // Cancel existing vehicle listener if any
+    _vehicleListener?.cancel();
+
     // Use the stream to get real-time updates of vehicles
-    _vehicleService.getVehiclesStream().listen(
+    _vehicleListener = _vehicleService.getVehiclesStream().listen(
       (vehicles) {
         if (mounted) {
           setState(() {
@@ -102,9 +146,13 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   Future<void> _switchToVehicle(String vehicleId, String vehicleName) async {
     if (vehicleId == currentDeviceId) return;
 
+    // Cancel existing listeners before switching
+    _gpsListener?.cancel();
+    _relayListener?.cancel();
+    debugPrint('Cancelled listeners for device: $currentDeviceId');
+
     setState(() {
       isLoading = true;
-      currentDeviceId = vehicleId;
       deviceName = vehicleName;
       // Reset current data
       latitude = null;
@@ -117,6 +165,30 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       hasGPSData = false;
       showNoGPSDialog = false;
     });
+
+    // Get the actual device name (MAC address) for Firebase Realtime Database
+    try {
+      final deviceName = await _deviceService.getDeviceNameById(vehicleId);
+      if (deviceName != null) {
+        setState(() {
+          currentDeviceId =
+              deviceName; // Use device.name (MAC address), not vehicle.deviceId
+        });
+        debugPrint(
+          'Switched to device name: $deviceName for vehicle: $vehicleName',
+        );
+      } else {
+        debugPrint('Could not find device name for vehicleId: $vehicleId');
+        setState(() {
+          currentDeviceId = vehicleId; // Fallback to vehicleId
+        });
+      }
+    } catch (e) {
+      debugPrint('Error getting device name: $e');
+      setState(() {
+        currentDeviceId = vehicleId; // Fallback to vehicleId
+      });
+    }
 
     // Initialize with new vehicle
     await _initializeWithDevice();
@@ -202,71 +274,81 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                       itemCount: availableVehicles.length,
                       itemBuilder: (context, index) {
                         final vehicle = availableVehicles[index];
-                        final isSelected = vehicle.deviceId == currentDeviceId;
 
-                        return ListTile(
-                          leading: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color:
-                                  isSelected
-                                      ? Colors.blue.withOpacity(0.1)
-                                      : Colors.grey.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Icon(
-                              Icons.directions_car,
-                              color: isSelected ? Colors.blue : Colors.grey,
-                            ),
-                          ),
-                          title: Text(
-                            vehicle.name,
-                            style: TextStyle(
-                              fontWeight:
-                                  isSelected
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                              color: isSelected ? Colors.blue : Colors.black,
-                            ),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (vehicle.plateNumber != null)
-                                Text(
-                                  vehicle.plateNumber!,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey[600],
-                                  ),
+                        return FutureBuilder<bool>(
+                          future: _isVehicleSelected(vehicle),
+                          builder: (context, snapshot) {
+                            final isSelected = snapshot.data ?? false;
+
+                            return ListTile(
+                              leading: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color:
+                                      isSelected
+                                          ? Colors.blue.withOpacity(0.1)
+                                          : Colors.grey.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(20),
                                 ),
-                              if (vehicle.deviceId != null)
-                                Text(
-                                  'Device: ${vehicle.deviceId}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey[600],
-                                    fontFamily: 'monospace',
-                                  ),
+                                child: Icon(
+                                  Icons.directions_car,
+                                  color: isSelected ? Colors.blue : Colors.grey,
                                 ),
-                            ],
-                          ),
-                          trailing:
-                              isSelected
-                                  ? const Icon(
-                                    Icons.check_circle,
-                                    color: Colors.blue,
-                                  )
-                                  : const Icon(
-                                    Icons.radio_button_unchecked,
-                                    color: Colors.grey,
-                                  ),
-                          onTap: () {
-                            Navigator.pop(context);
-                            if (!isSelected && vehicle.deviceId != null) {
-                              _switchToVehicle(vehicle.deviceId!, vehicle.name);
-                            }
+                              ),
+                              title: Text(
+                                vehicle.name,
+                                style: TextStyle(
+                                  fontWeight:
+                                      isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                  color:
+                                      isSelected ? Colors.blue : Colors.black,
+                                ),
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (vehicle.plateNumber != null)
+                                    Text(
+                                      vehicle.plateNumber!,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  if (vehicle.deviceId != null)
+                                    Text(
+                                      'Device: ${vehicle.deviceId}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                        fontFamily: 'monospace',
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              trailing:
+                                  isSelected
+                                      ? const Icon(
+                                        Icons.check_circle,
+                                        color: Colors.blue,
+                                      )
+                                      : const Icon(
+                                        Icons.radio_button_unchecked,
+                                        color: Colors.grey,
+                                      ),
+                              onTap: () {
+                                Navigator.pop(context);
+                                if (!isSelected && vehicle.deviceId != null) {
+                                  _switchToVehicle(
+                                    vehicle.deviceId!,
+                                    vehicle.name,
+                                  );
+                                }
+                              },
+                            );
                           },
                         );
                       },
@@ -280,16 +362,31 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     );
   }
 
+  /// Helper method to check if a vehicle is currently selected
+  Future<bool> _isVehicleSelected(vehicle vehicleToCheck) async {
+    if (vehicleToCheck.deviceId == null) return false;
+
+    try {
+      // Get the device name (MAC address) for this vehicle
+      final deviceName = await _deviceService.getDeviceNameById(
+        vehicleToCheck.deviceId!,
+      );
+
+      // Compare with the current device ID (which should be the MAC address)
+      return deviceName == currentDeviceId;
+    } catch (e) {
+      debugPrint('Error checking vehicle selection: $e');
+      return false;
+    }
+  }
+
   Future<void> _initializeWithDevice() async {
     try {
       setState(() => isLoading = true);
-
       final name = await _deviceService.getDeviceNameById(currentDeviceId!);
-      final mapService = mapServices(deviceId: currentDeviceId!);
 
       setState(() {
         deviceName = name ?? currentDeviceId!;
-        _mapService = mapService;
       });
 
       _setupRealtimeListeners();
@@ -323,9 +420,14 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   }
 
   void _listenToGPSData() {
-    final ref = FirebaseDatabase.instance.ref('devices/$currentDeviceId/gps');
+    // Cancel existing GPS listener if any
+    _gpsListener?.cancel();
 
-    ref.onValue.listen(
+    final ref = FirebaseDatabase.instance.ref('devices/$currentDeviceId/gps');
+    debugPrint('Setting up GPS listener for device: $currentDeviceId');
+
+    // Use managed listener
+    _gpsListener = ref.onValue.listen(
       (event) {
         if (event.snapshot.exists && event.snapshot.value != null) {
           final data = Map<String, dynamic>.from(event.snapshot.value as Map);
@@ -349,7 +451,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
             });
 
             _fetchLocationName(lat, lon);
-            _mapController.move(LatLng(lat, lon), 15.0);
+            _safeMoveMap(LatLng(lat, lon), 15.0);
 
             if (tanggal != null && waktu != null) {
               _updateTimestamp('$tanggal $waktu');
@@ -492,11 +594,16 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   }
 
   void _listenToRelayStatus() {
+    // Cancel existing relay listener if any
+    _relayListener?.cancel();
+
     final relayRef = FirebaseDatabase.instance.ref(
       'devices/$currentDeviceId/relay',
     );
+    debugPrint('Setting up relay listener for device: $currentDeviceId');
 
-    relayRef.onValue.listen(
+    // Use managed listener
+    _relayListener = relayRef.onValue.listen(
       (event) {
         if (event.snapshot.exists && event.snapshot.value != null) {
           final status = event.snapshot.value as bool? ?? false;
@@ -541,6 +648,38 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     }
   }
 
+  /// Safely moves the map controller, handling timing issues with FlutterMap rendering
+  void _safeMoveMap(LatLng position, double zoom) {
+    try {
+      _mapController.move(position, zoom);
+    } catch (e) {
+      debugPrint('MapController move error: $e');
+      // Retry with progressively longer delays to ensure the map is rendered
+      _retryMapMove(position, zoom, 1);
+    }
+  }
+
+  void _retryMapMove(LatLng position, double zoom, int attempt) {
+    final delays = [200, 500, 1000]; // Progressive delays in milliseconds
+
+    if (attempt > delays.length) {
+      debugPrint('MapController move failed after ${delays.length} attempts');
+      return;
+    }
+
+    Future.delayed(Duration(milliseconds: delays[attempt - 1]), () {
+      try {
+        if (mounted) {
+          _mapController.move(position, zoom);
+          debugPrint('MapController move succeeded on attempt $attempt');
+        }
+      } catch (retryError) {
+        debugPrint('MapController move attempt $attempt failed: $retryError');
+        _retryMapMove(position, zoom, attempt + 1);
+      }
+    });
+  }
+
   Future<void> _loadInitialData() async {
     final ref = FirebaseDatabase.instance.ref('devices/$currentDeviceId/gps');
 
@@ -562,9 +701,8 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
             isLoading = false;
             hasGPSData = true;
           });
-
           _fetchLocationName(lat, lon);
-          _mapController.move(LatLng(lat, lon), 15.0);
+          _safeMoveMap(LatLng(lat, lon), 15.0);
 
           final tanggal = data['tanggal']?.toString();
           final waktu = data['waktu_wita']?.toString();
@@ -665,7 +803,17 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       isLoading = true;
       showNoGPSDialog = false;
     });
+
+    // Cancel existing listeners and re-establish them for a fresh connection
+    _gpsListener?.cancel();
+    _relayListener?.cancel();
+    debugPrint(
+      'Refresh: Cancelled existing listeners for device: $currentDeviceId',
+    );
+
+    // Reload initial data and restart listeners
     await _loadInitialData();
+    _setupRealtimeListeners();
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

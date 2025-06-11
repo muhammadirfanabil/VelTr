@@ -16,29 +16,36 @@ class GeofenceListScreen extends StatefulWidget {
 class _GeofenceListScreenState extends State<GeofenceListScreen> {
   bool _isDeleting = false;
   final GeofenceService _geofenceService = GeofenceService();
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       appBar: _buildAppBar(),
-      body: StreamBuilder<List<Geofence>>(
-        stream: _geofenceService.getGeofencesStream(widget.deviceId),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return _buildErrorState(snapshot.error.toString());
-          }
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.white, Colors.blue.shade50],
+          ),
+        ),
+        child: StreamBuilder<List<Geofence>>(
+          stream: _geofenceService.getGeofencesStream(widget.deviceId),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return _buildErrorState(snapshot.error.toString());
+            }
 
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return _buildLoadingState();
-          }
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return _buildLoadingState();
+            }
 
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return _buildEmptyState();
-          }
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return _buildEmptyState();
+            }
 
-          return _buildGeofenceList(snapshot.data!);
-        },
+            return _buildGeofenceList(snapshot.data!);
+          },
+        ),
       ),
       floatingActionButton: _buildFloatingActionButton(),
     );
@@ -47,8 +54,8 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       elevation: 0,
-      backgroundColor: Colors.blue[600],
-      foregroundColor: Colors.white,
+      backgroundColor: Colors.white,
+      foregroundColor: Colors.black,
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -104,7 +111,7 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
             icon: const Icon(Icons.refresh),
             label: const Text('Retry'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue[600],
+              backgroundColor: Colors.blue,
               foregroundColor: Colors.white,
             ),
           ),
@@ -139,7 +146,7 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
             icon: const Icon(Icons.add),
             label: const Text('Create Geofence'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue[600],
+              backgroundColor: Colors.blue,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
@@ -175,21 +182,87 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
         onDismissed: (direction) => _deleteGeofence(geofence, name),
         child: Card(
           elevation: 2,
+          shadowColor: Colors.black12,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
           child: InkWell(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             onTap: () => _navigateToEditGeofence(geofence),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  _buildGeofenceIcon(isActive),
-                  const SizedBox(width: 16),
-                  Expanded(child: _buildGeofenceInfo(name, address)),
-                  _buildStatusSwitch(geofence, isActive),
-                ],
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.white,
+                    isActive ? Colors.blue.shade50 : Colors.grey.shade50,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        _buildGeofenceIcon(isActive),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            name,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        _buildStatusSwitch(geofence, isActive),
+                      ],
+                    ),
+                    if (address.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade100),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.location_on_outlined,
+                              size: 16,
+                              color: Colors.grey.shade700,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                address,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey.shade700,
+                                  height: 1.3,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -223,37 +296,15 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
 
   Widget _buildGeofenceIcon(bool isActive) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: isActive ? Colors.green[100] : Colors.grey[200],
-        borderRadius: BorderRadius.circular(10),
+        color: isActive ? Colors.blue.shade100 : Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Icon(
-        isActive ? Icons.location_on : Icons.location_off,
-        color: isActive ? Colors.green[600] : Colors.grey[600],
+        Icons.fence_rounded,      color: isActive ? Colors.blue.shade700 : Colors.grey.shade700,
         size: 24,
       ),
-    );
-  }
-
-  Widget _buildGeofenceInfo(String name, String address) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          name,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          address,
-          style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
     );
   }
 

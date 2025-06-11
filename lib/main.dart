@@ -19,8 +19,9 @@ import 'screens/Vehicle/index.dart';
 import 'screens/Maps/mapView.dart';
 import 'screens/GeoFence/index.dart';
 import 'screens/notifications/notifications_screen.dart';
-import 'screens/index.dart';
 import 'services/notifications/fcm_service.dart';
+import 'services/device/deviceService.dart';
+import 'models/Device/device.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,6 +33,252 @@ void main() async {
   await fcmService.initFCM();
 
   runApp(const MyApp());
+}
+
+/// Device Router Widget - Handles dynamic device selection for GPS routing
+class DeviceRouterScreen extends StatefulWidget {
+  const DeviceRouterScreen({Key? key}) : super(key: key);
+
+  @override
+  _DeviceRouterScreenState createState() => _DeviceRouterScreenState();
+}
+
+class _DeviceRouterScreenState extends State<DeviceRouterScreen> {
+  final DeviceService _deviceService = DeviceService();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: StreamBuilder<List<Device>>(
+        stream: _deviceService.getDevicesStream(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Loading your devices...'),
+                ],
+              ),
+            );
+          }
+
+          if (snapshot.hasError) {
+            return _buildErrorScreen(snapshot.error.toString());
+          }
+
+          final devices = snapshot.data ?? [];
+
+          if (devices.isEmpty) {
+            return _buildNoDevicesScreen();
+          }
+
+          // Get the primary device (active with GPS > active > first available)
+          final primaryDevice = _getPrimaryDevice(devices);
+
+          if (primaryDevice != null) {
+            // Navigate to GPS map with the primary device
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder:
+                      (context) => GPSMapScreen(deviceId: primaryDevice.name),
+                ),
+              );
+            });
+
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Initializing GPS tracking...'),
+                ],
+              ),
+            );
+          }
+
+          // No valid devices found
+          return _buildNoValidDevicesScreen();
+        },
+      ),
+    );
+  }
+
+  Device? _getPrimaryDevice(List<Device> devices) {
+    // Priority: Active devices with valid GPS coordinates
+    final activeWithGPS = devices.where((d) => d.isActive && d.hasValidGPS);
+    if (activeWithGPS.isNotEmpty) {
+      return activeWithGPS.first;
+    }
+
+    // Fallback: Any active device
+    final activeDevices = devices.where((d) => d.isActive);
+    if (activeDevices.isNotEmpty) {
+      return activeDevices.first;
+    }
+
+    // Last resort: Any device
+    return devices.isNotEmpty ? devices.first : null;
+  }
+
+  Widget _buildErrorScreen(String error) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Device Error'),
+        backgroundColor: Colors.red.shade600,
+        foregroundColor: Colors.white,
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red.shade600),
+              const SizedBox(height: 24),
+              Text(
+                'Unable to load devices',
+                style: Theme.of(context).textTheme.headlineSmall,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                error,
+                style: TextStyle(color: Colors.red.shade700),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
+              ElevatedButton.icon(
+                onPressed: () => setState(() {}),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoDevicesScreen() {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Welcome'),
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.device_hub, size: 64, color: Colors.blue.shade600),
+              const SizedBox(height: 24),
+              Text(
+                'No GPS Devices Found',
+                style: Theme.of(context).textTheme.headlineSmall,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'You need to add a GPS tracking device to use this app.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 32),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pushNamed('/device');
+                },
+                icon: const Icon(Icons.add),
+                label: const Text('Add Device'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoValidDevicesScreen() {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Device Setup'),
+        backgroundColor: Colors.orange,
+        foregroundColor: Colors.white,
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.warning_amber,
+                size: 64,
+                color: Colors.orange.shade600,
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'No Active Devices',
+                style: Theme.of(context).textTheme.headlineSmall,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Your devices are not actively sending GPS data. Please check your device connections.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 32),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pushNamed('/device');
+                    },
+                    icon: const Icon(Icons.settings),
+                    label: const Text('Manage'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () => setState(() {}),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Refresh'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -48,14 +295,8 @@ class MyApp extends StatelessWidget {
         '/registerone': (context) => const RegisterOne(),
         '/login': (context) => const LoginScreen(),
 
-        // Home Page
-        '/home': (context) {
-          final args =
-              ModalRoute.of(context)?.settings.arguments
-                  as Map<String, dynamic>?;
-          final deviceId = args?['deviceId'] as String? ?? 'No Device';
-          return GPSMapScreen(deviceId: deviceId);
-        },
+        // Home Page - Now uses dynamic device routing
+        '/home': (context) => const DeviceRouterScreen(),
 
         // Vehicle
         '/vehicle': (context) => const VehicleIndexScreen(),
@@ -65,8 +306,10 @@ class MyApp extends StatelessWidget {
           final args =
               ModalRoute.of(context)?.settings.arguments
                   as Map<String, dynamic>?;
-          final deviceId = args?['deviceId'] as String? ?? 'No Device';
-          return GeofenceListScreen(deviceId: deviceId);
+          final deviceId = args?['deviceId'] as String?;
+          return deviceId != null
+              ? GeofenceListScreen(deviceId: deviceId)
+              : const DeviceRouterScreen();
         },
         '/device': (context) => const DeviceManagerScreen(),
         '/drive-history': (context) => const DrivingHistory(),
@@ -85,8 +328,10 @@ class MyApp extends StatelessWidget {
           final args =
               ModalRoute.of(context)?.settings.arguments
                   as Map<String, dynamic>?;
-          final deviceId = args?['deviceId'] as String? ?? 'No Device';
-          return DeviceListScreen(deviceId: deviceId);
+          final deviceId = args?['deviceId'] as String?;
+          return deviceId != null
+              ? DeviceListScreen(deviceId: deviceId)
+              : const DeviceRouterScreen();
         },
         '/notifications': (context) => const NotificationsScreen(),
         '/profile': (context) => const ProfilePage(),
@@ -114,7 +359,8 @@ class MyApp extends StatelessWidget {
             return const LoginScreen();
           }
 
-          return GPSMapScreen(deviceId: 'No Device');
+          // Use DeviceRouterScreen instead of hardcoded device
+          return const DeviceRouterScreen();
         },
       ),
     );
