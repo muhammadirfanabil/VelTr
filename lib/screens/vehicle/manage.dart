@@ -115,23 +115,46 @@ class _ManageVehicleState extends State<ManageVehicle> {
     }
   }
 
-  Widget _buildDeviceDropdown({String? currentValue}) {
+  Widget _buildDeviceDropdown({
+    String? currentValue,
+    String? currentVehicleId,
+  }) {
     return StreamBuilder<List<Device>>(
       stream: _deviceService.getDevicesStream(),
       builder: (context, snapshot) {
-        // Add debug prints
-        print('Device snapshot state: ${snapshot.connectionState}');
-        print('Device snapshot hasError: ${snapshot.hasError}');
-        print('Device snapshot error: ${snapshot.error}');
-        print('Device snapshot data length: ${snapshot.data?.length ?? 0}');
+        if (snapshot.hasError) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.red.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.red.shade600),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Error loading devices: ${snapshot.error}',
+                    style: TextStyle(color: Colors.red.shade700),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
 
-        if (snapshot.hasError) return Text('Error: ${snapshot.error}');
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(strokeWidth: 2));
         }
 
         final devices = snapshot.data ?? [];
-        print('Available devices: ${devices.map((d) => d.name).toList()}');
+
+        if (currentValue != null &&
+            !devices.any((device) => device.id == currentValue)) {
+          _handleUnavailableDevice(currentValue);
+        }
 
         if (devices.isEmpty) {
           return _buildEmptyDeviceContainer();
@@ -143,7 +166,8 @@ class _ManageVehicleState extends State<ManageVehicle> {
           items:
               devices
                   .map(
-                    (device) => _buildDeviceDropdownItem(device, currentValue),
+                    (device) =>
+                        _buildDeviceDropdownItem(device, currentVehicleId),
                   )
                   .toList(),
           onChanged: (value) {
@@ -155,6 +179,63 @@ class _ManageVehicleState extends State<ManageVehicle> {
     );
   }
 
+  Future<void> _handleUnavailableDevice(String deviceId) async {
+    try {
+      // Check if device still exists
+      final exists = await _vehicleService.verifyDeviceAvailability(deviceId);
+      if (!exists && mounted) {
+        setState(() => _selectedDeviceId = '');
+        _showSnackBar(
+          'Previously assigned device is no longer available',
+          Colors.orange,
+          Icons.warning_rounded,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error checking device availability: $e');
+      _showSnackBar(
+        'Error verifying device: $e',
+        Colors.red,
+        Icons.error_rounded,
+      );
+    }
+  }
+
+  Future<void> _assignDevice(String deviceId, String vehicleId) async {
+    try {
+      await _vehicleService.assignDevice(deviceId, vehicleId);
+      _showSnackBar(
+        'Device assigned successfully',
+        Colors.green,
+        Icons.check_circle_rounded,
+      );
+    } catch (e) {
+      _showSnackBar(
+        'Failed to assign device: $e',
+        Colors.red,
+        Icons.error_rounded,
+      );
+    }
+  }
+
+  Future<void> _unassignDevice(String deviceId) async {
+    try {
+      await _vehicleService.detachDeviceFromVehicle(deviceId);
+      setState(() => _selectedDeviceId = '');
+      _showSnackBar(
+        'Device unassigned successfully',
+        Colors.green,
+        Icons.check_circle_rounded,
+      );
+    } catch (e) {
+      _showSnackBar(
+        'Failed to unassign device: $e',
+        Colors.red,
+        Icons.error_rounded,
+      );
+    }
+  }
+
   Container _buildEmptyDeviceContainer() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -163,13 +244,32 @@ class _ManageVehicleState extends State<ManageVehicle> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade300),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.device_hub_rounded, color: Colors.grey.shade600),
-          const SizedBox(width: 12),
-          Text(
-            'No devices available',
-            style: TextStyle(color: Colors.grey.shade600),
+          Row(
+            children: [
+              Icon(Icons.device_hub_rounded, color: Colors.grey.shade600),
+              const SizedBox(width: 12),
+              Text(
+                'No devices available',
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pushNamed(context, '/device'),
+            icon: const Icon(Icons.add_circle_outline),
+            label: const Text('Add New Device'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
           ),
         ],
       ),
@@ -178,10 +278,15 @@ class _ManageVehicleState extends State<ManageVehicle> {
 
   DropdownMenuItem<String> _buildDeviceDropdownItem(
     Device device,
-    String? currentValue,
+    String? currentVehicleId,
   ) {
-    final isAssignedToOther =
-        device.vehicleId != null && device.vehicleId != currentValue;
+    // A device is available if:
+    // 1. It's not assigned to any vehicle (device.vehicleId is null or empty)
+    // 2. OR it's assigned to the current vehicle being edited
+    final isAssignedToOtherVehicle =
+        device.vehicleId != null &&
+        device.vehicleId!.isNotEmpty &&
+        device.vehicleId != currentVehicleId;
 
     // Create a simple text representation
     String displayText = device.name;
@@ -190,24 +295,24 @@ class _ManageVehicleState extends State<ManageVehicle> {
     } else {
       displayText += ' (Inactive)';
     }
-    if (isAssignedToOther) {
-      displayText += ' - Assigned';
+    if (isAssignedToOtherVehicle) {
+      displayText += ' - Assigned to other vehicle';
     }
 
     return DropdownMenuItem<String>(
       value: device.id,
-      enabled: !isAssignedToOther,
+      enabled: !isAssignedToOtherVehicle,
       child: Text(
         displayText,
         style: TextStyle(
           fontSize: 16,
-          color: isAssignedToOther ? Colors.grey.shade400 : Colors.black87,
+          color:
+              isAssignedToOtherVehicle ? Colors.grey.shade400 : Colors.black87,
         ),
         overflow: TextOverflow.ellipsis,
       ),
     );
   }
-
 
   InputDecoration _buildInputDecoration(String label, IconData icon) {
     return InputDecoration(
@@ -448,7 +553,9 @@ class _ManageVehicleState extends State<ManageVehicle> {
             },
             confirmText: 'Add Vehicle',
             confirmColor: Colors.blue,
-            showDeviceDropdown: true, // This is crucial!
+            showDeviceDropdown: true,
+            currentDeviceId: null,
+            currentVehicleId: null, // New vehicle has no ID yet
           ),
     );
   }
@@ -484,6 +591,8 @@ class _ManageVehicleState extends State<ManageVehicle> {
             confirmColor: Colors.orange,
             showDeviceDropdown: true,
             currentDeviceId: vehicle.deviceId,
+            currentVehicleId:
+                vehicle.id, // Pass the vehicle ID for proper filtering
           ),
     );
   }
@@ -511,6 +620,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
     required Color confirmColor,
     bool showDeviceDropdown = true,
     String? currentDeviceId,
+    String? currentVehicleId,
   }) {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -563,7 +673,10 @@ class _ManageVehicleState extends State<ManageVehicle> {
             ),
             if (showDeviceDropdown) ...[
               const SizedBox(height: 20),
-              _buildDeviceDropdown(currentValue: currentDeviceId),
+              _buildDeviceDropdown(
+                currentValue: currentDeviceId,
+                currentVehicleId: currentVehicleId,
+              ),
             ],
           ],
         ),
@@ -810,13 +923,26 @@ class VehicleCard extends StatelessWidget {
       child: Column(
         children: [
           if (vehicleModel.deviceId != null) ...[
-            _buildInfoRow(
-              Icons.device_hub_rounded,
-              'Device ID',
-              vehicleModel.deviceId!,
-              Colors.purple,
+            StreamBuilder<Device?>(
+              stream: deviceService.getDeviceStream(vehicleModel.deviceId!),
+              builder: (context, snapshot) {
+                // Only show device info if device exists and data is loaded
+                if (snapshot.hasData && snapshot.data != null) {
+                  return Column(
+                    children: [
+                      _buildInfoRow(
+                        Icons.device_hub_rounded,
+                        'Device ID',
+                        vehicleModel.deviceId!,
+                        Colors.purple,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  );
+                }
+                return const SizedBox.shrink(); // Don't show anything if device doesn't exist
+              },
             ),
-            const SizedBox(height: 12),
           ],
           Row(
             children: [

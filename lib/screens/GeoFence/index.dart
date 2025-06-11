@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../models/Geofence/Geofence.dart';
+import '../../services/Geofence/geofenceService.dart';
 import '../GeoFence/geofence.dart';
 import 'geofence_edit_screen.dart';
 
@@ -14,33 +15,37 @@ class GeofenceListScreen extends StatefulWidget {
 
 class _GeofenceListScreenState extends State<GeofenceListScreen> {
   bool _isDeleting = false;
-
+  final GeofenceService _geofenceService = GeofenceService();
   @override
   Widget build(BuildContext context) {
-    final geofencesQuery = FirebaseFirestore.instance
-        .collection('geofences')
-        .where('deviceId', isEqualTo: widget.deviceId);
-
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       appBar: _buildAppBar(),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: geofencesQuery.snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return _buildErrorState(snapshot.error.toString());
-          }
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.white, Colors.blue.shade50],
+          ),
+        ),
+        child: StreamBuilder<List<Geofence>>(
+          stream: _geofenceService.getGeofencesStream(widget.deviceId),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return _buildErrorState(snapshot.error.toString());
+            }
 
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return _buildLoadingState();
-          }
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return _buildLoadingState();
+            }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return _buildEmptyState();
-          }
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return _buildEmptyState();
+            }
 
-          return _buildGeofenceList(snapshot.data!.docs);
-        },
+            return _buildGeofenceList(snapshot.data!);
+          },
+        ),
       ),
       floatingActionButton: _buildFloatingActionButton(),
     );
@@ -49,8 +54,8 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       elevation: 0,
-      backgroundColor: Colors.blue[600],
-      foregroundColor: Colors.white,
+      backgroundColor: Colors.white,
+      foregroundColor: Colors.black,
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -106,7 +111,7 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
             icon: const Icon(Icons.refresh),
             label: const Text('Retry'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue[600],
+              backgroundColor: Colors.blue,
               foregroundColor: Colors.white,
             ),
           ),
@@ -141,7 +146,7 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
             icon: const Icon(Icons.add),
             label: const Text('Create Geofence'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue[600],
+              backgroundColor: Colors.blue,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
@@ -151,55 +156,113 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
     );
   }
 
-  Widget _buildGeofenceList(List<QueryDocumentSnapshot> geofences) {
+  Widget _buildGeofenceList(List<Geofence> geofences) {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: geofences.length,
       itemBuilder: (context, index) {
-        final doc = geofences[index];
-        final data = doc.data() as Map<String, dynamic>;
-        final docId = doc.id;
-
-        return _buildGeofenceCard(doc, data, docId, index);
+        final geofence = geofences[index];
+        return _buildGeofenceCard(geofence, index);
       },
     );
   }
 
-  Widget _buildGeofenceCard(
-    QueryDocumentSnapshot doc,
-    Map<String, dynamic> data,
-    String docId,
-    int index,
-  ) {
-    final bool isActive = data['status'] ?? false;
-    final String name = data['name'] ?? 'Unnamed Geofence';
-    final String address = data['address'] ?? 'No address specified';
+  Widget _buildGeofenceCard(Geofence geofence, int index) {
+    final bool isActive = geofence.status;
+    final String name = geofence.name;
+    final String address = geofence.address ?? 'No address specified';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Dismissible(
-        key: Key(docId),
+        key: Key(geofence.id),
         direction: DismissDirection.endToStart,
         background: _buildDismissBackground(),
         confirmDismiss: (direction) => _confirmDelete(name),
-        onDismissed: (direction) => _deleteGeofence(doc, name),
+        onDismissed: (direction) => _deleteGeofence(geofence, name),
         child: Card(
           elevation: 2,
+          shadowColor: Colors.black12,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
           child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => _navigateToEditGeofence(docId, data),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  _buildGeofenceIcon(isActive),
-                  const SizedBox(width: 16),
-                  Expanded(child: _buildGeofenceInfo(name, address)),
-                  _buildStatusSwitch(doc, isActive),
-                ],
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => _navigateToEditGeofence(geofence),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.white,
+                    isActive ? Colors.blue.shade50 : Colors.grey.shade50,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        _buildGeofenceIcon(isActive),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            name,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        _buildStatusSwitch(geofence, isActive),
+                      ],
+                    ),
+                    if (address.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade100),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.location_on_outlined,
+                              size: 16,
+                              color: Colors.grey.shade700,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                address,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey.shade700,
+                                  height: 1.3,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -233,44 +296,22 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
 
   Widget _buildGeofenceIcon(bool isActive) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: isActive ? Colors.green[100] : Colors.grey[200],
-        borderRadius: BorderRadius.circular(10),
+        color: isActive ? Colors.blue.shade100 : Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Icon(
-        isActive ? Icons.location_on : Icons.location_off,
-        color: isActive ? Colors.green[600] : Colors.grey[600],
+        Icons.fence_rounded,      color: isActive ? Colors.blue.shade700 : Colors.grey.shade700,
         size: 24,
       ),
     );
   }
 
-  Widget _buildGeofenceInfo(String name, String address) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          name,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          address,
-          style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatusSwitch(QueryDocumentSnapshot doc, bool isActive) {
+  Widget _buildStatusSwitch(Geofence geofence, bool isActive) {
     return Switch.adaptive(
       value: isActive,
-      onChanged: _isDeleting ? null : (value) => _toggleStatus(doc, value),
+      onChanged: _isDeleting ? null : (value) => _toggleStatus(geofence, value),
       activeColor: Colors.green[600],
       activeTrackColor: Colors.green[200],
     );
@@ -322,11 +363,11 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
     );
   }
 
-  Future<void> _deleteGeofence(QueryDocumentSnapshot doc, String name) async {
+  Future<void> _deleteGeofence(Geofence geofence, String name) async {
     setState(() => _isDeleting = true);
 
     try {
-      await doc.reference.delete();
+      await _geofenceService.deleteGeofence(geofence.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -359,9 +400,10 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
     }
   }
 
-  Future<void> _toggleStatus(QueryDocumentSnapshot doc, bool value) async {
+  Future<void> _toggleStatus(Geofence geofence, bool value) async {
     try {
-      await doc.reference.update({'status': value});
+      final updatedGeofence = geofence.copyWith(status: value);
+      await _geofenceService.updateGeofence(updatedGeofence);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -384,13 +426,10 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
     );
   }
 
-  void _navigateToEditGeofence(String docId, Map<String, dynamic> data) {
+  void _navigateToEditGeofence(Geofence geofence) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder:
-            (_) => GeofenceEditScreen(geofenceId: docId, geofenceData: data),
-      ),
+      MaterialPageRoute(builder: (_) => GeofenceEditScreen(geofence: geofence)),
     );
   }
 }

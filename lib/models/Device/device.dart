@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Represents a GPS device entity with its properties and database interactions.
 class Device {
-  final String id; // Device ID (e.g., "B0A7322B2EC4")
+  final String id;
   final String name; // Human-readable name for the device
   final String? ownerId; // Reference to user ID (can be null if unassigned)
   final String?
