@@ -222,11 +222,11 @@ class DeviceService {
   /// Safely parse a dynamic value to double, handling both string and numeric formats
   double? _safeParseDouble(dynamic value) {
     if (value == null) return null;
-    
+
     if (value is num) {
       return value.toDouble();
     }
-    
+
     if (value is String) {
       try {
         return double.parse(value);
@@ -235,7 +235,7 @@ class DeviceService {
         return null;
       }
     }
-    
+
     print('Warning: Unexpected GPS coordinate type: ${value.runtimeType}');
     return null;
   }
@@ -258,7 +258,8 @@ class DeviceService {
           gpsData[key] = value;
         }
       }
-    }    if (gpsData != null) {
+    }
+    if (gpsData != null) {
       final extractedData = <String, double>{};
 
       // Extract and convert GPS data to double format for Firestore
@@ -394,8 +395,40 @@ class DeviceService {
         .update(device.copyWith(updatedAt: DateTime.now()).toMap());
   }
 
-  Future<void> deleteDevice(String id) =>
-      _firestore.collection('devices').doc(id).delete();
+  Future<void> deleteDevice(String id) async {
+    try {
+      // Step 1: Find all vehicles that reference this device
+      final vehiclesWithDevice =
+          await _firestore
+              .collection('vehicles')
+              .where('deviceId', isEqualTo: id)
+              .get();
+
+      // Step 2: Use batch operation for atomic transaction
+      final batch = _firestore.batch();
+
+      // Step 3: Set deviceId to null for all affected vehicles
+      for (final vehicleDoc in vehiclesWithDevice.docs) {
+        batch.update(vehicleDoc.reference, {
+          'deviceId': null,
+          'updated_at': firestore.Timestamp.fromDate(DateTime.now()),
+        });
+      }
+
+      // Step 4: Delete the device
+      batch.delete(_firestore.collection('devices').doc(id));
+
+      // Step 5: Commit all changes atomically
+      await batch.commit();
+
+      debugPrint(
+        '✅ Device "$id" deleted with cascade cleanup of ${vehiclesWithDevice.docs.length} vehicles',
+      );
+    } catch (e) {
+      debugPrint('❌ Error deleting device with cascade: $e');
+      throw Exception('Failed to delete device: $e');
+    }
+  }
 
   // Status and Assignment Updates
   Future<void> updateDeviceGPS({
@@ -452,6 +485,22 @@ class DeviceService {
       (query) => query.where('isActive', isEqualTo: true),
     );
     return devices.where((device) => device.hasValidGPS).toList();
+  }
+
+  /// Get all vehicles that reference a specific device ID
+  Future<List<String>> getVehicleIdsByDeviceId(String deviceId) async {
+    try {
+      final snapshot =
+          await _firestore
+              .collection('vehicles')
+              .where('deviceId', isEqualTo: deviceId)
+              .get();
+
+      return snapshot.docs.map((doc) => doc.id).toList();
+    } catch (e) {
+      debugPrint('Error getting vehicles by device ID: $e');
+      return [];
+    }
   }
 
   // Batch Operations

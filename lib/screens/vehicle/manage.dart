@@ -115,7 +115,10 @@ class _ManageVehicleState extends State<ManageVehicle> {
     }
   }
 
-  Widget _buildDeviceDropdown({String? currentValue}) {
+  Widget _buildDeviceDropdown({
+    String? currentValue,
+    String? currentVehicleId,
+  }) {
     return StreamBuilder<List<Device>>(
       stream: _deviceService.getDevicesStream(),
       builder: (context, snapshot) {
@@ -143,7 +146,8 @@ class _ManageVehicleState extends State<ManageVehicle> {
           items:
               devices
                   .map(
-                    (device) => _buildDeviceDropdownItem(device, currentValue),
+                    (device) =>
+                        _buildDeviceDropdownItem(device, currentVehicleId),
                   )
                   .toList(),
           onChanged: (value) {
@@ -178,10 +182,15 @@ class _ManageVehicleState extends State<ManageVehicle> {
 
   DropdownMenuItem<String> _buildDeviceDropdownItem(
     Device device,
-    String? currentValue,
+    String? currentVehicleId,
   ) {
-    final isAssignedToOther =
-        device.vehicleId != null && device.vehicleId != currentValue;
+    // A device is available if:
+    // 1. It's not assigned to any vehicle (device.vehicleId is null or empty)
+    // 2. OR it's assigned to the current vehicle being edited
+    final isAssignedToOtherVehicle =
+        device.vehicleId != null &&
+        device.vehicleId!.isNotEmpty &&
+        device.vehicleId != currentVehicleId;
 
     // Create a simple text representation
     String displayText = device.name;
@@ -190,24 +199,24 @@ class _ManageVehicleState extends State<ManageVehicle> {
     } else {
       displayText += ' (Inactive)';
     }
-    if (isAssignedToOther) {
-      displayText += ' - Assigned';
+    if (isAssignedToOtherVehicle) {
+      displayText += ' - Assigned to other vehicle';
     }
 
     return DropdownMenuItem<String>(
       value: device.id,
-      enabled: !isAssignedToOther,
+      enabled: !isAssignedToOtherVehicle,
       child: Text(
         displayText,
         style: TextStyle(
           fontSize: 16,
-          color: isAssignedToOther ? Colors.grey.shade400 : Colors.black87,
+          color:
+              isAssignedToOtherVehicle ? Colors.grey.shade400 : Colors.black87,
         ),
         overflow: TextOverflow.ellipsis,
       ),
     );
   }
-
 
   InputDecoration _buildInputDecoration(String label, IconData icon) {
     return InputDecoration(
@@ -448,7 +457,9 @@ class _ManageVehicleState extends State<ManageVehicle> {
             },
             confirmText: 'Add Vehicle',
             confirmColor: Colors.blue,
-            showDeviceDropdown: true, // This is crucial!
+            showDeviceDropdown: true,
+            currentDeviceId: null,
+            currentVehicleId: null, // New vehicle has no ID yet
           ),
     );
   }
@@ -484,6 +495,8 @@ class _ManageVehicleState extends State<ManageVehicle> {
             confirmColor: Colors.orange,
             showDeviceDropdown: true,
             currentDeviceId: vehicle.deviceId,
+            currentVehicleId:
+                vehicle.id, // Pass the vehicle ID for proper filtering
           ),
     );
   }
@@ -511,6 +524,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
     required Color confirmColor,
     bool showDeviceDropdown = true,
     String? currentDeviceId,
+    String? currentVehicleId,
   }) {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -563,7 +577,10 @@ class _ManageVehicleState extends State<ManageVehicle> {
             ),
             if (showDeviceDropdown) ...[
               const SizedBox(height: 20),
-              _buildDeviceDropdown(currentValue: currentDeviceId),
+              _buildDeviceDropdown(
+                currentValue: currentDeviceId,
+                currentVehicleId: currentVehicleId,
+              ),
             ],
           ],
         ),
