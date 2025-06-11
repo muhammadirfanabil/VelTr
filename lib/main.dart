@@ -21,6 +21,7 @@ import 'screens/GeoFence/index.dart';
 import 'screens/notifications/notifications_screen.dart';
 import 'services/notifications/fcm_service.dart';
 import 'services/device/deviceService.dart';
+import 'services/Auth/AuthService.dart';
 import 'models/Device/device.dart';
 
 void main() async {
@@ -193,22 +194,44 @@ class _DeviceRouterScreenState extends State<DeviceRouterScreen> {
                 'You need to add a GPS tracking device to use this app.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).pushNamed('/device');
-                },
-                icon: const Icon(Icons.add),
-                label: const Text('Add Device'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
+              ),              const SizedBox(height: 32),
+              Column(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pushNamed('/device');
+                    },
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Device'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      await AuthService.signOut();
+                      if (context.mounted) {
+                        Navigator.of(context).pushReplacementNamed('/login');
+                      }
+                    },
+                    icon: const Icon(Icons.logout),
+                    label: const Text('Logout'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.grey.shade600,
+                      side: BorderSide(color: Colors.grey.shade300),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
