@@ -5,8 +5,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:gps_app/screens/Auth/RegisterOne.dart';
 import 'package:gps_app/screens/Auth/GoogleSignupScreen.dart';
 import 'package:gps_app/screens/GeoFence/device_geofence.dart';
+// import 'package:gps_app/screens/Index.dart';
 // import 'package:gps_app/screens/GeoFence/index.dart';
-import 'package:gps_app/screens/Index.dart';
 import 'package:gps_app/screens/Users/Profile.dart';
 import 'package:gps_app/screens/device/index.dart';
 import 'package:gps_app/screens/users/edit_profile.dart';
@@ -60,9 +60,17 @@ class MyApp extends StatelessWidget {
         // Vehicle
         '/vehicle': (context) => const VehicleIndexScreen(),
         '/manage-vehicle': (context) => const ManageVehicle(),
-        '/geofence': (context) => const DeviceManagerScreen(),
+        '/geofence': (context) {
+          // Extract deviceId from route arguments
+          final args =
+              ModalRoute.of(context)?.settings.arguments
+                  as Map<String, dynamic>?;
+          final deviceId = args?['deviceId'] as String? ?? 'No Device';
+          return GeofenceListScreen(deviceId: deviceId);
+        },
+        '/device': (context) => const DeviceManagerScreen(),
         '/drive-history': (context) => const DrivingHistory(),
-        
+
         // '/geofence': (context) => const GeofenceListScreen(),
         // '/geofence': (context) {
         //   // Extract deviceId from route arguments
@@ -77,7 +85,7 @@ class MyApp extends StatelessWidget {
           final args =
               ModalRoute.of(context)?.settings.arguments
                   as Map<String, dynamic>?;
-          final deviceId = args?['deviceId'] as String? ?? 'default_device_id';
+          final deviceId = args?['deviceId'] as String? ?? 'No Device';
           return DeviceListScreen(deviceId: deviceId);
         },
         '/notifications': (context) => const NotificationsScreen(),
@@ -106,9 +114,7 @@ class MyApp extends StatelessWidget {
             return const LoginScreen();
           }
 
-          return const GPSMapScreen(deviceId: 'default_device_id');
-
-          // return const GPSMapScreen(deviceId: 'B0A7322B2EC4');
+          return GPSMapScreen(deviceId: 'No Device');
         },
       ),
     );
