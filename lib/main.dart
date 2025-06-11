@@ -194,7 +194,8 @@ class _DeviceRouterScreenState extends State<DeviceRouterScreen> {
                 'You need to add a GPS tracking device to use this app.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 16),
-              ),              const SizedBox(height: 32),
+              ),
+              const SizedBox(height: 32),
               Column(
                 children: [
                   ElevatedButton.icon(

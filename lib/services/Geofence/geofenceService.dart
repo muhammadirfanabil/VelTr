@@ -14,27 +14,102 @@ class GeofenceService {
 
   String? get _currentUserId => _auth.currentUser?.uid;
 
-  /// Get all geofences for a specific device (filtered by current user)
+  /// Get all geofences for a specific device (filtered by current user) - OPTIMIZED
   Stream<List<Geofence>> getGeofencesStream(String deviceId) {
-    if (_currentUserId == null) return Stream.value([]);
+    debugPrint('🔍 GeofenceService: Getting geofences for device: $deviceId');
+    debugPrint('👤 Current user ID: $_currentUserId');
+    debugPrint('🗄️ GeofenceService: Collection: geofences');
+    debugPrint(
+      '🔍 GeofenceService: Query filters - deviceId: $deviceId, ownerId: $_currentUserId',
+    );
 
+    if (_currentUserId == null) {
+      debugPrint('❌ GeofenceService: No current user, returning empty stream');
+      return Stream.value([]);
+    }
+
+    if (deviceId.isEmpty) {
+      debugPrint('❌ GeofenceService: Empty device ID, returning empty stream');
+      return Stream.value([]);
+    }
+
+    debugPrint('🔄 GeofenceService: Starting optimized Firestore query...');
+
+    // Optimized query with better indexing
     return _firestore
         .collection('geofences')
         .where('deviceId', isEqualTo: deviceId)
         .where('ownerId', isEqualTo: _currentUserId)
-        // ❌ Remove .orderBy() to avoid composite index requirement
+        .limit(50) // Limit results for better performance
         .snapshots()
+        .handleError((error) {
+          debugPrint('❌ GeofenceService: Firestore stream error: $error');
+        })
         .map((snapshot) {
-          // ✅ Sort in Dart instead
-          final geofences =
-              snapshot.docs
-                  .map((doc) => Geofence.fromMap(doc.data(), doc.id))
-                  .toList();
+          debugPrint(
+            '📦 GeofenceService: Received ${snapshot.docs.length} docs from Firestore for device $deviceId',
+          );
 
-          // Sort by createdAt in descending order
+          // Log some metadata about the snapshot
+          debugPrint(
+            '📊 GeofenceService: Snapshot metadata - fromCache: ${snapshot.metadata.isFromCache}, hasPendingWrites: ${snapshot.metadata.hasPendingWrites}',
+          );
+
+          if (snapshot.docs.isEmpty) {
+            debugPrint(
+              '📊 GeofenceService: No geofences found for device $deviceId with owner $_currentUserId',
+            );
+            debugPrint(
+              '💡 GeofenceService: Check if geofences exist in Firestore with correct deviceId and ownerId',
+            );
+            return <Geofence>[];
+          }
+
+          // Log first few documents for debugging
+          for (int i = 0; i < snapshot.docs.length && i < 3; i++) {
+            final doc = snapshot.docs[i];
+            final data = doc.data();
+            debugPrint(
+              '📄 GeofenceService: Doc $i - ID: ${doc.id}, deviceId: ${data['deviceId']}, ownerId: ${data['ownerId']}, name: ${data['name']}',
+            );
+          }
+
+          // Convert documents to Geofence objects with error handling
+          final geofences = <Geofence>[];
+
+          for (final doc in snapshot.docs) {
+            try {
+              final geofence = Geofence.fromMap(doc.data(), doc.id);
+
+              // Validate geofence has minimum required points for polygon
+              if (geofence.points.length >= 3) {
+                geofences.add(geofence);
+                debugPrint(
+                  '✅ GeofenceService: Added geofence: ${geofence.name} (${geofence.points.length} points)',
+                );
+              } else {
+                debugPrint(
+                  '⚠️ GeofenceService: Skipped invalid geofence ${geofence.name} (insufficient points: ${geofence.points.length})',
+                );
+              }
+            } catch (e) {
+              debugPrint(
+                '❌ GeofenceService: Error parsing geofence doc ${doc.id}: $e',
+              );
+            }
+          }
+
+          // Sort by creation date (most recent first)
           geofences.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
+          debugPrint(
+            '📊 GeofenceService: Successfully parsed ${geofences.length} valid geofences out of ${snapshot.docs.length} documents',
+          );
           return geofences;
+        })
+        .handleError((error) {
+          debugPrint('❌ GeofenceService: Stream error: $error');
+          return <Geofence>[];
         });
   }
 
