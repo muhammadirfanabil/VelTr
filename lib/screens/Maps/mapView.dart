@@ -158,21 +158,23 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       },
     );
   }
+
   Future<void> _switchToVehicle(String vehicleId, String vehicleName) async {
-    if (vehicleId == currentDeviceId)
-      return; 
-      
-    debugPrint('🔄 Vehicle switch from $currentDeviceId to $vehicleId ($vehicleName)');
-    
+    if (vehicleId == currentDeviceId) return;
+
+    debugPrint(
+      '🔄 Vehicle switch from $currentDeviceId to $vehicleId ($vehicleName)',
+    );
+
     // Cancel existing listeners before switching
     _gpsListener?.cancel();
     _relayListener?.cancel();
     _geofenceListener?.cancel();
     debugPrint('Cancelled listeners for device: $currentDeviceId');
-    
+
     // Clear geofences completely before switching
     _clearGeofencesCompletely();
-    
+
     setState(() {
       isLoading = true;
       deviceName = vehicleName;
@@ -213,9 +215,9 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       setState(() {
         currentDeviceId = vehicleId; // Fallback to vehicleId
       });
-    }    // Initialize with new vehicle
+    } // Initialize with new vehicle
     await _initializeWithDevice();
-      // If geofence overlay is enabled, load geofences for the new device
+    // If geofence overlay is enabled, load geofences for the new device
     if (showGeofences) {
       debugPrint('🔄 Reloading geofences for switched vehicle: $vehicleId');
       Future.delayed(const Duration(milliseconds: 300), () {
@@ -1087,12 +1089,15 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
         break;
     }
   }
+
   Widget _buildMapWithOverlay() {
     return Stack(
       children: [
         // Always show the map, with GPS location if available, otherwise default location
         MapWidget(
-          key: ValueKey('map_${widget.deviceId}'), // Force rebuild on device change
+          key: ValueKey(
+            'map_${widget.deviceId}',
+          ), // Force rebuild on device change
           mapController: _mapController,
           options: MapOptions(
             initialCenter: vehicleLocation ?? defaultLocation,
@@ -1307,6 +1312,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       ],
     );
   } // Geofence functionality
+
   void _loadGeofencesForDevice() {
     if (widget.deviceId.isEmpty) {
       debugPrint('🚫 Cannot load geofences: No device ID');
@@ -1317,14 +1323,12 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       isLoadingGeofences = true;
       deviceGeofences = []; // Clear existing geofences immediately
     });
-    
+
     debugPrint(
       '🔄 Loading geofences for device: ${widget.deviceId} (Firestore document ID)',
     );
-    debugPrint(
-      '🔄 Current device MAC address: $currentDeviceId',
-    );
-    
+    debugPrint('🔄 Current device MAC address: $currentDeviceId');
+
     // Cancel previous listener and wait a bit to ensure cleanup
     _geofenceListener?.cancel();
     _geofenceListener = null;
@@ -1336,7 +1340,9 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     Future.delayed(const Duration(milliseconds: 200), () {
       if (!mounted) return;
 
-      debugPrint('🔄 Starting new geofence stream for device: ${widget.deviceId}');
+      debugPrint(
+        '🔄 Starting new geofence stream for device: ${widget.deviceId}',
+      );
 
       // Use widget.deviceId (Firestore document ID) instead of currentDeviceId (MAC address)
       _geofenceListener = _geofenceService
@@ -1412,14 +1418,12 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       isLoadingGeofences = true;
       deviceGeofences = []; // Clear existing geofences immediately
     });
-    
+
     debugPrint(
       '🔄 Loading geofences for specific device: $deviceId (Firestore document ID)',
     );
-    debugPrint(
-      '🔄 Current device MAC address: $currentDeviceId',
-    );
-    
+    debugPrint('🔄 Current device MAC address: $currentDeviceId');
+
     // Cancel previous listener and wait a bit to ensure cleanup
     _geofenceListener?.cancel();
     _geofenceListener = null;
@@ -1461,7 +1465,9 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                 if (geofences.isNotEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('✅ Loaded ${geofences.length} geofence(s) for switched device'),
+                      content: Text(
+                        '✅ Loaded ${geofences.length} geofence(s) for switched device',
+                      ),
                       duration: const Duration(seconds: 2),
                       backgroundColor: Colors.green,
                     ),
@@ -1524,7 +1530,9 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
         backgroundColor: showGeofences ? Colors.green : Colors.grey,
       ),
     );
-  }  @override
+  }
+
+  @override
   void didUpdateWidget(GPSMapScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
 
@@ -1571,10 +1579,9 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       debugPrint(
         'Device switch - Initialized with device: $currentDeviceId (from widget.deviceId: ${widget.deviceId})',
       );
-      
+
       // Initialize device data but WITHOUT loading geofences
       await _initializeWithDevice();
-      
     } catch (e) {
       debugPrint('Error initializing device ID during switch: $e');
       // Fallback to using widget.deviceId directly
@@ -1587,22 +1594,23 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
 
   void _clearGeofencesCompletely() {
     debugPrint('🧹 Clearing geofences completely for device switch');
-    
+
     // Cancel any existing listener
     _geofenceListener?.cancel();
     _geofenceListener = null;
-    
+
     // Clear the list completely
     deviceGeofences.clear();
-    
+
     // Force a complete widget rebuild
     setState(() {
       deviceGeofences = [];
       isLoadingGeofences = false;
     });
-    
+
     debugPrint('🧹 Geofences cleared - count now: ${deviceGeofences.length}');
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
