@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
 import 'package:firebase_database/firebase_database.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -12,8 +11,14 @@ import '../../services/Auth/AuthService.dart';
 import '../../services/vehicle/vehicleService.dart';
 import '../../models/vehicle/vehicle.dart';
 import '../../services/device/deviceService.dart';
-import '../../widgets/mapWidget.dart';
-import '../../widgets/stickyFooter.dart';
+import '../../widgets/Map/mapWidget.dart';
+import '../../widgets/Common/stickyFooter.dart';
+import '../../widgets/Common/error_card.dart';
+import '../../widgets/Common/user_menu.dart';
+import '../../widgets/Map/deviceinfo_chip.dart';
+import '../../widgets/Map/action_buttons.dart';
+import '../../widgets/Map/gpsinfo_dialog.dart';
+import '../../widgets/Map/nogps_overlay.dart';
 import '../../widgets/motoricon.dart';
 import '../../widgets/tracker.dart';
 
@@ -1001,7 +1006,6 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   Widget _buildMapWithOverlay() {
     return Stack(
       children: [
-        // Always show the map, with GPS location if available, otherwise default location
         MapWidget(
           mapController: _mapController,
           options: MapOptions(
@@ -1035,78 +1039,12 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
               ),
           ],
         ),
-        // Show overlay message when no GPS data
         if (!hasGPSData && !isLoading)
-          Center(
-            child: Container(
-              margin: const EdgeInsets.all(32),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.95),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.gps_off, size: 48, color: Colors.orange),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'GPS Not Available',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Device: ${deviceName ?? currentDeviceId}',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'You can switch to another vehicle or control this device.',
-                    style: TextStyle(fontSize: 14),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ElevatedButton.icon(
-                        onPressed: _showVehicleSelector,
-                        icon: const Icon(Icons.directions_car, size: 18),
-                        label: const Text('Switch Vehicle'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton.icon(
-                        onPressed: _refreshData,
-                        icon: const Icon(Icons.refresh, size: 18),
-                        label: const Text('Retry'),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+          NoGPSOverlay(
+            deviceName: deviceName,
+            currentDeviceId: currentDeviceId,
+            onSwitchVehicle: _showVehicleSelector,
+            onRetry: _refreshData,
           ),
       ],
     );
@@ -1117,28 +1055,49 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // Show loading indicator while loading
           if (isLoading)
             const Center(child: CircularProgressIndicator())
-          // Always show map (with overlay if no GPS data)
           else
             _buildMapWithOverlay(),
 
-          // Always show top controls
           if (!isLoading)
             SafeArea(
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [_buildDeviceInfoChip(), _buildActionButtons()],
+                  children: [
+                    DeviceInfoChip(
+                      deviceName: deviceName,
+                      hasGPSData: hasGPSData,
+                      onTap: _showVehicleSelector,
+                    ),
+                    MapActionButtons(
+                      isLoading: isLoading,
+                      hasGPSData: hasGPSData,
+                      onRefresh: _refreshData,
+                      onShowGPSInfo:
+                          () => showDialog(
+                            context: context,
+                            builder:
+                                (context) => GPSInfoDialog(
+                                  deviceName: deviceName,
+                                  currentDeviceId: currentDeviceId,
+                                  onRetry: _refreshData,
+                                ),
+                          ),
+                      onMenuItemSelected: _handleMenuSelection,
+                    ),
+                  ],
                 ),
               ),
             ),
 
-          // Always show footer
           if (!isLoading)
-            Align(alignment: Alignment.bottomCenter, child: StickyFooter()),
+            const Align(
+              alignment: Alignment.bottomCenter,
+              child: StickyFooter(),
+            ),
         ],
       ),
     );

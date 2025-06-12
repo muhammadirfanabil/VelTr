@@ -1,7 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // Add this import
-import '../../models/User/userInformation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../widgets/profile/header.dart';
+import '../../widgets/profile/quick_actions.dart';
+import '../../widgets/profile/logout_section.dart';
+import '../../widgets/common/error_card.dart';
+import '../../widgets/common/confirmation_dialog.dart';
+import '../../widgets/Common/loading_screen.dart';
+
+import '../../models/action_items.dart';
+import '../../utils/snackbar.dart';
+import '../../constants/app_constants.dart';
+
 import '../../services/User/UserService.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -14,8 +25,8 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final UserService _userService = UserService();
+
   bool _isLoading = true;
-  userInformation? _userInfo;
   String _name = '';
   String _email = '';
   String _phoneNumber = '';
@@ -24,11 +35,10 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    _loadUserDataDirect(); // Use direct loading instead
+    _loadUserData();
   }
 
-  // Add direct Firestore loading like EditProfileScreen
-  Future<void> _loadUserDataDirect() async {
+  Future<void> _loadUserData() async {
     if (!mounted) return;
 
     setState(() {
@@ -37,50 +47,21 @@ class _ProfilePageState extends State<ProfilePage> {
     });
 
     try {
-      final user = FirebaseAuth.instance.currentUser;
+      final user = _auth.currentUser;
       if (user == null) {
         throw Exception('No authenticated user found');
       }
 
-      // Direct Firestore query (same as EditProfileScreen)
-      final doc =
-          await FirebaseFirestore.instance
-              .collection('users_information')
-              .doc(user.uid)
-              .get();
+      final userData = await _loadFromFirestore(user);
 
-      if (doc.exists && doc.data() != null) {
-        final data = doc.data()!;
-
-        if (mounted) {
-          setState(() {
-            // Use same field names as EditProfileScreen
-            _name = (data['name'] ?? '').toString().trim();
-            _email = (data['emailAddress'] ?? '').toString().trim();
-            _phoneNumber =
-                (data['phone_number'] ?? data['phoneNumber'] ?? '')
-                    .toString()
-                    .trim();
-
-            // Handle empty values
-            if (_name.isEmpty) _name = user.displayName ?? 'No Name';
-            if (_email.isEmpty) _email = user.email ?? 'No Email';
-            if (_phoneNumber.isEmpty)
-              _phoneNumber = user.phoneNumber ?? 'No Phone';
-
-            _isLoading = false;
-          });
-        }
-      } else {
-        // Fallback to Firebase Auth data (same as EditProfileScreen)
-        if (mounted) {
-          setState(() {
-            _name = user.displayName ?? 'No Name';
-            _email = user.email ?? 'No Email';
-            _phoneNumber = user.phoneNumber ?? 'No Phone';
-            _isLoading = false;
-          });
-        }
+      if (mounted) {
+        setState(() {
+          _name = userData['name'] ?? user.displayName ?? 'No Name';
+          _email = userData['email'] ?? user.email ?? 'No Email';
+          _phoneNumber =
+              userData['phoneNumber'] ?? user.phoneNumber ?? 'No Phone';
+          _isLoading = false;
+        });
       }
     } catch (e) {
       debugPrint('Error loading user data: $e');
@@ -88,98 +69,63 @@ class _ProfilePageState extends State<ProfilePage> {
         setState(() {
           _isLoading = false;
           _errorMessage = 'Failed to load profile data';
-
-          // Fallback to Firebase Auth data
-          final User? currentUser = _auth.currentUser;
-          if (currentUser != null) {
-            _name = currentUser.displayName ?? 'No Name';
-            _email = currentUser.email ?? 'No Email';
-            _phoneNumber = currentUser.phoneNumber ?? 'No Phone';
-          }
+          _setFallbackUserData();
         });
-
-        _showError('Error loading profile: ${e.toString()}');
+        SnackbarUtils.showError(
+          context,
+          'Error loading profile: ${e.toString()}',
+        );
       }
     }
   }
 
-  // Keep original method as fallback
-  Future<void> _loadUserData() async {
-    try {
-      // Try UserService first
-      final userData = await _userService.loadUserData();
+  Future<Map<String, String?>> _loadFromFirestore(User user) async {
+    final doc =
+        await FirebaseFirestore.instance
+            .collection('users_information')
+            .doc(user.uid)
+            .get();
 
-      if (mounted) {
-        setState(() {
-          _userInfo = userData['userInfo'];
-          _name = userData['name'] ?? 'No Name';
-          _email = userData['email'] ?? 'No Email';
-          _phoneNumber =
-              userData['phoneNumber'] ?? userData['phone_number'] ?? 'No Phone';
-          _isLoading = userData['isLoading'] ?? false;
-        });
-      }
-    } catch (e) {
-      // Fallback to direct loading
-      debugPrint('UserService failed, using direct load: $e');
-      await _loadUserDataDirect();
+    if (doc.exists && doc.data() != null) {
+      final data = doc.data()!;
+      return {
+        'name': (data['name'] ?? '').toString().trim(),
+        'email': (data['emailAddress'] ?? '').toString().trim(),
+        'phoneNumber':
+            (data['phone_number'] ?? data['phoneNumber'] ?? '')
+                .toString()
+                .trim(),
+      };
+    }
+
+    return {};
+  }
+
+  void _setFallbackUserData() {
+    final user = _auth.currentUser;
+    if (user != null) {
+      _name = user.displayName ?? 'No Name';
+      _email = user.email ?? 'No Email';
+      _phoneNumber = user.phoneNumber ?? 'No Phone';
     }
   }
 
   Future<void> _refreshProfile() async {
-    await _loadUserDataDirect(); // Use direct loading
-
+    await _loadUserData();
     if (mounted && _errorMessage == null) {
-      _showSuccess('Profile refreshed successfully!');
+      SnackbarUtils.showSuccess(context, 'Profile refreshed successfully!');
     }
-  }
-
-  // Add error/success helpers like EditProfileScreen
-  void _showError(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  void _showSuccess(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
   }
 
   Future<void> _handleLogout() async {
     try {
-      // Show confirmation dialog
-      final bool? shouldLogout = await showDialog<bool>(
+      final shouldLogout = await ConfirmationDialog.show(
         context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text('Confirm Logout'),
-            content: const Text('Are you sure you want to sign out?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Logout'),
-              ),
-            ],
-          );
-        },
+        title: 'Confirm Logout',
+        content: 'Are you sure you want to sign out?',
+        confirmText: 'Logout',
+        cancelText: 'Cancel',
+        confirmColor: Colors.red,
       );
 
       if (shouldLogout == true) {
@@ -187,12 +133,41 @@ class _ProfilePageState extends State<ProfilePage> {
         if (mounted) {
           Navigator.of(
             context,
-          ).pushNamedAndRemoveUntil('/login', (route) => false);
+          ).pushNamedAndRemoveUntil(AppConstants.loginRoute, (route) => false);
         }
       }
     } catch (e) {
-      _showError('Error during logout: ${e.toString()}');
+      SnackbarUtils.showError(context, 'Error during logout: ${e.toString()}');
     }
+  }
+
+  List<ActionItem> _getQuickActions() {
+    return [
+      const ActionItem(
+        icon: Icons.map_outlined,
+        title: 'Track Vehicle',
+        subtitle: 'Monitor your vehicle location',
+        route: AppConstants.trackVehicleRoute,
+      ),
+      const ActionItem(
+        icon: Icons.directions_bike_outlined,
+        title: 'My Vehicle',
+        subtitle: 'Manage vehicle information',
+        route: AppConstants.myVehicleRoute,
+      ),
+      const ActionItem(
+        icon: Icons.radio_button_checked_outlined,
+        title: 'Set Range',
+        subtitle: 'Configure tracking range',
+        route: AppConstants.setRangeRoute,
+      ),
+      const ActionItem(
+        icon: Icons.history_outlined,
+        title: 'Driving History',
+        subtitle: 'View past journeys',
+        route: AppConstants.driveHistoryRoute,
+      ),
+    ];
   }
 
   @override
@@ -201,227 +176,103 @@ class _ProfilePageState extends State<ProfilePage> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: colorScheme.surface,
-        surfaceTintColor: Colors.transparent,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
-        ),
-        title: Text(
-          'Profile',
-          style: theme.textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.bold,
+      backgroundColor:
+          Colors.transparent, // Make scaffold transparent to show gradient
+      appBar: _buildAppBar(theme, colorScheme),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.white, Colors.grey.shade50],
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _refreshProfile,
-            tooltip: 'Refresh Profile',
-          ),
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            onPressed:
-                () => Navigator.pushReplacementNamed(context, '/edit-profile'),
-            tooltip: 'Edit Profile',
-          ),
-        ],
+        child: _buildBody(colorScheme),
       ),
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : RefreshIndicator(
-                onRefresh: _refreshProfile,
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (_errorMessage != null)
-                        Card(
-                          color: Colors.red.shade50,
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Row(
-                              children: [
-                                Icon(Icons.warning, color: Colors.red.shade700),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    _errorMessage!,
-                                    style: TextStyle(
-                                      color: Colors.red.shade700,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      if (_errorMessage != null) const SizedBox(height: 16),
-                      _buildProfileHeader(colorScheme),
-                      const SizedBox(height: 24),
-                      _buildQuickActions(colorScheme),
-                      const SizedBox(height: 32),
-                      _buildLogoutSection(),
-                      const SizedBox(height: 24),
-                      _buildFooter(),
-                    ],
-                  ),
-                ),
-              ),
     );
   }
 
-  Widget _buildProfileHeader(ColorScheme colorScheme) {
-    return Card(
+  PreferredSizeWidget _buildAppBar(ThemeData theme, ColorScheme colorScheme) {
+    return AppBar(
       elevation: 0,
-      color: colorScheme.primaryContainer.withOpacity(0.3),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            CircleAvatar(
-              radius: 40,
-              backgroundColor: colorScheme.primary,
-              child: Text(
-                _name.isNotEmpty && _name != 'No Name'
-                    ? _name[0].toUpperCase()
-                    : '?',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.onPrimary,
-                ),
-              ),
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios, size: 20),
+        onPressed:
+            () => Navigator.pushReplacementNamed(
+              context,
+              AppConstants.trackVehicleRoute,
             ),
-            const SizedBox(height: 16),
-            Text(
-              _name,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            _buildInfoRow(Icons.email_outlined, _email),
-            const SizedBox(height: 4),
-            _buildInfoRow(Icons.phone_outlined, _phoneNumber),
-          ],
+      ),
+      title: Text(
+        'Profile',
+        style: theme.textTheme.headlineSmall?.copyWith(
+          fontWeight: FontWeight.bold,
         ),
       ),
-    );
-  }
-
-  Widget _buildInfoRow(IconData icon, String text) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, size: 16, color: Colors.grey[600]),
-        const SizedBox(width: 8),
-        Flexible(
-          child: Text(
-            text,
-            style: TextStyle(color: Colors.grey[600], fontSize: 16),
-            textAlign: TextAlign.center,
-          ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          onPressed: _refreshProfile,
+          tooltip: 'Refresh Profile',
+        ),
+        IconButton(
+          icon: const Icon(Icons.edit_outlined),
+          onPressed:
+              () => Navigator.pushReplacementNamed(
+                context,
+                AppConstants.editProfileRoute,
+              ),
+          tooltip: 'Edit Profile',
         ),
       ],
     );
   }
 
-  Widget _buildQuickActions(ColorScheme colorScheme) {
-    final actions = [
-      _ActionItem(
-        icon: Icons.map_outlined,
-        title: 'Track Vehicle',
-        subtitle: 'Monitor your vehicle location',
-        route: '/home',
-      ),
-      _ActionItem(
-        icon: Icons.directions_bike_outlined,
-        title: 'My Vehicle',
-        subtitle: 'Manage vehicle information',
-        route: '/vehicle',
-      ),
-      _ActionItem(
-        icon: Icons.radio_button_checked_outlined,
-        title: 'Set Range',
-        subtitle: 'Configure tracking range',
-        route: '/set-range',
-      ),
-      _ActionItem(
-        icon: Icons.history_outlined,
-        title: 'Driving History',
-        subtitle: 'View past journeys',
-        route: '/drive-history',
-      ),
-    ];
+  Widget _buildBody(ColorScheme colorScheme) {
+    if (_isLoading) {
+      return const LoadingScreen(message: 'Loading Profile...');
+    }
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              'Quick Actions',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+    return RefreshIndicator(
+      onRefresh: _refreshProfile,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Error Card (using extracted widget)
+            if (_errorMessage != null) ...[
+              ErrorCard(message: _errorMessage!, onRetry: _loadUserData),
+              const SizedBox(height: 16),
+            ],
+
+            // Profile Header (using extracted widget)
+            ProfileHeader(
+              name: _name,
+              email: _email,
+              phoneNumber: _phoneNumber,
+              colorScheme: colorScheme,
             ),
-          ),
-          ...actions.map((action) => _buildActionTile(action, colorScheme)),
-        ],
-      ),
-    );
-  }
+            const SizedBox(height: 24),
 
-  Widget _buildActionTile(_ActionItem action, ColorScheme colorScheme) {
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: colorScheme.primaryContainer.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(action.icon, color: colorScheme.primary, size: 20),
-      ),
-      title: Text(
-        action.title,
-        style: const TextStyle(fontWeight: FontWeight.w600),
-      ),
-      subtitle: Text(action.subtitle),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () => Navigator.pushNamed(context, action.route),
-    );
-  }
+            // Quick Actions (using extracted widget)
+            QuickActionsList(
+              colorScheme: colorScheme,
+              actions: _getQuickActions(),
+            ),
+            const SizedBox(height: 32),
 
-  Widget _buildLogoutSection() {
-    return Card(
-      elevation: 0,
-      color: Colors.red.shade50,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.red.shade100,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Icon(Icons.logout, color: Colors.red, size: 20),
+            // Logout Section (using extracted widget)
+            LogoutSection(onLogout: _handleLogout),
+            const SizedBox(height: 24),
+
+            // Footer
+            _buildFooter(),
+          ],
         ),
-        title: const Text(
-          'Logout',
-          style: TextStyle(fontWeight: FontWeight.w600, color: Colors.red),
-        ),
-        subtitle: const Text('Sign out of your account'),
-        onTap: _handleLogout,
       ),
     );
   }
@@ -429,23 +280,9 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildFooter() {
     return Center(
       child: Text(
-        '© Poliban 2025',
-        style: TextStyle(color: Colors.grey[500], fontSize: 12),
+        AppConstants.appFooter,
+        style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
       ),
     );
   }
-}
-
-class _ActionItem {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final String route;
-
-  const _ActionItem({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.route,
-  });
 }
