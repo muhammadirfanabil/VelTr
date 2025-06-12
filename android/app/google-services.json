@@ -40,10 +40,46 @@
               "client_type": 3
             },
             {
-              "client_id": "1025991041896-biobpcvvpcrsb36hj5317ddj8vqmvnfe.apps.googleusercontent.com",
+              "client_id": "1025991041896-0ua6dtttcbkqj6c29rf9oh8joqk5dikv.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.example.gpsApp"
+                "bundle_id": "com.example.openstreetmap"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1025991041896:android:0edc3fbb042ce0ac502cdd",
+        "android_client_info": {
+          "package_name": "com.example.openstreetmap"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1025991041896-8cq0r0ipjg07cmlspjp0redeudv6ejro.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBrq9LlADChQHZ3K8f0Je5ZfMACNo8DDp8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1025991041896-8cq0r0ipjg07cmlspjp0redeudv6ejro.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1025991041896-0ua6dtttcbkqj6c29rf9oh8joqk5dikv.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.openstreetmap"
               }
             }
           ]
