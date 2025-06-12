@@ -11,6 +11,8 @@ import '../../services/Auth/AuthService.dart';
 import '../../services/vehicle/vehicleService.dart';
 import '../../models/vehicle/vehicle.dart';
 import '../../services/device/deviceService.dart';
+import '../../services/Geofence/geofenceService.dart';
+import '../../models/Geofence/Geofence.dart';
 import '../../widgets/Map/mapWidget.dart';
 import '../../widgets/Common/stickyFooter.dart';
 import '../../widgets/Common/error_card.dart';
@@ -37,6 +39,7 @@ class GPSMapScreen extends StatefulWidget {
 class _GPSMapScreenState extends State<GPSMapScreen> {
   late final DeviceService _deviceService;
   late final VehicleService _vehicleService;
+  late final GeofenceService _geofenceService;
   String? currentDeviceId;
   String? deviceName;
 
@@ -44,10 +47,16 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   StreamSubscription<DatabaseEvent>? _gpsListener;
   StreamSubscription<DatabaseEvent>? _relayListener;
   StreamSubscription<List<vehicle>>? _vehicleListener;
+  StreamSubscription<List<Geofence>>? _geofenceListener;
 
   // Vehicle selection
   List<vehicle> availableVehicles = [];
   bool isLoadingVehicles = false;
+
+  // Geofence overlay state
+  List<Geofence> deviceGeofences = [];
+  bool showGeofences = false;
+  bool isLoadingGeofences = false;
 
   String lastUpdated = '-';
   int? satellites;
@@ -76,6 +85,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     super.initState();
     _deviceService = DeviceService();
     _vehicleService = VehicleService();
+    _geofenceService = GeofenceService();
 
     // Initialize with device name resolution
     _initializeDeviceId();
@@ -95,12 +105,17 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
             deviceName ??
             widget.deviceId; // Use device.name or fallback to widget.deviceId
       });
-
       debugPrint(
         'Initialized with device: $currentDeviceId (from widget.deviceId: ${widget.deviceId})',
       );
-
       await _initializeWithDevice();
+
+      // Load geofences for the current device after initialization is complete
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _loadGeofencesForDevice();
+        }
+      });
     } catch (e) {
       debugPrint('Error initializing device ID: $e');
       // Fallback to using widget.deviceId directly
@@ -117,6 +132,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     _gpsListener?.cancel();
     _relayListener?.cancel();
     _vehicleListener?.cancel();
+    _geofenceListener?.cancel();
     super.dispose();
   }
 
@@ -151,10 +167,18 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   Future<void> _switchToVehicle(String vehicleId, String vehicleName) async {
     if (vehicleId == currentDeviceId) return;
 
+    debugPrint(
+      '🔄 Vehicle switch from $currentDeviceId to $vehicleId ($vehicleName)',
+    );
+
     // Cancel existing listeners before switching
     _gpsListener?.cancel();
     _relayListener?.cancel();
+    _geofenceListener?.cancel();
     debugPrint('Cancelled listeners for device: $currentDeviceId');
+
+    // Clear geofences completely before switching
+    _clearGeofencesCompletely();
 
     setState(() {
       isLoading = true;
@@ -169,6 +193,9 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       isVehicleOn = false;
       hasGPSData = false;
       showNoGPSDialog = false;
+      // Reset geofence data (already cleared above, but ensure state is consistent)
+      deviceGeofences = [];
+      isLoadingGeofences = false;
     });
 
     // Get the actual device name (MAC address) for Firebase Realtime Database
@@ -193,10 +220,18 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       setState(() {
         currentDeviceId = vehicleId; // Fallback to vehicleId
       });
-    }
-
-    // Initialize with new vehicle
+    } // Initialize with new vehicle
     await _initializeWithDevice();
+    // If geofence overlay is enabled, load geofences for the new device
+    if (showGeofences) {
+      debugPrint('🔄 Reloading geofences for switched vehicle: $vehicleId');
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          // Load geofences using the vehicle ID instead of widget.deviceId
+          _loadGeofencesForSpecificDevice(vehicleId);
+        }
+      });
+    }
   }
 
   void _showVehicleSelector() {
@@ -533,7 +568,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
               children: [
                 Icon(Icons.info_outline, color: Colors.blue, size: 28),
                 SizedBox(width: 8),
-                Text('GPS Information'),
+                Text('Device Information'),
               ],
             ),
             content: Column(
@@ -544,13 +579,54 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                   'GPS data is not currently available for this device.',
                   style: TextStyle(fontSize: 16),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  'Device: ${deviceName ?? currentDeviceId}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                    fontFamily: 'monospace',
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Device Details:',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Firestore ID: ${widget.deviceId}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                      if (deviceName != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Device Name: $deviceName',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ],
+                      if (currentDeviceId != null &&
+                          currentDeviceId != widget.deviceId) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'MAC Address: $currentDeviceId',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -887,6 +963,22 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
           onPressed: isLoading ? null : _refreshData,
         ),
         const SizedBox(width: 8),
+        // Geofence toggle button
+        _buildFloatingButton(
+          child:
+              isLoadingGeofences
+                  ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                  : Icon(
+                    Icons.layers,
+                    color: showGeofences ? Colors.blue : null,
+                  ),
+          onPressed: isLoadingGeofences ? null : _toggleGeofenceOverlay,
+        ),
+        const SizedBox(width: 8),
         if (!hasGPSData)
           _buildFloatingButton(
             child: const Icon(Icons.info_outline),
@@ -1007,6 +1099,9 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     return Stack(
       children: [
         MapWidget(
+          key: ValueKey(
+            'map_${widget.deviceId}',
+          ), // Force rebuild on device change
           mapController: _mapController,
           options: MapOptions(
             initialCenter: vehicleLocation ?? defaultLocation,
@@ -1023,6 +1118,112 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
               userAgentPackageName: 'com.example.gps_app',
               maxZoom: 18,
             ),
+            // Geofence polygons - render before markers for proper layering
+            if (showGeofences && deviceGeofences.isNotEmpty)
+              PolygonLayer(
+                polygons:
+                    deviceGeofences
+                        .where((geofence) => geofence.points.length >= 3)
+                        .map((geofence) {
+                          debugPrint(
+                            '🗺️ Rendering geofence: ${geofence.name} with ${geofence.points.length} points',
+                          );
+                          return Polygon(
+                            points:
+                                geofence.points
+                                    .map(
+                                      (point) => LatLng(
+                                        point.latitude,
+                                        point.longitude,
+                                      ),
+                                    )
+                                    .toList(),
+                            color: Colors.blue.withOpacity(0.3),
+                            borderColor: Colors.blue,
+                            borderStrokeWidth: 3,
+                          );
+                        })
+                        .toList(),
+              ),
+            // Geofence labels (markers for center points with names)
+            if (showGeofences && deviceGeofences.isNotEmpty)
+              MarkerLayer(
+                markers:
+                    deviceGeofences
+                        .where((geofence) => geofence.points.length >= 3)
+                        .map((geofence) {
+                          // Calculate center point of the geofence
+                          final centerLat =
+                              geofence.points
+                                  .map((p) => p.latitude)
+                                  .reduce((a, b) => a + b) /
+                              geofence.points.length;
+                          final centerLng =
+                              geofence.points
+                                  .map((p) => p.longitude)
+                                  .reduce((a, b) => a + b) /
+                              geofence.points.length;
+
+                          return Marker(
+                            point: LatLng(centerLat, centerLng),
+                            width: 120,
+                            height: 40,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withOpacity(0.9),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.3),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: Text(
+                                  geofence.name,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          );
+                        })
+                        .toList(),
+              ),
+            // Corner point markers for geofences
+            if (showGeofences && deviceGeofences.isNotEmpty)
+              CircleLayer(
+                circles:
+                    deviceGeofences
+                        .where((geofence) => geofence.points.length >= 3)
+                        .expand(
+                          (geofence) => geofence.points.map(
+                            (point) => CircleMarker(
+                              point: LatLng(point.latitude, point.longitude),
+                              radius: 4,
+                              color: Colors.blue.withOpacity(0.8),
+                              borderStrokeWidth: 2,
+                              borderColor: Colors.white,
+                            ),
+                          ),
+                        )
+                        .toList(),
+              ),
             if (hasGPSData && vehicleLocation != null)
               MarkerLayer(
                 markers: [
@@ -1040,14 +1241,377 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
           ],
         ),
         if (!hasGPSData && !isLoading)
-          NoGPSOverlay(
-            deviceName: deviceName,
-            currentDeviceId: currentDeviceId,
-            onSwitchVehicle: _showVehicleSelector,
-            onRetry: _refreshData,
+          Center(
+            child: Container(
+              margin: const EdgeInsets.all(32),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.95),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.gps_off, size: 48, color: Colors.orange),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'GPS Not Available',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Device: ${deviceName ?? currentDeviceId}',
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'You can switch to another vehicle or control this device.',
+                    style: TextStyle(fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: _showVehicleSelector,
+                        icon: const Icon(Icons.directions_car, size: 18),
+                        label: const Text('Switch Vehicle'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        onPressed: _refreshData,
+                        icon: const Icon(Icons.refresh, size: 18),
+                        label: const Text('Retry'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
       ],
     );
+  } // Geofence functionality
+
+  void _loadGeofencesForDevice() {
+    if (widget.deviceId.isEmpty) {
+      debugPrint('🚫 Cannot load geofences: No device ID');
+      return;
+    }
+
+    setState(() {
+      isLoadingGeofences = true;
+      deviceGeofences = []; // Clear existing geofences immediately
+    });
+
+    debugPrint(
+      '🔄 Loading geofences for device: ${widget.deviceId} (Firestore document ID)',
+    );
+    debugPrint('🔄 Current device MAC address: $currentDeviceId');
+
+    // Cancel previous listener and wait a bit to ensure cleanup
+    _geofenceListener?.cancel();
+    _geofenceListener = null;
+
+    // Clear the geofences list again to ensure it's empty
+    deviceGeofences.clear();
+
+    // Small delay to ensure previous listener is fully cancelled
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (!mounted) return;
+
+      debugPrint(
+        '🔄 Starting new geofence stream for device: ${widget.deviceId}',
+      );
+
+      // Use widget.deviceId (Firestore document ID) instead of currentDeviceId (MAC address)
+      _geofenceListener = _geofenceService
+          .getGeofencesStream(widget.deviceId)
+          .listen(
+            (geofences) {
+              debugPrint(
+                '✅ Received ${geofences.length} geofences for device: ${widget.deviceId}',
+              );
+              for (int i = 0; i < geofences.length; i++) {
+                final geofence = geofences[i];
+                debugPrint(
+                  '   Geofence $i: ${geofence.name} (ID: ${geofence.id}, Device: ${geofence.deviceId}, Points: ${geofence.points.length})',
+                );
+              }
+
+              if (mounted) {
+                setState(() {
+                  deviceGeofences = geofences;
+                  isLoadingGeofences = false;
+                });
+
+                debugPrint(
+                  '🗺️ State updated - showGeofences: $showGeofences, deviceGeofences: ${deviceGeofences.length}',
+                );
+
+                if (geofences.isNotEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('✅ Loaded ${geofences.length} geofence(s)'),
+                      duration: const Duration(seconds: 2),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('ℹ️ No geofences found for this device'),
+                      duration: Duration(seconds: 2),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                }
+              }
+            },
+            onError: (error) {
+              debugPrint('❌ Error loading geofences: $error');
+              if (mounted) {
+                setState(() {
+                  isLoadingGeofences = false;
+                  deviceGeofences = [];
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Failed to load geofences: $error'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+          );
+    });
+  }
+
+  /// Load geofences for a specific device ID (used for vehicle switching)
+  void _loadGeofencesForSpecificDevice(String deviceId) {
+    if (deviceId.isEmpty) {
+      debugPrint('🚫 Cannot load geofences: No device ID provided');
+      return;
+    }
+
+    setState(() {
+      isLoadingGeofences = true;
+      deviceGeofences = []; // Clear existing geofences immediately
+    });
+
+    debugPrint(
+      '🔄 Loading geofences for specific device: $deviceId (Firestore document ID)',
+    );
+    debugPrint('🔄 Current device MAC address: $currentDeviceId');
+
+    // Cancel previous listener and wait a bit to ensure cleanup
+    _geofenceListener?.cancel();
+    _geofenceListener = null;
+
+    // Clear the geofences list again to ensure it's empty
+    deviceGeofences.clear();
+
+    // Small delay to ensure previous listener is fully cancelled
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (!mounted) return;
+
+      debugPrint('🔄 Starting new geofence stream for device: $deviceId');
+
+      // Use the provided deviceId for geofence loading
+      _geofenceListener = _geofenceService
+          .getGeofencesStream(deviceId)
+          .listen(
+            (geofences) {
+              debugPrint(
+                '✅ Received ${geofences.length} geofences for device: $deviceId',
+              );
+              for (int i = 0; i < geofences.length; i++) {
+                final geofence = geofences[i];
+                debugPrint(
+                  '   Geofence $i: ${geofence.name} (ID: ${geofence.id}, Device: ${geofence.deviceId}, Points: ${geofence.points.length})',
+                );
+              }
+
+              if (mounted) {
+                setState(() {
+                  deviceGeofences = geofences;
+                  isLoadingGeofences = false;
+                });
+
+                debugPrint(
+                  '🗺️ State updated - showGeofences: $showGeofences, deviceGeofences: ${deviceGeofences.length}',
+                );
+
+                if (geofences.isNotEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        '✅ Loaded ${geofences.length} geofence(s) for switched device',
+                      ),
+                      duration: const Duration(seconds: 2),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('ℹ️ No geofences found for this device'),
+                      duration: Duration(seconds: 2),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                }
+              }
+            },
+            onError: (error) {
+              debugPrint('❌ Error loading geofences for $deviceId: $error');
+              if (mounted) {
+                setState(() {
+                  isLoadingGeofences = false;
+                  deviceGeofences = [];
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Failed to load geofences: $error'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+          );
+    });
+  }
+
+  void _toggleGeofenceOverlay() {
+    debugPrint(
+      '🔄 Toggle geofence overlay: $showGeofences -> ${!showGeofences}',
+    );
+    debugPrint('📊 Current geofences count: ${deviceGeofences.length}');
+
+    setState(() {
+      showGeofences = !showGeofences;
+    });
+
+    // Always reload geofences when enabling overlay to ensure fresh data
+    if (showGeofences) {
+      debugPrint('🔄 Loading geofences because overlay enabled');
+      _loadGeofencesForDevice();
+    }
+
+    // Show feedback to user
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          showGeofences
+              ? 'Geofence overlay enabled (${deviceGeofences.length} geofences)'
+              : 'Geofence overlay disabled',
+        ),
+        duration: const Duration(seconds: 2),
+        backgroundColor: showGeofences ? Colors.green : Colors.grey,
+      ),
+    );
+  }
+
+  @override
+  void didUpdateWidget(GPSMapScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Check if device ID has changed
+    if (oldWidget.deviceId != widget.deviceId) {
+      debugPrint(
+        '🔄 Device switched from ${oldWidget.deviceId} to ${widget.deviceId}',
+      );
+
+      // Clear geofences completely before any other operations
+      _clearGeofencesCompletely();
+
+      // Force a map rebuild by clearing and rebuilding the entire widget
+      debugPrint('🗺️ Forcing map rebuild after device switch');
+
+      // Update current device ID (but prevent automatic geofence loading)
+      _initializeDeviceIdForSwitch();
+
+      // If geofence overlay is enabled, load geofences for new device after a short delay
+      if (showGeofences) {
+        debugPrint('🔄 Loading geofences for new device: ${widget.deviceId}');
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) {
+            _loadGeofencesForDevice();
+          }
+        });
+      }
+    }
+  }
+
+  Future<void> _initializeDeviceIdForSwitch() async {
+    try {
+      // If widget.deviceId is passed, it might be a Firestore device ID
+      // We need to get the actual device name (MAC address) for Firebase Realtime Database
+      final deviceName = await _deviceService.getDeviceNameById(
+        widget.deviceId,
+      );
+
+      setState(() {
+        currentDeviceId =
+            deviceName ??
+            widget.deviceId; // Use device.name or fallback to widget.deviceId
+      });
+      debugPrint(
+        'Device switch - Initialized with device: $currentDeviceId (from widget.deviceId: ${widget.deviceId})',
+      );
+
+      // Initialize device data but WITHOUT loading geofences
+      await _initializeWithDevice();
+    } catch (e) {
+      debugPrint('Error initializing device ID during switch: $e');
+      // Fallback to using widget.deviceId directly
+      setState(() {
+        currentDeviceId = widget.deviceId;
+      });
+      await _initializeWithDevice();
+    }
+  }
+
+  void _clearGeofencesCompletely() {
+    debugPrint('🧹 Clearing geofences completely for device switch');
+
+    // Cancel any existing listener
+    _geofenceListener?.cancel();
+    _geofenceListener = null;
+
+    // Clear the list completely
+    deviceGeofences.clear();
+
+    // Force a complete widget rebuild
+    setState(() {
+      deviceGeofences = [];
+      isLoadingGeofences = false;
+    });
+
+    debugPrint('🧹 Geofences cleared - count now: ${deviceGeofences.length}');
   }
 
   @override

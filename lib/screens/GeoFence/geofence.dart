@@ -292,6 +292,14 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
     setState(() => isSaving = true);
 
     try {
+      // Debug logging for device ID consistency
+      debugPrint(
+        '🔧 GeofenceMapScreen: Creating geofence with deviceId: ${widget.deviceId}',
+      );
+      debugPrint(
+        '🔧 GeofenceMapScreen: widget.deviceId type: ${widget.deviceId.runtimeType}',
+      );
+
       // Convert LatLng points to GeofencePoint objects
       final geofencePoints =
           polygonPoints
@@ -317,6 +325,10 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
         return;
       } // Save using service layer
       await _geofenceService.createGeofence(geofence);
+
+      debugPrint(
+        '✅ GeofenceMapScreen: Geofence "$name" created successfully for device: ${widget.deviceId}',
+      );
 
       if (mounted) {
         _showSnackBar(
