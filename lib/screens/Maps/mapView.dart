@@ -7,6 +7,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
+import 'package:geolocator/geolocator.dart';
 
 import '../../services/Auth/AuthService.dart';
 import '../../services/vehicle/vehicleService.dart';
@@ -52,7 +53,6 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   List<Geofence> deviceGeofences = [];
   bool showGeofences = false;
   bool isLoadingGeofences = false;
-
   String lastUpdated = '-';
   int? satellites;
   double? latitude;
@@ -64,6 +64,11 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   bool hasGPSData = false;
   bool showNoGPSDialog = false;
   final MapController _mapController = MapController();
+
+  // User location state
+  LatLng? userLocation;
+  bool isLoadingUserLocation = false;
+  String? userLocationError;
 
   // Default location (you can change this to your preferred default location)
   static const LatLng defaultLocation = LatLng(
@@ -80,26 +85,118 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     super.initState();
     _deviceService = DeviceService();
     _vehicleService = VehicleService();
-    _geofenceService = GeofenceService();
-
-    // Initialize with device name resolution
+    _geofenceService =
+        GeofenceService(); // Initialize with device name resolution
     _initializeDeviceId();
     _loadAvailableVehicles();
+    _getUserLocation(); // Get user's current location
+  }
+
+  Future<void> _getUserLocation() async {
+    debugPrint('🧭 [USER_LOCATION] Starting user location detection...');
+    if (!mounted) return;
+
+    setState(() {
+      isLoadingUserLocation = true;
+      userLocationError = null;
+    });
+    debugPrint('🧭 [USER_LOCATION] State updated - loading: true, error: null');
+
+    try {
+      // Check if location services are enabled
+      debugPrint(
+        '🧭 [USER_LOCATION] Checking if location services are enabled...',
+      );
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      debugPrint(
+        '🧭 [USER_LOCATION] Location services enabled: $serviceEnabled',
+      );
+
+      if (!serviceEnabled) {
+        debugPrint('❌ [USER_LOCATION] Location services are disabled');
+        setState(() {
+          userLocationError = 'Location services are disabled';
+          isLoadingUserLocation = false;
+        });
+        return;
+      } // Check location permissions
+      debugPrint('🧭 [USER_LOCATION] Checking location permissions...');
+      LocationPermission permission = await Geolocator.checkPermission();
+      debugPrint('🧭 [USER_LOCATION] Current permission: $permission');
+
+      if (permission == LocationPermission.denied) {
+        debugPrint(
+          '🧭 [USER_LOCATION] Permission denied, requesting permission...',
+        );
+        permission = await Geolocator.requestPermission();
+        debugPrint('🧭 [USER_LOCATION] Permission after request: $permission');
+
+        if (permission == LocationPermission.denied) {
+          debugPrint('❌ [USER_LOCATION] Location permission denied by user');
+          setState(() {
+            userLocationError = 'Location permission denied';
+            isLoadingUserLocation = false;
+          });
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        debugPrint('❌ [USER_LOCATION] Location permission permanently denied');
+        setState(() {
+          userLocationError = 'Location permission permanently denied';
+          isLoadingUserLocation = false;
+        });
+        return;
+      } // Get current position
+      debugPrint('🧭 [USER_LOCATION] Getting current position...');
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 10),
+      );
+      debugPrint(
+        '🧭 [USER_LOCATION] Position obtained: lat=${position.latitude}, lng=${position.longitude}, accuracy=${position.accuracy}m',
+      );
+
+      if (mounted) {
+        setState(() {
+          userLocation = LatLng(position.latitude, position.longitude);
+          isLoadingUserLocation = false;
+        });
+        debugPrint(
+          '✅ [USER_LOCATION] User location set successfully: ${userLocation.toString()}',
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ [USER_LOCATION] Error getting user location: $e');
+      if (mounted) {
+        setState(() {
+          userLocationError = 'Unable to get current location';
+          isLoadingUserLocation = false;
+        });
+        debugPrint('❌ [USER_LOCATION] Error state set: $userLocationError');
+      }
+    }
   }
 
   Future<void> _initializeDeviceId() async {
+    debugPrint('🔧 [DEVICE_INIT] Starting device initialization...');
+    debugPrint('🔧 [DEVICE_INIT] Widget deviceId: ${widget.deviceId}');
+
     try {
       // If widget.deviceId is passed, it might be a Firestore device ID
       // We need to get the actual device name (MAC address) for Firebase Realtime Database
       final deviceName = await _deviceService.getDeviceNameById(
         widget.deviceId,
       );
+      debugPrint('🔧 [DEVICE_INIT] Device name from service: $deviceName');
 
       setState(() {
         currentDeviceId =
             deviceName ??
             widget.deviceId; // Use device.name or fallback to widget.deviceId
       });
+      debugPrint('🔧 [DEVICE_INIT] Current device ID set to: $currentDeviceId');
       debugPrint(
         'Initialized with device: $currentDeviceId (from widget.deviceId: ${widget.deviceId})',
       );
@@ -112,11 +209,14 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
         }
       });
     } catch (e) {
-      debugPrint('Error initializing device ID: $e');
+      debugPrint('❌ [DEVICE_INIT] Error initializing device ID: $e');
       // Fallback to using widget.deviceId directly
       setState(() {
         currentDeviceId = widget.deviceId;
       });
+      debugPrint(
+        '🔧 [DEVICE_INIT] Fallback - using widget.deviceId: $currentDeviceId',
+      );
       await _initializeWithDevice();
     }
   }
@@ -459,11 +559,18 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     _gpsListener?.cancel();
 
     final ref = FirebaseDatabase.instance.ref('devices/$currentDeviceId/gps');
-    debugPrint('Setting up GPS listener for device: $currentDeviceId');
+    debugPrint(
+      '📡 [GPS_LISTENER] Setting up GPS listener for device: $currentDeviceId',
+    );
+    debugPrint('📡 [GPS_LISTENER] Firebase path: devices/$currentDeviceId/gps');
 
     // Use managed listener
     _gpsListener = ref.onValue.listen(
       (event) {
+        debugPrint('📡 [GPS_LISTENER] GPS data event received');
+        debugPrint('📡 [GPS_LISTENER] Event exists: ${event.snapshot.exists}');
+        debugPrint('📡 [GPS_LISTENER] Event value: ${event.snapshot.value}');
+
         if (event.snapshot.exists && event.snapshot.value != null) {
           final data = Map<String, dynamic>.from(event.snapshot.value as Map);
           debugPrint('GPS Data received: $data');
@@ -474,7 +581,14 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
           final waktu = data['waktu_wita']?.toString();
           final sat = _parseInt(data['satellites']);
 
+          debugPrint(
+            '📡 [GPS_LISTENER] Parsed - lat: $lat, lon: $lon, satellites: $sat',
+          );
+
           if (lat != null && lon != null) {
+            debugPrint(
+              '✅ [GPS_LISTENER] Valid GPS coordinates found - setting hasGPSData = true',
+            );
             setState(() {
               latitude = lat;
               longitude = lon;
@@ -492,6 +606,9 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
               _updateTimestamp('$tanggal $waktu');
             }
           } else {
+            debugPrint(
+              '❌ [GPS_LISTENER] Invalid GPS coordinates - setting hasGPSData = false',
+            );
             setState(() {
               isLoading = false;
               hasGPSData = false;
@@ -501,7 +618,9 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
             }
           }
         } else {
-          debugPrint('No GPS data found at path: devices/$currentDeviceId/gps');
+          debugPrint(
+            '❌ [GPS_LISTENER] No GPS data found at path: devices/$currentDeviceId/gps',
+          );
           setState(() {
             isLoading = false;
             hasGPSData = false;
@@ -512,7 +631,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
         }
       },
       onError: (error) {
-        debugPrint('Firebase GPS listener error: $error');
+        debugPrint('❌ [GPS_LISTENER] Firebase GPS listener error: $error');
         setState(() {
           isLoading = false;
           hasGPSData = false;
@@ -891,6 +1010,11 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     await _loadInitialData();
     _setupRealtimeListeners();
 
+    // Also refresh user location if device GPS is not available
+    if (!hasGPSData) {
+      _getUserLocation();
+    }
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -905,6 +1029,45 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   }
 
   Widget _buildDeviceInfoChip() {
+    final isNoDevicePlaceholder = currentDeviceId == 'no_device_placeholder';
+
+    if (isNoDevicePlaceholder) {
+      // Show special chip for no device scenario
+      return GestureDetector(
+        onTap: () => Navigator.pushNamed(context, '/device'),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.orange.shade50.withOpacity(0.9),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.orange.shade300),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.add, size: 16, color: Colors.orange.shade700),
+              const SizedBox(width: 4),
+              Text(
+                'Add Device',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  color: Colors.orange.shade700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (deviceName == null) return const SizedBox.shrink();
 
     return GestureDetector(
@@ -1091,6 +1254,17 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   }
 
   Widget _buildMapWithOverlay() {
+    final mapCenter = vehicleLocation ?? userLocation ?? defaultLocation;
+    final mapZoom = hasGPSData ? 15.0 : (userLocation != null ? 13.0 : 10.0);
+
+    debugPrint('🗺️ [MAP] Building map overlay...');
+    debugPrint('🗺️ [MAP] Vehicle location: $vehicleLocation');
+    debugPrint('🗺️ [MAP] User location: $userLocation');
+    debugPrint('🗺️ [MAP] Default location: $defaultLocation');
+    debugPrint('🗺️ [MAP] Final map center: $mapCenter');
+    debugPrint('🗺️ [MAP] Final zoom level: $mapZoom');
+    debugPrint('🗺️ [MAP] Has GPS data: $hasGPSData');
+
     return Stack(
       children: [
         // Always show the map, with GPS location if available, otherwise default location
@@ -1100,8 +1274,8 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
           ), // Force rebuild on device change
           mapController: _mapController,
           options: MapOptions(
-            initialCenter: vehicleLocation ?? defaultLocation,
-            initialZoom: hasGPSData ? 15.0 : 10.0,
+            initialCenter: mapCenter,
+            initialZoom: mapZoom,
             minZoom: 3.0,
             maxZoom: 18.0,
           ),
@@ -1233,85 +1407,243 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                     ),
                   ),
                 ],
-              ),
-          ],
-        ),
-        // Show overlay message when no GPS data
-        if (!hasGPSData && !isLoading)
-          Center(
-            child: Container(
-              margin: const EdgeInsets.all(32),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.95),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
+              ), // Always show user location marker when available
+            if (userLocation != null)
+              MarkerLayer(
+                markers: [
+                  Marker(
+                    point: userLocation!,
+                    width: 20,
+                    height: 20,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: hasGPSData ? Colors.green : Colors.blue,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 3,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.person_pin_circle,
+                        color: Colors.white,
+                        size: 12,
+                      ),
+                    ),
                   ),
                 ],
               ),
+          ],
+        ),
+      ],
+    );
+  } // Geofence functionality
+
+  Widget _buildSubtleNotificationBanner() {
+    debugPrint('🔔 [BANNER] Building banner - hasGPSData: $hasGPSData');
+    debugPrint('🔔 [BANNER] Current device ID: $currentDeviceId');
+
+    // Check if user has no real devices (using placeholder)
+    final isNoDevicePlaceholder = currentDeviceId == 'no_device_placeholder';
+
+    if (isNoDevicePlaceholder) {
+      debugPrint(
+        '🔔 [BANNER] No device placeholder detected - showing Add Device banner',
+      );
+      return _buildAddDeviceBanner();
+    }
+
+    if (hasGPSData) {
+      debugPrint('🔔 [BANNER] Has GPS data - hiding banner');
+      return const SizedBox.shrink();
+    }
+
+    // Determine banner message based on current state
+    String bannerMessage;
+    if (userLocation != null) {
+      bannerMessage = 'No device GPS. Showing your current location instead.';
+      debugPrint('🔔 [BANNER] Showing user location message');
+    } else if (isLoadingUserLocation) {
+      bannerMessage = 'Getting your current location...';
+      debugPrint('🔔 [BANNER] Showing loading message');
+    } else {
+      bannerMessage =
+          'No device GPS. ${userLocationError ?? "Unable to get location"}';
+      debugPrint('🔔 [BANNER] Showing error message: $userLocationError');
+    }
+
+    debugPrint('🔔 [BANNER] Banner message: "$bannerMessage"');
+    debugPrint(
+      '🔔 [BANNER] State - userLocation: $userLocation, isLoading: $isLoadingUserLocation, error: $userLocationError',
+    );
+
+    return SafeArea(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.blue.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.blue.shade200),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, color: Colors.blue.shade600, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                bannerMessage,
+                style: TextStyle(
+                  color: Colors.blue.shade700,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            if (userLocationError != null && !isLoadingUserLocation)
+              GestureDetector(
+                onTap: _getUserLocation,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade600,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'Retry',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddDeviceBanner() {
+    debugPrint('🔔 [ADD_DEVICE_BANNER] Building Add Device banner');
+
+    return SafeArea(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.orange.shade400, Colors.orange.shade600],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.orange.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.device_hub,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.gps_off, size: 48, color: Colors.orange),
-                  const SizedBox(height: 12),
                   const Text(
-                    'GPS Not Available',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    'No GPS Devices Found',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
                   Text(
-                    'Device: ${deviceName ?? currentDeviceId}',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'You can switch to another vehicle or control this device.',
-                    style: TextStyle(fontSize: 14),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ElevatedButton.icon(
-                        onPressed: _showVehicleSelector,
-                        icon: const Icon(Icons.directions_car, size: 18),
-                        label: const Text('Switch Vehicle'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton.icon(
-                        onPressed: _refreshData,
-                        icon: const Icon(Icons.refresh, size: 18),
-                        label: const Text('Retry'),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                        ),
-                      ),
-                    ],
+                    'Add a GPS device to start tracking',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 14,
+                    ),
                   ),
                 ],
               ),
             ),
-          ),
-      ],
+            const SizedBox(width: 12),
+            GestureDetector(
+              onTap: () {
+                debugPrint('🔔 [ADD_DEVICE_BANNER] Add Device button tapped');
+                Navigator.pushNamed(context, '/device');
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.add, color: Colors.orange.shade600, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Add Device',
+                      style: TextStyle(
+                        color: Colors.orange.shade600,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
-  } // Geofence functionality
+  }
 
   void _loadGeofencesForDevice() {
     if (widget.deviceId.isEmpty) {
@@ -1613,6 +1945,20 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('🔧 [BUILD] Building GPSMapScreen...');
+    debugPrint('🔧 [BUILD] Current device ID: $currentDeviceId');
+    debugPrint('🔧 [BUILD] Has GPS data: $hasGPSData');
+    debugPrint('🔧 [BUILD] Is loading: $isLoading');
+
+    final isNoDevicePlaceholder = currentDeviceId == 'no_device_placeholder';
+    final showBanner = isNoDevicePlaceholder || !hasGPSData;
+    final topPadding =
+        showBanner ? 84.0 : 16.0; // Adjust padding based on banner presence
+
+    debugPrint('🔧 [BUILD] Is no device placeholder: $isNoDevicePlaceholder');
+    debugPrint('🔧 [BUILD] Show banner: $showBanner');
+    debugPrint('🔧 [BUILD] Top padding: $topPadding');
+
     return Scaffold(
       body: Stack(
         children: [
@@ -1623,11 +1969,23 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
           else
             _buildMapWithOverlay(),
 
-          // Always show top controls
+          // Notification banner (subtle for no GPS or prominent for no device)
+          if (!isLoading)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: _buildSubtleNotificationBanner(),
+            ), // Always show top controls
           if (!isLoading)
             SafeArea(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.only(
+                  top: topPadding,
+                  left: 16,
+                  right: 16,
+                  bottom: 16,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [_buildDeviceInfoChip(), _buildActionButtons()],

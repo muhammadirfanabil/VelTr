@@ -17,7 +17,7 @@
         {
           "client_id": "1025991041896-pivkkqpjstf8edr88v3cprcif9m8qcbo.apps.googleusercontent.com",
           "client_type": 1,
-          "android_info": {
+          "android_info": {   
             "package_name": "com.example.gps_app",
             "certificate_hash": "e83d5dec73cd3df47dc07f5c155c3be1c9e32458"
           }
