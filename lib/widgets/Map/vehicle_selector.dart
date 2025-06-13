@@ -1,36 +1,19 @@
 import 'package:flutter/material.dart';
 import '../../models/vehicle/vehicle.dart';
-import '../../services/device/deviceService.dart';
 
 class VehicleSelectorBottomSheet extends StatelessWidget {
-  final List<vehicle> vehicles;
-  final bool isLoading;
-  final String? currentDeviceId;
-  final Function(String vehicleId, String vehicleName) onVehicleSelected;
-  final DeviceService deviceService;
+  final List<vehicle> availableVehicles;
+  final bool isLoadingVehicles;
+  final Function(String, String) onVehicleSelected;
+  final Future<bool> Function(vehicle) isVehicleSelectedCheck;
 
   const VehicleSelectorBottomSheet({
     Key? key,
-    required this.vehicles,
-    required this.isLoading,
-    required this.currentDeviceId,
+    required this.availableVehicles,
+    required this.isLoadingVehicles,
     required this.onVehicleSelected,
-    required this.deviceService,
+    required this.isVehicleSelectedCheck,
   }) : super(key: key);
-
-  Future<bool> _isVehicleSelected(vehicle vehicleToCheck) async {
-    if (vehicleToCheck.deviceId == null) return false;
-
-    try {
-      final deviceName = await deviceService.getDeviceNameById(
-        vehicleToCheck.deviceId!,
-      );
-      return deviceName == currentDeviceId;
-    } catch (e) {
-      debugPrint('Error checking vehicle selection: $e');
-      return false;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +25,7 @@ class VehicleSelectorBottomSheet extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Handle bar
           Container(
             margin: const EdgeInsets.only(top: 12),
             width: 40,
@@ -51,6 +35,8 @@ class VehicleSelectorBottomSheet extends StatelessWidget {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
+
+          // Header
           Padding(
             padding: const EdgeInsets.all(20),
             child: Row(
@@ -69,13 +55,16 @@ class VehicleSelectorBottomSheet extends StatelessWidget {
               ],
             ),
           ),
+
           const Divider(height: 1),
-          if (isLoading)
+
+          // Vehicle list
+          if (isLoadingVehicles)
             const Padding(
               padding: EdgeInsets.all(40),
               child: Center(child: CircularProgressIndicator()),
             )
-          else if (vehicles.isEmpty)
+          else if (availableVehicles.isEmpty)
             const Padding(
               padding: EdgeInsets.all(40),
               child: Column(
@@ -96,12 +85,12 @@ class VehicleSelectorBottomSheet extends StatelessWidget {
               ),
               child: ListView.builder(
                 shrinkWrap: true,
-                itemCount: vehicles.length,
+                itemCount: availableVehicles.length,
                 itemBuilder: (context, index) {
-                  final vehicle = vehicles[index];
+                  final vehicle = availableVehicles[index];
 
                   return FutureBuilder<bool>(
-                    future: _isVehicleSelected(vehicle),
+                    future: isVehicleSelectedCheck(vehicle),
                     builder: (context, snapshot) {
                       final isSelected = snapshot.data ?? false;
 
@@ -175,6 +164,7 @@ class VehicleSelectorBottomSheet extends StatelessWidget {
                 },
               ),
             ),
+
           const SizedBox(height: 20),
         ],
       ),

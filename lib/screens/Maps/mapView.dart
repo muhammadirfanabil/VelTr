@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 
+import '../../utils/snackbar.dart';
 import '../../services/Auth/AuthService.dart';
 import '../../services/vehicle/vehicleService.dart';
 import '../../models/vehicle/vehicle.dart';
@@ -21,6 +22,7 @@ import '../../widgets/Map/deviceinfo_chip.dart';
 import '../../widgets/Map/action_buttons.dart';
 import '../../widgets/Map/gpsinfo_dialog.dart';
 import '../../widgets/Map/nogps_overlay.dart';
+import '../../widgets/Map/vehicle_selector.dart';
 import '../../widgets/motoricon.dart';
 import '../../widgets/tracker.dart';
 
@@ -240,164 +242,11 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder:
-          (context) => Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Handle bar
-                Container(
-                  margin: const EdgeInsets.only(top: 12),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-
-                // Header
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.directions_car, size: 24),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'Select Vehicle',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const Divider(height: 1),
-
-                // Vehicle list
-                if (isLoadingVehicles)
-                  const Padding(
-                    padding: EdgeInsets.all(40),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else if (availableVehicles.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(40),
-                    child: Column(
-                      children: [
-                        Icon(Icons.error_outline, size: 48, color: Colors.grey),
-                        SizedBox(height: 12),
-                        Text(
-                          'No vehicles available',
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  )
-                else
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxHeight: MediaQuery.of(context).size.height * 0.6,
-                    ),
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: availableVehicles.length,
-                      itemBuilder: (context, index) {
-                        final vehicle = availableVehicles[index];
-
-                        return FutureBuilder<bool>(
-                          future: _isVehicleSelected(vehicle),
-                          builder: (context, snapshot) {
-                            final isSelected = snapshot.data ?? false;
-
-                            return ListTile(
-                              leading: Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color:
-                                      isSelected
-                                          ? Colors.blue.withOpacity(0.1)
-                                          : Colors.grey.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Icon(
-                                  Icons.directions_car,
-                                  color: isSelected ? Colors.blue : Colors.grey,
-                                ),
-                              ),
-                              title: Text(
-                                vehicle.name,
-                                style: TextStyle(
-                                  fontWeight:
-                                      isSelected
-                                          ? FontWeight.bold
-                                          : FontWeight.normal,
-                                  color:
-                                      isSelected ? Colors.blue : Colors.black,
-                                ),
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (vehicle.plateNumber != null)
-                                    Text(
-                                      vehicle.plateNumber!,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                  if (vehicle.deviceId != null)
-                                    Text(
-                                      'Device: ${vehicle.deviceId}',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[600],
-                                        fontFamily: 'monospace',
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              trailing:
-                                  isSelected
-                                      ? const Icon(
-                                        Icons.check_circle,
-                                        color: Colors.blue,
-                                      )
-                                      : const Icon(
-                                        Icons.radio_button_unchecked,
-                                        color: Colors.grey,
-                                      ),
-                              onTap: () {
-                                Navigator.pop(context);
-                                if (!isSelected && vehicle.deviceId != null) {
-                                  _switchToVehicle(
-                                    vehicle.deviceId!,
-                                    vehicle.name,
-                                  );
-                                }
-                              },
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ),
-
-                const SizedBox(height: 20),
-              ],
-            ),
+          (context) => VehicleSelectorBottomSheet(
+            availableVehicles: availableVehicles,
+            isLoadingVehicles: isLoadingVehicles,
+            onVehicleSelected: _switchToVehicle,
+            isVehicleSelectedCheck: _isVehicleSelected,
           ),
     );
   }
@@ -440,11 +289,14 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     debugPrint('Error initializing device: $e');
     if (mounted) {
       setState(() => isLoading = false);
-      _showErrorSnackBar('Failed to initialize device: $e');
+      SnackbarUtils.showError(
+        context,
+        'Failed to initialize device: $e',
+      );
     }
   }
 
-  void _showErrorSnackBar(String message) {
+  void showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -532,28 +384,10 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   void _showNoGPSInfoBanner() {
     if (mounted && !showNoGPSDialog) {
       setState(() => showNoGPSDialog = true);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.gps_off, color: Colors.white, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'No GPS data available for ${deviceName ?? currentDeviceId}',
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.orange,
-          duration: const Duration(seconds: 4),
-          action: SnackBarAction(
-            label: 'Details',
-            textColor: Colors.white,
-            onPressed: _showNoGPSDetailsDialog,
-          ),
-        ),
+      SnackbarUtils.showInfo(
+        context,
+        deviceName: deviceName ?? currentDeviceId ?? '',
+        onDetailsPressed: _showNoGPSDetailsDialog,
       );
     }
   }
@@ -898,183 +732,11 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            hasGPSData ? 'GPS data refreshed' : 'Still no GPS data available',
-          ),
-          backgroundColor: hasGPSData ? Colors.green : Colors.orange,
-          duration: const Duration(seconds: 2),
-        ),
+        SnackbarUtils.showInfo(context, 
+  hasGPSData ? "GPS data available" : "GPS data not available"
+),
       );
     }
-  }
-
-  Widget _buildDeviceInfoChip() {
-    if (deviceName == null) return const SizedBox.shrink();
-
-    return GestureDetector(
-      onTap: _showVehicleSelector,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.9),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.directions_car, size: 16, color: Colors.blue),
-            const SizedBox(width: 4),
-            if (!hasGPSData) ...[
-              const Icon(Icons.gps_off, size: 16, color: Colors.orange),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              deviceName!,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-            ),
-            const SizedBox(width: 4),
-            const Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.grey),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButtons() {
-    return Row(
-      children: [
-        _buildFloatingButton(
-          child:
-              isLoading
-                  ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                  : const Icon(Icons.refresh),
-          onPressed: isLoading ? null : _refreshData,
-        ),
-        const SizedBox(width: 8),
-        // Geofence toggle button
-        _buildFloatingButton(
-          child:
-              isLoadingGeofences
-                  ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                  : Icon(
-                    Icons.layers,
-                    color: showGeofences ? Colors.blue : null,
-                  ),
-          onPressed: isLoadingGeofences ? null : _toggleGeofenceOverlay,
-        ),
-        const SizedBox(width: 8),
-        if (!hasGPSData)
-          _buildFloatingButton(
-            child: const Icon(Icons.info_outline),
-            onPressed: _showNoGPSDetailsDialog,
-          ),
-        const SizedBox(width: 8),
-        _buildUserMenu(),
-      ],
-    );
-  }
-
-  Widget _buildFloatingButton({
-    required Widget child,
-    VoidCallback? onPressed,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: IconButton(icon: child, onPressed: onPressed),
-    );
-  }
-
-  Widget _buildUserMenu() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: PopupMenuButton<String>(
-        icon: const Icon(Icons.person, color: Colors.black),
-        offset: const Offset(0, 45),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 8,
-        color: Colors.white,
-        onSelected: _handleMenuSelection,
-        itemBuilder:
-            (context) => [
-              const PopupMenuItem(
-                value: 'home',
-                child: Row(
-                  children: [
-                    Icon(Icons.home_outlined),
-                    SizedBox(width: 8),
-                    Text('Home'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'profile',
-                child: Row(
-                  children: [
-                    Icon(Icons.person_outline),
-                    SizedBox(width: 8),
-                    Text('Profile'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'settings',
-                child: Row(
-                  children: [
-                    Icon(Icons.settings_outlined),
-                    SizedBox(width: 8),
-                    Text('Settings'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    Icon(Icons.logout_outlined),
-                    SizedBox(width: 8),
-                    Text('Logout'),
-                  ],
-                ),
-              ),
-            ],
-      ),
-    );
   }
 
   Future<void> _handleMenuSelection(String value) async {
@@ -1373,20 +1035,14 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                 );
 
                 if (geofences.isNotEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('✅ Loaded ${geofences.length} geofence(s)'),
-                      duration: const Duration(seconds: 2),
-                      backgroundColor: Colors.green,
-                    ),
+                  SnackbarUtils.showSuccess(
+                    context,
+                    geofences.length,
                   );
                 } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('ℹ️ No geofences found for this device'),
-                      duration: Duration(seconds: 2),
-                      backgroundColor: Colors.orange,
-                    ),
+                  SnackbarUtils.showError(
+                    context,
+                    error.toString(),
                   );
                 }
               }
@@ -1523,15 +1179,11 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
 
     // Show feedback to user
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          showGeofences
-              ? 'Geofence overlay enabled (${deviceGeofences.length} geofences)'
-              : 'Geofence overlay disabled',
-        ),
-        duration: const Duration(seconds: 2),
-        backgroundColor: showGeofences ? Colors.green : Colors.grey,
-      ),
+      SnackbarUtils.showInfo(
+  context,
+  isEnabled: showGeofences,
+  count: deviceGeofences.length,
+);
     );
   }
 
@@ -1639,6 +1291,8 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                     MapActionButtons(
                       isLoading: isLoading,
                       hasGPSData: hasGPSData,
+                      isLoadingGeofences: isLoadingGeofences,
+                      showGeofences: showGeofences,
                       onRefresh: _refreshData,
                       onShowGPSInfo:
                           () => showDialog(
@@ -1650,6 +1304,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                                   onRetry: _refreshData,
                                 ),
                           ),
+                      onToggleGeofence: _toggleGeofenceOverlay,
                       onMenuItemSelected: _handleMenuSelection,
                     ),
                   ],

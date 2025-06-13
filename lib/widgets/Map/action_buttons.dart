@@ -4,16 +4,22 @@ import '../Common/user_menu.dart';
 class MapActionButtons extends StatelessWidget {
   final bool isLoading;
   final bool hasGPSData;
+  final bool isLoadingGeofences;
+  final bool showGeofences;
   final VoidCallback onRefresh;
   final VoidCallback onShowGPSInfo;
+  final VoidCallback onToggleGeofence;
   final Function(String) onMenuItemSelected;
 
   const MapActionButtons({
     Key? key,
     required this.isLoading,
     required this.hasGPSData,
+    required this.isLoadingGeofences,
+    required this.showGeofences,
     required this.onRefresh,
     required this.onShowGPSInfo,
+    required this.onToggleGeofence,
     required this.onMenuItemSelected,
   }) : super(key: key);
 
@@ -51,6 +57,21 @@ class MapActionButtons extends StatelessWidget {
                   )
                   : const Icon(Icons.refresh),
           onPressed: isLoading ? null : onRefresh,
+        ),
+        const SizedBox(width: 8),
+        _buildFloatingButton(
+          child:
+              isLoadingGeofences
+                  ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                  : Icon(
+                    Icons.layers,
+                    color: showGeofences ? Colors.blue : null,
+                  ),
+          onPressed: isLoadingGeofences ? null : onToggleGeofence,
         ),
         const SizedBox(width: 8),
         if (!hasGPSData)
