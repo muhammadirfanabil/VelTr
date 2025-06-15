@@ -4,8 +4,11 @@ import 'package:gps_app/widgets/Map/mapWidget.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'dart:async';
 import '../../models/Geofence/Geofence.dart';
 import '../../services/Geofence/geofenceService.dart';
+import '../../services/device/deviceService.dart';
 import 'index.dart';
 
 class GeofenceMapScreen extends StatefulWidget {
@@ -24,24 +27,32 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
   bool showPolygon = false;
   bool isLoading = false;
   bool isSaving = false;
-  LatLng? currentLocation;
-
-  // Services
+  LatLng? currentLocation; // User's location
+  LatLng? deviceLocation; // Device's GPS location
+  String? deviceName; // Added for vehicle context
+  bool isLoadingDeviceLocation = false; // Services
   final GeofenceService _geofenceService = GeofenceService();
+  final DeviceService _deviceService = DeviceService();
+
+  // Firebase listeners
+  StreamSubscription<DatabaseEvent>? _deviceGpsListener;
+
   // Animation
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-
   @override
   void initState() {
     super.initState();
     _initializeAnimations();
     _getCurrentLocation();
+    _loadDeviceName();
+    _loadDeviceLocation();
   }
 
   @override
   void dispose() {
     _animationController.dispose();
+    _deviceGpsListener?.cancel();
     super.dispose();
   }
 
@@ -98,6 +109,117 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
         setState(() => isLoading = false);
       }
     }
+  }
+
+  Future<void> _loadDeviceName() async {
+    try {
+      final name = await _deviceService.getDeviceNameById(widget.deviceId);
+      if (mounted) {
+        setState(() {
+          deviceName = name ?? 'Device ${widget.deviceId}';
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading device name: $e');
+      if (mounted) {
+        setState(() {
+          deviceName = 'Device ${widget.deviceId}';
+        });
+      }
+    }
+  }
+
+  Future<void> _loadDeviceLocation() async {
+    try {
+      setState(() {
+        isLoadingDeviceLocation = true;
+      });
+
+      // Get the device name (MAC address) for Firebase Realtime Database
+      final deviceName = await _deviceService.getDeviceNameById(
+        widget.deviceId,
+      );
+
+      if (deviceName != null && mounted) {
+        debugPrint('🔧 [DEVICE_GPS] Loading GPS data for device: $deviceName');
+
+        // Set up Firebase listener for device GPS data
+        final ref = FirebaseDatabase.instance.ref('devices/$deviceName/gps');
+
+        _deviceGpsListener = ref.onValue.listen(
+          (event) {
+            debugPrint(
+              '📡 [DEVICE_GPS] GPS data event received for $deviceName',
+            );
+
+            if (event.snapshot.exists &&
+                event.snapshot.value != null &&
+                mounted) {
+              final data = Map<String, dynamic>.from(
+                event.snapshot.value as Map,
+              );
+              debugPrint('📡 [DEVICE_GPS] GPS Data: $data');
+
+              final lat = _parseDouble(data['latitude']);
+              final lon = _parseDouble(data['longitude']);
+
+              if (lat != null && lon != null && lat != 0.0 && lon != 0.0) {
+                setState(() {
+                  deviceLocation = LatLng(lat, lon);
+                  isLoadingDeviceLocation = false;
+                });
+                debugPrint(
+                  '✅ [DEVICE_GPS] Device location updated: $lat, $lon',
+                );
+              } else {
+                debugPrint('⚠️ [DEVICE_GPS] Invalid GPS coordinates received');
+              }
+            } else {
+              debugPrint('❌ [DEVICE_GPS] No GPS data available for device');
+              if (mounted) {
+                setState(() {
+                  isLoadingDeviceLocation = false;
+                });
+              }
+            }
+          },
+          onError: (error) {
+            debugPrint('❌ [DEVICE_GPS] Firebase GPS listener error: $error');
+            if (mounted) {
+              setState(() {
+                isLoadingDeviceLocation = false;
+              });
+            }
+          },
+        );
+      } else {
+        debugPrint('❌ [DEVICE_GPS] Could not get device name for GPS data');
+        if (mounted) {
+          setState(() {
+            isLoadingDeviceLocation = false;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ [DEVICE_GPS] Error setting up device location: $e');
+      if (mounted) {
+        setState(() {
+          isLoadingDeviceLocation = false;
+        });
+      }
+    }
+  }
+
+  /// Parse double value safely from dynamic data
+  double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) {
+      final parsed = double.tryParse(value);
+      return parsed;
+    }
+    return null;
   }
 
   void _onMapTap(TapPosition tapPosition, LatLng point) {
@@ -400,9 +522,22 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
       elevation: 0,
       backgroundColor: Colors.blue[600],
       foregroundColor: Colors.white,
-      title: const Text(
-        'Define Geofence Area',
-        style: TextStyle(fontWeight: FontWeight.bold),
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Define Geofence Area',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          ),
+          if (deviceName != null)
+            Text(
+              'For: $deviceName',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -426,6 +561,8 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
           _buildPolylineLayer(),
           _buildPolygonLayer(),
           _buildMarkerLayer(),
+          _buildVehicleMarker(),
+          _buildDeviceLocationMarker(),
           _buildCurrentLocationMarker(),
         ],
       ),
@@ -521,6 +658,172 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
     );
   }
 
+  Widget _buildDeviceLocationMarker() {
+    // Don't show device marker if location is not available
+    if (deviceLocation == null) {
+      return const SizedBox.shrink();
+    }
+
+    return MarkerLayer(
+      markers: [
+        Marker(
+          point: deviceLocation!,
+          width: 40,
+          height: 40,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Outer ring for better visibility
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.orange[600]!.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.orange[600]!, width: 2),
+                ),
+              ),
+              // Inner device marker
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: Colors.orange[600],
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Icon(Icons.gps_fixed, color: Colors.white, size: 14),
+              ),
+              // Loading indicator if still loading
+              if (isLoadingDeviceLocation)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.8),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Center(
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.orange,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVehicleMarker() {
+    // Calculate the position for the vehicle marker
+    LatLng vehiclePosition;
+    bool isAtCenter = false;
+
+    if (showPolygon && polygonPoints.length >= 3) {
+      // If polygon is complete, show vehicle at the center of the geofence
+      vehiclePosition = _calculatePolygonCenter();
+      isAtCenter = true;
+    } else if (polygonPoints.isNotEmpty) {
+      // If drawing, show at the last point to indicate the vehicle's target area
+      vehiclePosition = polygonPoints.last;
+    } else {
+      // If no points yet, show at current location
+      vehiclePosition = currentLocation!;
+    }
+
+    return MarkerLayer(
+      markers: [
+        Marker(
+          point: vehiclePosition,
+          width: isAtCenter ? 60 : 50,
+          height: isAtCenter ? 60 : 50,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isAtCenter ? Colors.green[600]! : Colors.blue[600]!,
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: isAtCenter ? 12 : 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(8),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(
+                  Icons.motorcycle,
+                  color: isAtCenter ? Colors.green[600]! : Colors.blue[600]!,
+                  size: 24,
+                ),
+                if (isAtCenter)
+                  Positioned(
+                    bottom: -2,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.green[600],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        'AREA',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Calculate the center point of the polygon
+  LatLng _calculatePolygonCenter() {
+    if (polygonPoints.isEmpty) return currentLocation!;
+
+    double lat = 0;
+    double lng = 0;
+
+    for (final point in polygonPoints) {
+      lat += point.latitude;
+      lng += point.longitude;
+    }
+
+    return LatLng(lat / polygonPoints.length, lng / polygonPoints.length);
+  }
+
   Widget _buildInstructionCard() {
     if (showPolygon) return const SizedBox.shrink();
 
@@ -542,12 +845,84 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Tap to add points',
+                      'Define Vehicle Geofence',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Tap to add points around your vehicle area',
+                      style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.motorcycle,
+                          color: Colors.blue[600],
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            polygonPoints.isNotEmpty
+                                ? 'Vehicle icon follows your drawing'
+                                : 'Vehicle icon shows current location',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.gps_fixed,
+                          color: Colors.orange[600],
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            deviceLocation != null
+                                ? 'Orange marker shows device GPS location'
+                                : isLoadingDeviceLocation
+                                ? 'Loading device GPS location...'
+                                : 'Device GPS location unavailable',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.my_location,
+                          color: Colors.blue[600],
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            'Blue marker shows your current location',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
                     Text(
                       'Points: ${polygonPoints.length} (min: 3)',
                       style: TextStyle(color: Colors.grey[600], fontSize: 14),
