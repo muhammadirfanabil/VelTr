@@ -28,7 +28,6 @@ import 'widgets/Common/error_card.dart';
 import 'services/notifications/fcm_service.dart';
 import 'services/device/deviceService.dart';
 
-
 // Model imports
 import 'models/Device/device.dart';
 
@@ -117,40 +116,60 @@ class _DeviceRouterScreenState extends State<DeviceRouterScreen> {
       '🎯 [DEVICE_SELECTION] Selecting primary device from ${devices.length} devices',
     );
 
-    // Priority: Active devices with valid GPS coordinates
-    final activeWithGPS = devices.where((d) => d.isActive && d.hasValidGPS);
+    // CRITICAL: Only consider devices that are linked to vehicles
+    final linkedDevices =
+        devices
+            .where((d) => d.vehicleId != null && d.vehicleId!.isNotEmpty)
+            .toList();
+
     debugPrint(
-      '🎯 [DEVICE_SELECTION] Active devices with GPS: ${activeWithGPS.length}',
+      '🎯 [DEVICE_SELECTION] Devices linked to vehicles: ${linkedDevices.length}',
     );
 
-    if (activeWithGPS.isNotEmpty) {
-      final selected = activeWithGPS.first;
+    if (linkedDevices.isEmpty) {
       debugPrint(
-        '🎯 [DEVICE_SELECTION] Selected device with GPS: ${selected.name}',
+        '🚫 [DEVICE_SELECTION] No devices linked to vehicles - returning null',
+      );
+      return null;
+    }
+
+    // Priority: Active linked devices with valid GPS coordinates
+    final activeLinkedWithGPS = linkedDevices.where(
+      (d) => d.isActive && d.hasValidGPS,
+    );
+    debugPrint(
+      '🎯 [DEVICE_SELECTION] Active linked devices with GPS: ${activeLinkedWithGPS.length}',
+    );
+
+    if (activeLinkedWithGPS.isNotEmpty) {
+      final selected = activeLinkedWithGPS.first;
+      debugPrint(
+        '🎯 [DEVICE_SELECTION] Selected linked device with GPS: ${selected.name} (vehicleId: ${selected.vehicleId})',
       );
       return selected;
     }
 
-    // Fallback: Any active device
-    final activeDevices = devices.where((d) => d.isActive);
+    // Fallback: Any active linked device
+    final activeLinkedDevices = linkedDevices.where((d) => d.isActive);
     debugPrint(
-      '🎯 [DEVICE_SELECTION] Active devices (any): ${activeDevices.length}',
+      '🎯 [DEVICE_SELECTION] Active linked devices (any): ${activeLinkedDevices.length}',
     );
 
-    if (activeDevices.isNotEmpty) {
-      final selected = activeDevices.first;
+    if (activeLinkedDevices.isNotEmpty) {
+      final selected = activeLinkedDevices.first;
       debugPrint(
-        '🎯 [DEVICE_SELECTION] Selected active device: ${selected.name}',
+        '🎯 [DEVICE_SELECTION] Selected active linked device: ${selected.name} (vehicleId: ${selected.vehicleId})',
       );
       return selected;
     }
 
-    // Last resort: Any device
-    final anyDevice = devices.isNotEmpty ? devices.first : null;
+    // Last resort: Any linked device
+    final anyLinkedDevice =
+        linkedDevices.isNotEmpty ? linkedDevices.first : null;
     debugPrint(
-      '🎯 [DEVICE_SELECTION] Last resort device: ${anyDevice?.name ?? "none"}',
+      '🎯 [DEVICE_SELECTION] Last resort linked device: ${anyLinkedDevice?.name ?? "none"} (vehicleId: ${anyLinkedDevice?.vehicleId ?? "none"})',
     );
-    return anyDevice;
+    return anyLinkedDevice;
   }
 
   Widget _buildErrorScreen(String error) {

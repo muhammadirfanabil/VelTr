@@ -196,14 +196,18 @@ class _ManageVehicleState extends State<ManageVehicle> {
         // If no items available, return empty container message
         if (dropdownItems.isEmpty) {
           return _buildEmptyDeviceContainer();
-        }        return ConstrainedBox(
+        }
+        return ConstrainedBox(
           constraints: const BoxConstraints(
             minHeight: 56,
             maxHeight: 300, // Prevent dropdown from growing too large
           ),
           child: DropdownButtonFormField<String>(
             value: currentValue,
-            decoration: _buildInputDecoration('Device', Icons.device_hub_rounded),
+            decoration: _buildInputDecoration(
+              'Device',
+              Icons.device_hub_rounded,
+            ),
             items: dropdownItems,
             isExpanded: true, // Allow text to use full width
             dropdownColor: Colors.white,
@@ -308,17 +312,15 @@ class _ManageVehicleState extends State<ManageVehicle> {
   DropdownMenuItem<String> _buildLinkedDeviceDropdownItem(
     Device device,
     String? currentVehicleId,
-  ) {    // Safety check: only build item if device has a vehicleId
+  ) {
+    // Safety check: only build item if device has a vehicleId
     if (device.vehicleId == null || device.vehicleId!.isEmpty) {
       // Return a disabled item as fallback instead of throwing
       return DropdownMenuItem<String>(
         value: null,
         enabled: false,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            minHeight: 48,
-            maxHeight: 56,
-          ),
+          constraints: const BoxConstraints(minHeight: 48, maxHeight: 56),
           child: Container(
             width: double.infinity,
             alignment: Alignment.centerLeft,
@@ -349,14 +351,12 @@ class _ManageVehicleState extends State<ManageVehicle> {
 
     if (isAssignedToOtherVehicle) {
       displayText += ' - Assigned to other vehicle';
-    }    return DropdownMenuItem<String>(
+    }
+    return DropdownMenuItem<String>(
       value: device.id,
       enabled: isAssignedToCurrentVehicle || !isAssignedToOtherVehicle,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          minHeight: 48,
-          maxHeight: 56,
-        ),
+        constraints: const BoxConstraints(minHeight: 48, maxHeight: 56),
         child: Container(
           width: double.infinity,
           alignment: Alignment.centerLeft,
@@ -365,7 +365,9 @@ class _ManageVehicleState extends State<ManageVehicle> {
             style: TextStyle(
               fontSize: 16,
               color:
-                  isAssignedToOtherVehicle ? Colors.grey.shade400 : Colors.black87,
+                  isAssignedToOtherVehicle
+                      ? Colors.grey.shade400
+                      : Colors.black87,
             ),
             overflow: TextOverflow.ellipsis,
             maxLines: 1,
@@ -374,6 +376,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
       ),
     );
   }
+
   /// Build dropdown item for devices that are not linked to any vehicle
   DropdownMenuItem<String> _buildUnlinkedDeviceDropdownItem(Device device) {
     // Safety check: ensure device truly has no vehicleId
@@ -383,10 +386,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
         value: null,
         enabled: false,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            minHeight: 48,
-            maxHeight: 56,
-          ),
+          constraints: const BoxConstraints(minHeight: 48, maxHeight: 56),
           child: Container(
             width: double.infinity,
             alignment: Alignment.centerLeft,
@@ -406,10 +406,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
     return DropdownMenuItem<String>(
       value: 'attach_${device.id}', // Use 'attach_' prefix for unlinked devices
       child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          minHeight: 48,
-          maxHeight: 56,
-        ),
+        constraints: const BoxConstraints(minHeight: 48, maxHeight: 56),
         child: Container(
           width: double.infinity,
           child: Row(
@@ -815,7 +812,8 @@ class _ManageVehicleState extends State<ManageVehicle> {
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 20),
           ),
         ],
-      ),      content: ConstrainedBox(
+      ),
+      content: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.9,
           maxHeight: MediaQuery.of(context).size.height * 0.8,
