@@ -330,88 +330,199 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                     ),
                     child: Column(
                       children: [
-                        // Vehicle list
-                        ...List.generate(availableVehicles.length, (index) {
-                          final vehicle = availableVehicles[index];
+                        // Vehicle list - only show vehicles with devices
+                        ...List.generate(
+                          availableVehicles
+                              .where(
+                                (v) =>
+                                    v.deviceId != null &&
+                                    v.deviceId!.isNotEmpty,
+                              )
+                              .length,
+                          (index) {
+                            final vehiclesWithDevices =
+                                availableVehicles
+                                    .where(
+                                      (v) =>
+                                          v.deviceId != null &&
+                                          v.deviceId!.isNotEmpty,
+                                    )
+                                    .toList();
+                            final vehicle = vehiclesWithDevices[index];
 
-                          return FutureBuilder<bool>(
-                            future: _isVehicleSelected(vehicle),
-                            builder: (context, snapshot) {
-                              final isSelected = snapshot.data ?? false;
+                            return FutureBuilder<bool>(
+                              future: _isVehicleSelected(vehicle),
+                              builder: (context, snapshot) {
+                                final isSelected = snapshot.data ?? false;
 
-                              return ListTile(
-                                leading: Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color:
-                                        isSelected
-                                            ? Colors.blue.withOpacity(0.1)
-                                            : Colors.grey.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(20),
+                                return ListTile(
+                                  leading: Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color:
+                                          isSelected
+                                              ? Colors.blue.withOpacity(0.1)
+                                              : Colors.grey.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Icon(
+                                      Icons.directions_car,
+                                      color:
+                                          isSelected
+                                              ? Colors.blue
+                                              : Colors.grey,
+                                    ),
                                   ),
-                                  child: Icon(
-                                    Icons.directions_car,
-                                    color:
-                                        isSelected ? Colors.blue : Colors.grey,
+                                  title: Text(
+                                    vehicle.name,
+                                    style: TextStyle(
+                                      fontWeight:
+                                          isSelected
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                      color:
+                                          isSelected
+                                              ? Colors.blue
+                                              : Colors.black,
+                                    ),
                                   ),
-                                ),
-                                title: Text(
-                                  vehicle.name,
-                                  style: TextStyle(
-                                    fontWeight:
-                                        isSelected
-                                            ? FontWeight.bold
-                                            : FontWeight.normal,
-                                    color:
-                                        isSelected ? Colors.blue : Colors.black,
-                                  ),
-                                ),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (vehicle.plateNumber != null)
-                                      Text(
-                                        vehicle.plateNumber!,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[600],
+                                  subtitle: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      if (vehicle.plateNumber != null)
+                                        Text(
+                                          vehicle.plateNumber!,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[600],
+                                          ),
                                         ),
+                                      if (vehicle.deviceId != null)
+                                        Text(
+                                          'Device: ${vehicle.deviceId}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[600],
+                                            fontFamily: 'monospace',
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  trailing:
+                                      isSelected
+                                          ? const Icon(
+                                            Icons.check_circle,
+                                            color: Colors.blue,
+                                          )
+                                          : const Icon(
+                                            Icons.radio_button_unchecked,
+                                            color: Colors.grey,
+                                          ),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    if (!isSelected &&
+                                        vehicle.deviceId != null) {
+                                      _switchToVehicle(
+                                        vehicle.deviceId!,
+                                        vehicle.name,
+                                      );
+                                    }
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        ),
+
+                        // Show unlinked vehicles with "Attach to Device" option
+                        ...List.generate(
+                          availableVehicles
+                              .where(
+                                (v) =>
+                                    v.deviceId == null || v.deviceId!.isEmpty,
+                              )
+                              .length,
+                          (index) {
+                            final unlinkedVehicles =
+                                availableVehicles
+                                    .where(
+                                      (v) =>
+                                          v.deviceId == null ||
+                                          v.deviceId!.isEmpty,
+                                    )
+                                    .toList();
+                            final vehicle = unlinkedVehicles[index];
+
+                            return ListTile(
+                              leading: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Icon(
+                                  Icons.link_off,
+                                  color: Colors.orange,
+                                ),
+                              ),
+                              title: Text(
+                                vehicle.name,
+                                style: const TextStyle(color: Colors.black),
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (vehicle.plateNumber != null)
+                                    Text(
+                                      vehicle.plateNumber!,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
                                       ),
-                                    if (vehicle.deviceId != null)
-                                      Text(
-                                        'Device: ${vehicle.deviceId}',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[600],
-                                          fontFamily: 'monospace',
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                                trailing:
-                                    isSelected
-                                        ? const Icon(
-                                          Icons.check_circle,
-                                          color: Colors.blue,
-                                        )
-                                        : const Icon(
-                                          Icons.radio_button_unchecked,
-                                          color: Colors.grey,
-                                        ),
-                                onTap: () {
-                                  Navigator.pop(context);
-                                  if (!isSelected && vehicle.deviceId != null) {
-                                    _switchToVehicle(
-                                      vehicle.deviceId!,
-                                      vehicle.name,
+                                    ),
+                                  const Text(
+                                    'Attach to Device',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.orange,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              trailing: const Icon(
+                                Icons.arrow_forward_ios,
+                                color: Colors.orange,
+                                size: 16,
+                              ),
+                              onTap: () async {
+                                Navigator.pop(context);
+                                // Check if any devices exist first by getting the stream value
+                                try {
+                                  final deviceStream =
+                                      _deviceService.getDevicesStream();
+                                  final devices = await deviceStream.first;
+                                  if (devices.isEmpty) {
+                                    _showNoDevicesDialog();
+                                  } else {
+                                    Navigator.pushNamed(
+                                      context,
+                                      '/vehicle/edit',
+                                      arguments: vehicle.id,
                                     );
                                   }
-                                },
-                              );
-                            },
-                          );
-                        }),
+                                } catch (e) {
+                                  _showErrorSnackBar(
+                                    'Error checking devices: $e',
+                                  );
+                                }
+                              },
+                            );
+                          },
+                        ),
                         // Add Device option
                         const Divider(),
                         ListTile(
@@ -1891,6 +2002,37 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
             Align(alignment: Alignment.bottomCenter, child: StickyFooter()),
         ],
       ),
+    );
+  }
+
+  void _showNoDevicesDialog() {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('No Devices Available'),
+            content: const Text(
+              'You need to add a device before you can attach it to this vehicle. '
+              'Would you like to add a device now?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/device');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Add Device'),
+              ),
+            ],
+          ),
     );
   }
 }
