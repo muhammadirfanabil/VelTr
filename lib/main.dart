@@ -2,26 +2,34 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:gps_app/screens/Auth/RegisterOne.dart';
-import 'package:gps_app/screens/Auth/GoogleSignupScreen.dart';
-import 'package:gps_app/screens/GeoFence/device_geofence.dart';
-// import 'package:gps_app/screens/Index.dart';
-// import 'package:gps_app/screens/GeoFence/index.dart';
-import 'package:gps_app/screens/Users/Profile.dart';
-import 'package:gps_app/screens/device/index.dart';
-import 'package:gps_app/screens/users/edit_profile.dart';
-import 'package:gps_app/screens/vehicle/manage.dart';
-import 'package:gps_app/screens/vehicle/history.dart';
-
 import 'firebase_options.dart';
+import 'themes/app_theme.dart';
+
+// Screen imports
 import 'screens/Auth/login.dart';
+import 'screens/Auth/RegisterOne.dart';
+import 'screens/Auth/GoogleSignupScreen.dart';
+import 'screens/Users/Profile.dart';
+import 'screens/users/edit_profile.dart';
 import 'screens/Vehicle/index.dart';
+import 'screens/vehicle/manage.dart';
+import 'screens/vehicle/history.dart';
 import 'screens/Maps/mapView.dart';
 import 'screens/GeoFence/index.dart';
+import 'screens/GeoFence/device_geofence.dart';
+import 'screens/device/index.dart';
 import 'screens/notifications/notifications_screen.dart';
+
+// Widget Imports
+import 'widgets/Common/loading_screen.dart';
+import 'widgets/Common/error_card.dart';
+
+// Service imports
 import 'services/notifications/fcm_service.dart';
 import 'services/device/deviceService.dart';
-import 'services/Auth/AuthService.dart';
+
+
+// Model imports
 import 'models/Device/device.dart';
 
 void main() async {
@@ -54,198 +62,103 @@ class _DeviceRouterScreenState extends State<DeviceRouterScreen> {
         stream: _deviceService.getDevicesStream(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Loading your devices...'),
-                ],
-              ),
-            );
+            return const LoadingScreen(message: 'Loading your devices...');
           }
-
           if (snapshot.hasError) {
             return _buildErrorScreen(snapshot.error.toString());
           }
 
           final devices = snapshot.data ?? [];
 
-          if (devices.isEmpty) {
-            return _buildNoDevicesScreen();
-          }
-
-          // Get the primary device (active with GPS > active > first available)
+          // Always navigate to map view regardless of device availability
+          // The map will handle no-device scenarios internally
           final primaryDevice = _getPrimaryDevice(devices);
 
-          if (primaryDevice != null) {
-            // Navigate to GPS map with the primary device
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder:
-                      (context) => GPSMapScreen(deviceId: primaryDevice.name),
-                ),
-              );
-            });
+          // Use primary device if available, otherwise use placeholder
+          final deviceId = primaryDevice?.name ?? 'no_device_placeholder';
 
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Initializing GPS tracking...'),
-                ],
+          debugPrint('🚀 [DEVICE_ROUTER] Device selection logic:');
+          debugPrint(
+            '🚀 [DEVICE_ROUTER] Total devices found: ${devices.length}',
+          );
+          debugPrint(
+            '🚀 [DEVICE_ROUTER] Primary device selected: ${primaryDevice?.name ?? "none"}',
+          );
+          debugPrint(
+            '🚀 [DEVICE_ROUTER] Final deviceId for GPS map: $deviceId',
+          );
+          debugPrint('🚀 [DEVICE_ROUTER] Navigating to GPSMapScreen...');
+
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => GPSMapScreen(deviceId: deviceId),
               ),
             );
-          }
+          });
 
-          // No valid devices found
-          return _buildNoValidDevicesScreen();
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Initializing GPS app...'),
+              ],
+            ),
+          );
         },
       ),
     );
   }
 
   Device? _getPrimaryDevice(List<Device> devices) {
+    debugPrint(
+      '🎯 [DEVICE_SELECTION] Selecting primary device from ${devices.length} devices',
+    );
+
     // Priority: Active devices with valid GPS coordinates
     final activeWithGPS = devices.where((d) => d.isActive && d.hasValidGPS);
+    debugPrint(
+      '🎯 [DEVICE_SELECTION] Active devices with GPS: ${activeWithGPS.length}',
+    );
+
     if (activeWithGPS.isNotEmpty) {
-      return activeWithGPS.first;
+      final selected = activeWithGPS.first;
+      debugPrint(
+        '🎯 [DEVICE_SELECTION] Selected device with GPS: ${selected.name}',
+      );
+      return selected;
     }
 
     // Fallback: Any active device
     final activeDevices = devices.where((d) => d.isActive);
+    debugPrint(
+      '🎯 [DEVICE_SELECTION] Active devices (any): ${activeDevices.length}',
+    );
+
     if (activeDevices.isNotEmpty) {
-      return activeDevices.first;
+      final selected = activeDevices.first;
+      debugPrint(
+        '🎯 [DEVICE_SELECTION] Selected active device: ${selected.name}',
+      );
+      return selected;
     }
 
     // Last resort: Any device
-    return devices.isNotEmpty ? devices.first : null;
+    final anyDevice = devices.isNotEmpty ? devices.first : null;
+    debugPrint(
+      '🎯 [DEVICE_SELECTION] Last resort device: ${anyDevice?.name ?? "none"}',
+    );
+    return anyDevice;
   }
 
   Widget _buildErrorScreen(String error) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Device Error'),
-        backgroundColor: Colors.red.shade600,
-        foregroundColor: Colors.white,
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, size: 64, color: Colors.red.shade600),
-              const SizedBox(height: 24),
-              Text(
-                'Unable to load devices',
-                style: Theme.of(context).textTheme.headlineSmall,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                error,
-                style: TextStyle(color: Colors.red.shade700),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton.icon(
-                onPressed: () => setState(() {}),
-                icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNoDevicesScreen() {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Welcome'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.device_hub, size: 64, color: Colors.blue.shade600),
-              const SizedBox(height: 24),
-              Text(
-                'No GPS Devices Found',
-                style: Theme.of(context).textTheme.headlineSmall,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'You need to add a GPS tracking device to use this app.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16),
-              ),              const SizedBox(height: 32),
-              Column(
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).pushNamed('/device');
-                    },
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add Device'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    onPressed: () async {
-                      await AuthService.signOut();
-                      if (context.mounted) {
-                        Navigator.of(context).pushReplacementNamed('/login');
-                      }
-                    },
-                    icon: const Icon(Icons.logout),
-                    label: const Text('Logout'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.grey.shade600,
-                      side: BorderSide(color: Colors.grey.shade300),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNoValidDevicesScreen() {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Device Setup'),
-        backgroundColor: Colors.orange,
-        foregroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.error,
+        foregroundColor: Theme.of(context).colorScheme.onError,
       ),
       body: Center(
         child: Padding(
@@ -254,48 +167,18 @@ class _DeviceRouterScreenState extends State<DeviceRouterScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                Icons.warning_amber,
+                Icons.error_outline,
                 size: 64,
-                color: Colors.orange.shade600,
+                color: Theme.of(context).colorScheme.error,
               ),
               const SizedBox(height: 24),
               Text(
-                'No Active Devices',
+                'Unable to load devices',
                 style: Theme.of(context).textTheme.headlineSmall,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Your devices are not actively sending GPS data. Please check your device connections.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).pushNamed('/device');
-                    },
-                    icon: const Icon(Icons.settings),
-                    label: const Text('Manage'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: () => setState(() {}),
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Refresh'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
+              ErrorCard(message: error, onRetry: () => setState(() {})),
             ],
           ),
         ),
@@ -310,82 +193,96 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Aplikasi Pengguna',
-      theme: ThemeData(primarySwatch: Colors.blue, fontFamily: 'PlusJakarta'),
-      debugShowCheckedModeBanner: false,
-      routes: {
-        // Authentications
-        '/registerone': (context) => const RegisterOne(),
-        '/login': (context) => const LoginScreen(),
-
-        // Home Page - Now uses dynamic device routing
-        '/home': (context) => const DeviceRouterScreen(),
-
-        // Vehicle
-        '/vehicle': (context) => const VehicleIndexScreen(),
-        '/manage-vehicle': (context) => const ManageVehicle(),
-        '/geofence': (context) {
-          // Extract deviceId from route arguments
-          final args =
-              ModalRoute.of(context)?.settings.arguments
-                  as Map<String, dynamic>?;
-          final deviceId = args?['deviceId'] as String?;
-          return deviceId != null
-              ? GeofenceListScreen(deviceId: deviceId)
-              : const DeviceRouterScreen();
-        },
-        '/device': (context) => const DeviceManagerScreen(),
-        '/drive-history': (context) => const DrivingHistory(),
-
-        // '/geofence': (context) => const GeofenceListScreen(),
-        // '/geofence': (context) {
-        //   // Extract deviceId from route arguments
-        //   final args =
-        //       ModalRoute.of(context)?.settings.arguments
-        //           as Map<String, dynamic>?;
-        //   final deviceId = args?['deviceId'] as String? ?? 'default_device_id';
-        //   return DeviceListScreen(deviceId: deviceId);
-        // },
-        '/set-range': (context) {
-          // Extract deviceId from route arguments
-          final args =
-              ModalRoute.of(context)?.settings.arguments
-                  as Map<String, dynamic>?;
-          final deviceId = args?['deviceId'] as String?;
-          return deviceId != null
-              ? DeviceListScreen(deviceId: deviceId)
-              : const DeviceRouterScreen();
-        },
-        '/notifications': (context) => const NotificationsScreen(),
-        '/profile': (context) => const ProfilePage(),
-        '/edit-profile': (context) => const EditProfileScreen(),
-        '/google-signup': (context) {
-          // We'll pass the parameters when navigating to this route
-          final args =
-              ModalRoute.of(context)!.settings.arguments as Map<String, String>;
-          return GoogleSignupScreen(
-            email: args['email']!,
-            displayName: args['displayName']!,
-          );
-        },
-      },
-      home: StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-
-          if (!snapshot.hasData) {
-            return const LoginScreen();
-          }
-
-          // Use DeviceRouterScreen instead of hardcoded device
-          return const DeviceRouterScreen();
-        },
+      title: 'VelTr',
+      theme: ThemeData(
+        useMaterial3: true,
+        fontFamily: 'PlusJakarta',
+        colorScheme: AppTheme.lightTheme.colorScheme,
+        appBarTheme: AppTheme.lightTheme.appBarTheme,
+        cardTheme: AppTheme.lightTheme.cardTheme,
+        elevatedButtonTheme: AppTheme.lightTheme.elevatedButtonTheme,
+        outlinedButtonTheme: AppTheme.lightTheme.outlinedButtonTheme,
+        textTheme: AppTheme.lightTheme.textTheme.apply(
+          fontFamily: 'PlusJakarta',
+        ),
+        primaryTextTheme: AppTheme.lightTheme.primaryTextTheme.apply(
+          fontFamily: 'PlusJakarta',
+        ),
       ),
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        fontFamily: 'PlusJakarta',
+        colorScheme: AppTheme.darkTheme.colorScheme,
+        appBarTheme: AppTheme.darkTheme.appBarTheme,
+        cardTheme: AppTheme.darkTheme.cardTheme,
+        elevatedButtonTheme: AppTheme.darkTheme.elevatedButtonTheme,
+        outlinedButtonTheme: AppTheme.darkTheme.outlinedButtonTheme,
+        textTheme: AppTheme.darkTheme.textTheme.apply(
+          fontFamily: 'PlusJakarta',
+        ),
+        primaryTextTheme: AppTheme.darkTheme.primaryTextTheme.apply(
+          fontFamily: 'PlusJakarta',
+        ),
+      ),
+      themeMode: ThemeMode.light,
+      debugShowCheckedModeBanner: false,
+      routes: _buildRoutes(),
+      home: _buildAuthenticationFlow(),
+    );
+  }
+
+  Map<String, WidgetBuilder> _buildRoutes() {
+    return {
+      '/login': (context) => const LoginScreen(),
+      '/registerone': (context) => const RegisterOne(),
+      '/google-signup': (context) {
+        final args =
+            ModalRoute.of(context)!.settings.arguments as Map<String, String>;
+        return GoogleSignupScreen(
+          email: args['email']!,
+          displayName: args['displayName']!,
+        );
+      },
+      '/home': (context) => const DeviceRouterScreen(),
+      '/profile': (context) => const ProfilePage(),
+      '/edit-profile': (context) => const EditProfileScreen(),
+      '/notifications': (context) => const NotificationsScreen(),
+      '/vehicle': (context) => const VehicleIndexScreen(),
+      '/manage-vehicle': (context) => const ManageVehicle(),
+      '/drive-history': (context) => const DrivingHistory(),
+      '/device': (context) => const DeviceManagerScreen(),
+      '/geofence': (context) {
+        final args =
+            ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+        final deviceId = args?['deviceId'] as String?;
+        return deviceId != null
+            ? GeofenceListScreen(deviceId: deviceId)
+            : const DeviceRouterScreen();
+      },
+      '/set-range': (context) {
+        final args =
+            ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+        final deviceId = args?['deviceId'] as String?;
+        return deviceId != null
+            ? DeviceListScreen(deviceId: deviceId)
+            : const DeviceRouterScreen();
+      },
+    };
+  }
+
+  Widget _buildAuthenticationFlow() {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const LoadingScreen(
+            message: 'Checking authentication status...',
+          );
+        }
+        return snapshot.hasData
+            ? const DeviceRouterScreen()
+            : const LoginScreen();
+      },
     );
   }
 }
