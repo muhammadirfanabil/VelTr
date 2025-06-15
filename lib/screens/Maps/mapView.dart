@@ -14,6 +14,7 @@ import '../../models/vehicle/vehicle.dart';
 import '../../services/device/deviceService.dart';
 import '../../services/Geofence/geofenceService.dart';
 import '../../models/Geofence/Geofence.dart';
+
 import '../../widgets/Map/mapWidget.dart';
 import '../../widgets/Common/stickyFooter.dart';
 import '../../widgets/Common/error_card.dart';
@@ -289,10 +290,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     debugPrint('Error initializing device: $e');
     if (mounted) {
       setState(() => isLoading = false);
-      SnackbarUtils.showError(
-        context,
-        'Failed to initialize device: $e',
-      );
+      SnackbarUtils.showError(context, 'Failed to initialize device: $e');
     }
   }
 
@@ -384,10 +382,20 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   void _showNoGPSInfoBanner() {
     if (mounted && !showNoGPSDialog) {
       setState(() => showNoGPSDialog = true);
-      SnackbarUtils.showInfo(
-        context,
-        deviceName: deviceName ?? currentDeviceId ?? '',
-        onDetailsPressed: _showNoGPSDetailsDialog,
+
+      // Custom SnackBar with a button for details
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            "Device: ${deviceName ?? currentDeviceId ?? 'Unknown'}",
+          ),
+          backgroundColor: Colors.blue,
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: 'Details', // Label of the button
+            onPressed: _showNoGPSDetailsDialog, // Method to call when pressed
+          ),
+        ),
       );
     }
   }
@@ -732,9 +740,10 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackbarUtils.showInfo(context, 
-  hasGPSData ? "GPS data available" : "GPS data not available"
-),
+        SnackbarUtils.showInfo(
+          context,
+          hasGPSData ? "GPS data available" : "GPS data not available",
+        ),
       );
     }
   }
@@ -1035,15 +1044,9 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                 );
 
                 if (geofences.isNotEmpty) {
-                  SnackbarUtils.showSuccess(
-                    context,
-                    geofences.length,
-                  );
+                  SnackbarUtils.showSuccess(context, "${geofences.length}");
                 } else {
-                  SnackbarUtils.showError(
-                    context,
-                    error.toString(),
-                  );
+                  SnackbarUtils.showError(context, "Something is Wrong.");
                 }
               }
             },
@@ -1180,10 +1183,9 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     // Show feedback to user
     ScaffoldMessenger.of(context).showSnackBar(
       SnackbarUtils.showInfo(
-  context,
-  isEnabled: showGeofences,
-  count: deviceGeofences.length,
-);
+        context,
+        "Geofences are ${showGeofences ? 'enabled' : 'disabled'}. Count: ${deviceGeofences.length}",
+      ),
     );
   }
 
