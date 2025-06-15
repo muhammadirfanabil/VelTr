@@ -2,26 +2,34 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:gps_app/screens/Auth/RegisterOne.dart';
-import 'package:gps_app/screens/Auth/GoogleSignupScreen.dart';
-import 'package:gps_app/screens/GeoFence/device_geofence.dart';
-// import 'package:gps_app/screens/Index.dart';
-// import 'package:gps_app/screens/GeoFence/index.dart';
-import 'package:gps_app/screens/Users/Profile.dart';
-import 'package:gps_app/screens/device/index.dart';
-import 'package:gps_app/screens/users/edit_profile.dart';
-import 'package:gps_app/screens/vehicle/manage.dart';
-import 'package:gps_app/screens/vehicle/history.dart';
-
 import 'firebase_options.dart';
+import 'themes/app_theme.dart';
+
+// Screen imports
 import 'screens/Auth/login.dart';
+import 'screens/Auth/RegisterOne.dart';
+import 'screens/Auth/GoogleSignupScreen.dart';
+import 'screens/Users/Profile.dart';
+import 'screens/users/edit_profile.dart';
 import 'screens/Vehicle/index.dart';
+import 'screens/vehicle/manage.dart';
+import 'screens/vehicle/history.dart';
 import 'screens/Maps/mapView.dart';
 import 'screens/GeoFence/index.dart';
+import 'screens/GeoFence/device_geofence.dart';
+import 'screens/device/index.dart';
 import 'screens/notifications/notifications_screen.dart';
+
+// Widget Imports
+import 'widgets/Common/loading_screen.dart';
+import 'widgets/Common/error_card.dart';
+
+// Service imports
 import 'services/notifications/fcm_service.dart';
 import 'services/device/deviceService.dart';
 
+
+// Model imports
 import 'models/Device/device.dart';
 
 void main() async {
@@ -54,24 +62,15 @@ class _DeviceRouterScreenState extends State<DeviceRouterScreen> {
         stream: _deviceService.getDevicesStream(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Loading your devices...'),
-                ],
-              ),
-            );
+            return const LoadingScreen(message: 'Loading your devices...');
           }
-
           if (snapshot.hasError) {
             return _buildErrorScreen(snapshot.error.toString());
           }
-          final devices =
-              snapshot.data ??
-              []; // Always navigate to map view regardless of device availability
+
+          final devices = snapshot.data ?? [];
+
+          // Always navigate to map view regardless of device availability
           // The map will handle no-device scenarios internally
           final primaryDevice = _getPrimaryDevice(devices);
 
@@ -158,8 +157,8 @@ class _DeviceRouterScreenState extends State<DeviceRouterScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Device Error'),
-        backgroundColor: Colors.red.shade600,
-        foregroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.error,
+        foregroundColor: Theme.of(context).colorScheme.onError,
       ),
       body: Center(
         child: Padding(
@@ -167,7 +166,11 @@ class _DeviceRouterScreenState extends State<DeviceRouterScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, size: 64, color: Colors.red.shade600),
+              Icon(
+                Icons.error_outline,
+                size: 64,
+                color: Theme.of(context).colorScheme.error,
+              ),
               const SizedBox(height: 24),
               Text(
                 'Unable to load devices',
@@ -175,21 +178,7 @@ class _DeviceRouterScreenState extends State<DeviceRouterScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
-              Text(
-                error,
-                style: TextStyle(color: Colors.red.shade700),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton.icon(
-                onPressed: () => setState(() {}),
-                icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                ),
-              ),
+              ErrorCard(message: error, onRetry: () => setState(() {})),
             ],
           ),
         ),
@@ -204,82 +193,96 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Aplikasi Pengguna',
-      theme: ThemeData(primarySwatch: Colors.blue, fontFamily: 'PlusJakarta'),
-      debugShowCheckedModeBanner: false,
-      routes: {
-        // Authentications
-        '/registerone': (context) => const RegisterOne(),
-        '/login': (context) => const LoginScreen(),
-
-        // Home Page - Now uses dynamic device routing
-        '/home': (context) => const DeviceRouterScreen(),
-
-        // Vehicle
-        '/vehicle': (context) => const VehicleIndexScreen(),
-        '/manage-vehicle': (context) => const ManageVehicle(),
-        '/geofence': (context) {
-          // Extract deviceId from route arguments
-          final args =
-              ModalRoute.of(context)?.settings.arguments
-                  as Map<String, dynamic>?;
-          final deviceId = args?['deviceId'] as String?;
-          return deviceId != null
-              ? GeofenceListScreen(deviceId: deviceId)
-              : const DeviceRouterScreen();
-        },
-        '/device': (context) => const DeviceManagerScreen(),
-        '/drive-history': (context) => const DrivingHistory(),
-
-        // '/geofence': (context) => const GeofenceListScreen(),
-        // '/geofence': (context) {
-        //   // Extract deviceId from route arguments
-        //   final args =
-        //       ModalRoute.of(context)?.settings.arguments
-        //           as Map<String, dynamic>?;
-        //   final deviceId = args?['deviceId'] as String? ?? 'default_device_id';
-        //   return DeviceListScreen(deviceId: deviceId);
-        // },
-        '/set-range': (context) {
-          // Extract deviceId from route arguments
-          final args =
-              ModalRoute.of(context)?.settings.arguments
-                  as Map<String, dynamic>?;
-          final deviceId = args?['deviceId'] as String?;
-          return deviceId != null
-              ? DeviceListScreen(deviceId: deviceId)
-              : const DeviceRouterScreen();
-        },
-        '/notifications': (context) => const NotificationsScreen(),
-        '/profile': (context) => const ProfilePage(),
-        '/edit-profile': (context) => const EditProfileScreen(),
-        '/google-signup': (context) {
-          // We'll pass the parameters when navigating to this route
-          final args =
-              ModalRoute.of(context)!.settings.arguments as Map<String, String>;
-          return GoogleSignupScreen(
-            email: args['email']!,
-            displayName: args['displayName']!,
-          );
-        },
-      },
-      home: StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-
-          if (!snapshot.hasData) {
-            return const LoginScreen();
-          }
-
-          // Use DeviceRouterScreen instead of hardcoded device
-          return const DeviceRouterScreen();
-        },
+      title: 'VelTr',
+      theme: ThemeData(
+        useMaterial3: true,
+        fontFamily: 'PlusJakarta',
+        colorScheme: AppTheme.lightTheme.colorScheme,
+        appBarTheme: AppTheme.lightTheme.appBarTheme,
+        cardTheme: AppTheme.lightTheme.cardTheme,
+        elevatedButtonTheme: AppTheme.lightTheme.elevatedButtonTheme,
+        outlinedButtonTheme: AppTheme.lightTheme.outlinedButtonTheme,
+        textTheme: AppTheme.lightTheme.textTheme.apply(
+          fontFamily: 'PlusJakarta',
+        ),
+        primaryTextTheme: AppTheme.lightTheme.primaryTextTheme.apply(
+          fontFamily: 'PlusJakarta',
+        ),
       ),
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        fontFamily: 'PlusJakarta',
+        colorScheme: AppTheme.darkTheme.colorScheme,
+        appBarTheme: AppTheme.darkTheme.appBarTheme,
+        cardTheme: AppTheme.darkTheme.cardTheme,
+        elevatedButtonTheme: AppTheme.darkTheme.elevatedButtonTheme,
+        outlinedButtonTheme: AppTheme.darkTheme.outlinedButtonTheme,
+        textTheme: AppTheme.darkTheme.textTheme.apply(
+          fontFamily: 'PlusJakarta',
+        ),
+        primaryTextTheme: AppTheme.darkTheme.primaryTextTheme.apply(
+          fontFamily: 'PlusJakarta',
+        ),
+      ),
+      themeMode: ThemeMode.light,
+      debugShowCheckedModeBanner: false,
+      routes: _buildRoutes(),
+      home: _buildAuthenticationFlow(),
+    );
+  }
+
+  Map<String, WidgetBuilder> _buildRoutes() {
+    return {
+      '/login': (context) => const LoginScreen(),
+      '/registerone': (context) => const RegisterOne(),
+      '/google-signup': (context) {
+        final args =
+            ModalRoute.of(context)!.settings.arguments as Map<String, String>;
+        return GoogleSignupScreen(
+          email: args['email']!,
+          displayName: args['displayName']!,
+        );
+      },
+      '/home': (context) => const DeviceRouterScreen(),
+      '/profile': (context) => const ProfilePage(),
+      '/edit-profile': (context) => const EditProfileScreen(),
+      '/notifications': (context) => const NotificationsScreen(),
+      '/vehicle': (context) => const VehicleIndexScreen(),
+      '/manage-vehicle': (context) => const ManageVehicle(),
+      '/drive-history': (context) => const DrivingHistory(),
+      '/device': (context) => const DeviceManagerScreen(),
+      '/geofence': (context) {
+        final args =
+            ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+        final deviceId = args?['deviceId'] as String?;
+        return deviceId != null
+            ? GeofenceListScreen(deviceId: deviceId)
+            : const DeviceRouterScreen();
+      },
+      '/set-range': (context) {
+        final args =
+            ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+        final deviceId = args?['deviceId'] as String?;
+        return deviceId != null
+            ? DeviceListScreen(deviceId: deviceId)
+            : const DeviceRouterScreen();
+      },
+    };
+  }
+
+  Widget _buildAuthenticationFlow() {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const LoadingScreen(
+            message: 'Checking authentication status...',
+          );
+        }
+        return snapshot.hasData
+            ? const DeviceRouterScreen()
+            : const LoginScreen();
+      },
     );
   }
 }

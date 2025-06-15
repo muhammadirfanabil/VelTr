@@ -14,8 +14,8 @@ import '../../models/vehicle/vehicle.dart';
 import '../../services/device/deviceService.dart';
 import '../../services/Geofence/geofenceService.dart';
 import '../../models/Geofence/Geofence.dart';
-import '../../widgets/mapWidget.dart';
-import '../../widgets/stickyFooter.dart';
+import '../../widgets/Map/mapWidget.dart';
+import '../../widgets/Common/stickyFooter.dart';
 import '../../widgets/motoricon.dart';
 import '../../widgets/tracker.dart';
 
@@ -1230,7 +1230,11 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
             minZoom: 3.0,
             maxZoom: 18.0,
           ),
-          deviceId: currentDeviceId,
+          deviceId:
+              currentDeviceId == 'no_device_placeholder'
+                  ? null
+                  : currentDeviceId,
+          initialCenter: mapCenter,
           children: [
             TileLayer(
               urlTemplate:
