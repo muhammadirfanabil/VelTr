@@ -468,7 +468,7 @@ async function sendGeofenceNotification(params) {
     );
 
     // Get user's FCM tokens
-    const userDoc = await db.collection("users").doc(ownerId).get();
+    const userDoc = await db.collection("users_information").doc(ownerId).get();
     if (!userDoc.exists) {
       console.log(`⚠️ [FCM] User not found: ${ownerId}`);
       return;
@@ -589,7 +589,7 @@ async function sendGeofenceNotification(params) {
  */
 async function cleanupInvalidFCMTokens(userId, invalidTokens) {
   try {
-    const userRef = db.collection("users").doc(userId);
+    const userRef = db.collection("users_information").doc(userId);
     const userDoc = await userRef.get();
 
     if (userDoc.exists) {

@@ -137,9 +137,8 @@ class EnhancedNotificationService {
   Future<void> _saveFCMToken(String token) async {
     try {
       final currentUser = _auth.currentUser;
-      if (currentUser != null) {
-        // Use arrayUnion to avoid duplicates and support multiple devices
-        await _firestore.collection('users').doc(currentUser.uid).set({
+      if (currentUser != null) {        // Use arrayUnion to avoid duplicates and support multiple devices
+        await _firestore.collection('users_information').doc(currentUser.uid).set({
           'fcmTokens': FieldValue.arrayUnion([token]),
           'lastTokenUpdate': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
@@ -356,8 +355,7 @@ class EnhancedNotificationService {
       final currentUser = _auth.currentUser;
       final token = await _messaging.getToken();
 
-      if (currentUser != null && token != null) {
-        await _firestore.collection('users').doc(currentUser.uid).update({
+      if (currentUser != null && token != null) {        await _firestore.collection('users_information').doc(currentUser.uid).update({
           'fcmTokens': FieldValue.arrayRemove([token]),
         });
         debugPrint('✅ FCM Token removed on logout');
