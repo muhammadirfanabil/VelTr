@@ -13,6 +13,7 @@ import '../../services/vehicle/vehicleService.dart';
 import '../../models/vehicle/vehicle.dart';
 import '../../services/device/deviceService.dart';
 import '../../services/Geofence/geofenceService.dart';
+import '../../services/notifications/enhanced_notification_service.dart';
 import '../../models/Geofence/Geofence.dart';
 import '../../widgets/Map/mapWidget.dart';
 import '../../widgets/Common/stickyFooter.dart';
@@ -1273,6 +1274,58 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                   ],
                 ),
               ),
+              PopupMenuItem(
+                value: 'notifications',
+                child: Row(
+                  children: [
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        const Icon(Icons.notifications_outlined),
+                        StreamBuilder<int>(
+                          stream:
+                              EnhancedNotificationService()
+                                  .getUnreadNotificationCount(),
+                          builder: (context, snapshot) {
+                            final unreadCount = snapshot.data ?? 0;
+                            if (unreadCount == 0)
+                              return const SizedBox.shrink();
+
+                            return Positioned(
+                              right: -4,
+                              top: -4,
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: const BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                                constraints: const BoxConstraints(
+                                  minWidth: 16,
+                                  minHeight: 16,
+                                ),
+                                child: Text(
+                                  unreadCount > 9
+                                      ? '9+'
+                                      : unreadCount.toString(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('Notifications'),
+                  ],
+                ),
+              ),
               const PopupMenuItem(
                 value: 'settings',
                 child: Row(
@@ -1305,6 +1358,9 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
         break;
       case 'profile':
         Navigator.pushNamed(context, '/profile');
+        break;
+      case 'notifications':
+        Navigator.pushNamed(context, '/geofence-alerts');
         break;
       case 'settings':
         Navigator.pushNamed(context, '/settings');

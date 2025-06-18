@@ -17,6 +17,7 @@ import 'screens/vehicle/history.dart';
 import 'screens/Maps/mapView.dart';
 import 'screens/GeoFence/index.dart';
 import 'screens/GeoFence/device_geofence.dart';
+import 'screens/geofence/geofence_alerts_screen.dart';
 import 'screens/device/index.dart';
 import 'screens/notifications/notifications_screen.dart';
 
@@ -25,7 +26,8 @@ import 'widgets/Common/loading_screen.dart';
 import 'widgets/Common/error_card.dart';
 
 // Service imports
-import 'services/notifications/fcm_service.dart';
+import 'services/notifications/enhanced_notification_service.dart';
+import 'services/geofence/geofence_alert_service.dart';
 import 'services/device/deviceService.dart';
 
 // Model imports
@@ -34,11 +36,16 @@ import 'models/Device/device.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
+  // Set background message handler
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-  final fcmService = FCMService();
-  await fcmService.initFCM();
+  // Initialize enhanced notification service
+  final notificationService = EnhancedNotificationService();
+  await notificationService.initialize();
+
+  // Initialize geofence alert service
+  final geofenceAlertService = GeofenceAlertService();
+  await geofenceAlertService.initialize();
 
   runApp(const MyApp());
 }
@@ -266,6 +273,7 @@ class MyApp extends StatelessWidget {
       '/profile': (context) => const ProfilePage(),
       '/edit-profile': (context) => const EditProfileScreen(),
       '/notifications': (context) => const NotificationsScreen(),
+      '/geofence-alerts': (context) => const GeofenceAlertsScreen(),
       '/vehicle': (context) => const VehicleIndexScreen(),
       '/manage-vehicle': (context) => const ManageVehicle(),
       '/drive-history': (context) => const DrivingHistory(),
