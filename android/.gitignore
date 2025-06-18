@@ -12,3 +12,28 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# Android build outputs
+build/
+.gradle/
+local.properties
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Keystore files
+*.jks
+*.keystore
+key.properties
+
+# Google Services
+google-services.json.backup
+
+# NDK
+obj/
+.externalNativeBuild/
+.cxx/
+
+# Signing files
+release/

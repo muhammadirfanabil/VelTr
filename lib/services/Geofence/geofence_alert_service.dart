@@ -109,7 +109,8 @@ class GeofenceAlertService {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    try {      await _firestore.collection('users_information').doc(user.uid).set({
+    try {
+      await _firestore.collection('users_information').doc(user.uid).set({
         'fcmTokens': FieldValue.arrayUnion([token]),
         'tokenUpdatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -471,7 +472,8 @@ class GeofenceAlertService {
   Future<void> _storeAlertInFirestore(GeofenceAlert alert) async {
     try {
       final user = _auth.currentUser;
-      if (user == null) return;      await _firestore
+      if (user == null) return;
+      await _firestore
           .collection('users_information')
           .doc(user.uid)
           .collection('geofence_alerts')

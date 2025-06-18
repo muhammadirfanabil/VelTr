@@ -14,6 +14,7 @@ import 'screens/users/edit_profile.dart';
 import 'screens/Vehicle/index.dart';
 import 'screens/vehicle/manage.dart';
 import 'screens/vehicle/history.dart';
+import 'screens/vehicle/history_selector.dart';
 import 'screens/Maps/mapView.dart';
 import 'screens/GeoFence/index.dart';
 import 'screens/GeoFence/device_geofence.dart';
@@ -29,23 +30,30 @@ import 'widgets/Common/error_card.dart';
 import 'services/notifications/enhanced_notification_service.dart';
 import 'services/geofence/geofence_alert_service.dart';
 import 'services/device/deviceService.dart';
+import 'services/history/history_service.dart';
 
 // Model imports
 import 'models/Device/device.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  print('🚀 [MAIN] Starting Firebase initialization...');
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  print('✅ [MAIN] Firebase initialized successfully');
+
   // Set background message handler
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
   // Initialize enhanced notification service
   final notificationService = EnhancedNotificationService();
   await notificationService.initialize();
-
   // Initialize geofence alert service
   final geofenceAlertService = GeofenceAlertService();
   await geofenceAlertService.initialize();
+
+  // Initialize history service
+  HistoryService.initialize();
 
   runApp(const MyApp());
 }
@@ -276,7 +284,19 @@ class MyApp extends StatelessWidget {
       '/geofence-alerts': (context) => const GeofenceAlertsScreen(),
       '/vehicle': (context) => const VehicleIndexScreen(),
       '/manage-vehicle': (context) => const ManageVehicle(),
-      '/drive-history': (context) => const DrivingHistory(),
+      '/drive-history': (context) {
+        final args =
+            ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+        if (args != null &&
+            args['vehicleId'] != null &&
+            args['vehicleName'] != null) {
+          return DrivingHistory(
+            vehicleId: args['vehicleId'] as String,
+            vehicleName: args['vehicleName'] as String,
+          );
+        }
+        return const DrivingHistorySelector();
+      },
       '/device': (context) => const DeviceManagerScreen(),
       '/geofence': (context) {
         final args =

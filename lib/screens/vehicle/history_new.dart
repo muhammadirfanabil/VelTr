@@ -36,6 +36,7 @@ class _DrivingHistoryState extends State<DrivingHistory> {
       _isLoading = true;
       _error = null;
     });
+
     try {
       final entries = await HistoryService.fetchDrivingHistory(
         vehicleId: widget.vehicleId,
@@ -47,7 +48,6 @@ class _DrivingHistoryState extends State<DrivingHistory> {
         _polylinePoints =
             entries.map((e) => LatLng(e.latitude, e.longitude)).toList();
         _isLoading = false;
-        _error = null; // Clear any previous errors
       });
 
       // Center map on first point if available
@@ -55,7 +55,6 @@ class _DrivingHistoryState extends State<DrivingHistory> {
         _mapController.move(_polylinePoints.first, 13.0);
       }
     } catch (e) {
-      print('Error in history screen: $e');
       setState(() {
         _error = e.toString();
         _isLoading = false;
@@ -100,6 +99,8 @@ class _DrivingHistoryState extends State<DrivingHistory> {
                 _buildDateRangeButton('3 Days', 3),
                 const SizedBox(width: 8),
                 _buildDateRangeButton('7 Days', 7),
+                const SizedBox(width: 8),
+                _buildDateRangeButton('30 Days', 30),
               ],
             ),
           ),

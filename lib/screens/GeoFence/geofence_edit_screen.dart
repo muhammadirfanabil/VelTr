@@ -20,7 +20,8 @@ class GeofenceEditScreen extends StatefulWidget {
 }
 
 class _GeofenceEditScreenState extends State<GeofenceEditScreen>
-    with SingleTickerProviderStateMixin {  // Core state
+    with SingleTickerProviderStateMixin {
+  // Core state
   late List<LatLng> polygonPoints;
   late TextEditingController nameController;
   bool isSaving = false;
@@ -86,6 +87,7 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
     nameController = TextEditingController(text: widget.geofence.name);
     nameController.addListener(_onDataChanged);
   }
+
   void _initializeAnimations() {
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
@@ -146,7 +148,8 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
                   latitude: latLng.latitude,
                   longitude: latLng.longitude,
                 ),
-              )              .toList(); // Create updated Geofence object
+              )
+              .toList(); // Create updated Geofence object
       final updatedGeofence = Geofence(
         id: widget.geofence.id,
         deviceId: widget.geofence.deviceId,
@@ -290,6 +293,7 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
 
     return result ?? false;
   }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -371,6 +375,7 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
       ),
     );
   }
+
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       elevation: 0,
@@ -385,10 +390,7 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
           ),
           Text(
             widget.geofence.name,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.normal,
-            ),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.normal),
           ),
         ],
       ),
@@ -417,6 +419,7 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
       ],
     );
   }
+
   Widget _buildMap() {
     final center =
         polygonPoints.isNotEmpty ? polygonPoints.first : const LatLng(0, 0);
@@ -428,7 +431,8 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
         initialZoom: 15.0,
         onTap: _onMapTap,
         backgroundColor: Colors.grey[100]!,
-      ),      children: [
+      ),
+      children: [
         TileLayer(
           urlTemplate: 'https://tile-{s}.openstreetmap.fr/hot/{z}/{x}/{y}.png',
           subdomains: const ['a', 'b', 'c'],
@@ -517,9 +521,10 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
           }).toList(),
     );
   }
+
   Widget _buildCurrentLocationMarker() {
     if (currentLocation == null) return const SizedBox.shrink();
-    
+
     return MarkerLayer(
       markers: [
         Marker(
@@ -608,7 +613,9 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
         ),
       ],
     );
-  }  Widget _buildInstructionCard() {
+  }
+
+  Widget _buildInstructionCard() {
     return Positioned(
       top: 16,
       left: 16,
@@ -640,7 +647,10 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
                         const SizedBox(height: 4),
                         Text(
                           'Tap to add points • Long press markers to delete',
-                          style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                          style: TextStyle(
+                            color: Colors.grey[700],
+                            fontSize: 14,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Row(
@@ -694,7 +704,7 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
                 ],
               ),
               const SizedBox(height: 12),
-              
+
               // Name input field
               TextField(
                 controller: nameController,
@@ -725,11 +735,7 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: Colors.blue[600],
-                      size: 20,
-                    ),
+                    Icon(Icons.info_outline, color: Colors.blue[600], size: 20),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -793,6 +799,7 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
       ),
     );
   }
+
   Widget _buildActionButtons() {
     return Positioned(
       bottom: 20,
@@ -892,20 +899,29 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: (isSaving || polygonPoints.length < 3) ? null : _onSavePressed,
-                  icon: isSaving
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Icon(Icons.save, size: 20),
+                  onPressed:
+                      (isSaving || polygonPoints.length < 3)
+                          ? null
+                          : _onSavePressed,
+                  icon:
+                      isSaving
+                          ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          )
+                          : const Icon(Icons.save, size: 20),
                   label: Text(isSaving ? 'Saving...' : 'Save Changes'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: polygonPoints.length >= 3 ? Colors.green[600] : Colors.grey[400],
+                    backgroundColor:
+                        polygonPoints.length >= 3
+                            ? Colors.green[600]
+                            : Colors.grey[400],
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -920,6 +936,7 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
       ),
     );
   }
+
   Widget _buildLocationButtons() {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -945,29 +962,38 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
         const SizedBox(height: 8),
         FloatingActionButton.small(
           heroTag: "device_location",
-          onPressed: deviceLocation != null ? () {
-            _mapController.move(deviceLocation!, 16.0);
-          } : null,
-          backgroundColor: deviceLocation != null ? Colors.orange[600] : Colors.grey[400],
+          onPressed:
+              deviceLocation != null
+                  ? () {
+                    _mapController.move(deviceLocation!, 16.0);
+                  }
+                  : null,
+          backgroundColor:
+              deviceLocation != null ? Colors.orange[600] : Colors.grey[400],
           foregroundColor: Colors.white,
-          child: isLoadingDeviceLocation 
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-              : const Icon(Icons.gps_fixed, size: 20),
+          child:
+              isLoadingDeviceLocation
+                  ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                  : const Icon(Icons.gps_fixed, size: 20),
         ),
         const SizedBox(height: 8),
         FloatingActionButton.small(
           heroTag: "my_location",
-          onPressed: currentLocation != null ? () {
-            _mapController.move(currentLocation!, 16.0);
-          } : null,
-          backgroundColor: currentLocation != null ? Colors.blue[600] : Colors.grey[400],
+          onPressed:
+              currentLocation != null
+                  ? () {
+                    _mapController.move(currentLocation!, 16.0);
+                  }
+                  : null,
+          backgroundColor:
+              currentLocation != null ? Colors.blue[600] : Colors.grey[400],
           foregroundColor: Colors.white,
           child: const Icon(Icons.my_location, size: 20),
         ),
@@ -991,10 +1017,8 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
       maxLat = math.max(maxLat, point.latitude);
       minLng = math.min(minLng, point.longitude);
       maxLng = math.max(maxLng, point.longitude);
-    }    return LatLngBounds(
-      LatLng(minLat, minLng),
-      LatLng(maxLat, maxLng),
-    );
+    }
+    return LatLngBounds(LatLng(minLat, minLng), LatLng(maxLat, maxLng));
   }
 
   Widget _buildSavingOverlay() {
@@ -1078,7 +1102,9 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
 
   Future<void> _loadDeviceName() async {
     try {
-      final name = await _deviceService.getDeviceNameById(widget.geofence.deviceId);
+      final name = await _deviceService.getDeviceNameById(
+        widget.geofence.deviceId,
+      );
       if (mounted) {
         setState(() {
           deviceName = name ?? 'Device ${widget.geofence.deviceId}';
@@ -1108,7 +1134,7 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
 
       if (deviceName != null) {
         final ref = FirebaseDatabase.instance.ref('devices/$deviceName/gps');
-        
+
         _deviceGpsListener = ref.onValue.listen(
           (DatabaseEvent event) {
             if (event.snapshot.exists && mounted) {

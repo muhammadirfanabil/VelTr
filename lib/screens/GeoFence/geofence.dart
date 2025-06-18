@@ -21,7 +21,8 @@ class GeofenceMapScreen extends StatefulWidget {
 }
 
 class _GeofenceMapScreenState extends State<GeofenceMapScreen>
-    with SingleTickerProviderStateMixin {  // Simplified state management
+    with SingleTickerProviderStateMixin {
+  // Simplified state management
   List<LatLng> polygonPoints = [];
   bool showPolygon = false;
   bool isLoading = false;

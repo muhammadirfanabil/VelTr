@@ -135,7 +135,8 @@ class _MapWidgetState extends State<MapWidget> with TickerProviderStateMixin {
     final lat = gpsData['latitude'] as double;
     final lng = gpsData['longitude'] as double;
     final accuracy = gpsData['accuracy'] as double?;
-    final newPosition = LatLng(lat, lng);    if (mounted) {
+    final newPosition = LatLng(lat, lng);
+    if (mounted) {
       setState(() {
         userLatLng = newPosition;
         gpsAccuracy = accuracy;
