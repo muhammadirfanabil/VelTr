@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:gps_app/widgets/Map/mapWidget.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'dart:async';
 import '../../models/Geofence/Geofence.dart';
 import '../../services/Geofence/geofenceService.dart';
 import '../../services/device/deviceService.dart';
+import '../../widgets/Map/mapWidget.dart';
 import 'index.dart';
 
 class GeofenceMapScreen extends StatefulWidget {
@@ -21,18 +21,25 @@ class GeofenceMapScreen extends StatefulWidget {
 }
 
 class _GeofenceMapScreenState extends State<GeofenceMapScreen>
-    with SingleTickerProviderStateMixin {
-  // Core state
+    with SingleTickerProviderStateMixin {  // Simplified state management
   List<LatLng> polygonPoints = [];
   bool showPolygon = false;
   bool isLoading = false;
   bool isSaving = false;
-  LatLng? currentLocation; // User's location
-  LatLng? deviceLocation; // Device's GPS location
-  String? deviceName; // Added for vehicle context
-  bool isLoadingDeviceLocation = false; // Services
+  bool isLoadingDeviceLocation = false;
+  LatLng? currentLocation;
+  LatLng? deviceLocation;
+  String? deviceName;
+
+  // Services
   final GeofenceService _geofenceService = GeofenceService();
   final DeviceService _deviceService = DeviceService();
+
+  // Map controller
+  final MapController _mapController = MapController();
+
+  // Timers
+  Timer? _autoUpdateTimer;
 
   // Firebase listeners
   StreamSubscription<DatabaseEvent>? _deviceGpsListener;
@@ -40,10 +47,6 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
   // Animation
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-
-  // Map controller for programmatic control
-  final MapController _mapController = MapController();
-  Timer? _autoUpdateTimer;
   @override
   void initState() {
     super.initState();
