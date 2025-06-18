@@ -15,7 +15,6 @@ import 'screens/users/edit_profile.dart';
 import 'screens/Vehicle/index.dart';
 import 'screens/vehicle/manage.dart';
 import 'screens/vehicle/history.dart';
-import 'screens/vehicle/history_selector.dart';
 import 'screens/Maps/mapView.dart';
 import 'screens/GeoFence/index.dart';
 import 'screens/GeoFence/device_geofence.dart';
@@ -304,9 +303,13 @@ class MyApp extends StatelessWidget {
           return DrivingHistory(
             vehicleId: args['vehicleId'] as String,
             vehicleName: args['vehicleName'] as String,
-          );
-        }
-        return const DrivingHistorySelector();
+          );        }
+        // If no specific vehicle is selected, use the first available vehicle
+        // The DrivingHistory screen will handle vehicle selection internally
+        return const DrivingHistory(
+          vehicleId: '',
+          vehicleName: '',
+        );
       },
       '/device': (context) => const DeviceManagerScreen(),
       '/geofence': (context) {
