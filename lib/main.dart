@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+// import 'package:provider/provider.dart'; // Temporarily commented out
 import 'firebase_options.dart';
 import 'themes/app_theme.dart';
 
@@ -31,6 +32,9 @@ import 'services/notifications/enhanced_notification_service.dart';
 import 'services/geofence/geofence_alert_service.dart';
 import 'services/device/deviceService.dart';
 import 'services/history/history_service.dart';
+
+// Provider imports
+// import 'providers/vehicle_provider.dart'; // Temporarily commented out
 
 // Model imports
 import 'models/Device/device.dart';
@@ -223,9 +227,16 @@ class _DeviceRouterScreenState extends State<DeviceRouterScreen> {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
+    // Temporarily commented out for local vehicle selector implementation
+    // return MultiProvider(
+    //   providers: [
+    //     ChangeNotifierProvider(
+    //       create: (context) => VehicleProvider()..initialize(),
+    //     ),
+    //   ],
+    //   child: MaterialApp(
     return MaterialApp(
       title: 'VelTr',
       theme: ThemeData(
