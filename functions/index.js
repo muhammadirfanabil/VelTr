@@ -40,58 +40,74 @@ exports.processdrivinghistory = onValueWritten(
       const { latitude, longitude } = gpsData;
 
       // Get device info by querying the name field
-      console.log(`🔍 [HISTORY] Searching for device with name: "${deviceId}" (length: ${deviceId.length})`);
-      console.log(`🔍 [HISTORY] Device name bytes:`, Array.from(deviceId).map(c => c.charCodeAt(0)));
-      
+      console.log(
+        `🔍 [HISTORY] Searching for device with name: "${deviceId}" (length: ${deviceId.length})`
+      );
+      console.log(
+        `🔍 [HISTORY] Device name bytes:`,
+        Array.from(deviceId).map((c) => c.charCodeAt(0))
+      );
+
       // Try exact match first
       let deviceQuery = await db
         .collection("devices")
         .where("name", "==", deviceId)
         .limit(1)
         .get();
-      
+
       // If no exact match, try case-insensitive search
       if (deviceQuery.empty) {
-        console.log(`🔍 [HISTORY] No exact match, trying case-insensitive search...`);
+        console.log(
+          `🔍 [HISTORY] No exact match, trying case-insensitive search...`
+        );
         const allDevicesQuery = await db.collection("devices").get();
         let matchingDevice = null;
-        
-        allDevicesQuery.forEach(doc => {
+
+        allDevicesQuery.forEach((doc) => {
           const data = doc.data();
           if (data.name && data.name.toLowerCase() === deviceId.toLowerCase()) {
             matchingDevice = doc;
-            console.log(`✅ [HISTORY] Found case-insensitive match: "${data.name}"`);
+            console.log(
+              `✅ [HISTORY] Found case-insensitive match: "${data.name}"`
+            );
           }
         });
-        
+
         if (matchingDevice) {
           // Create a mock query result
           deviceQuery = {
             empty: false,
-            docs: [matchingDevice]
+            docs: [matchingDevice],
           };
         }
       }
-      
+
       if (deviceQuery.empty) {
         console.log(`❌ [HISTORY] Device not found: ${deviceId}`);
-        
+
         // Debug: List all available devices to help diagnose the issue
         console.log(`🔍 [HISTORY] Listing all devices for debugging:`);
         try {
-          const allDevicesQuery = await db.collection("devices").limit(10).get();
+          const allDevicesQuery = await db
+            .collection("devices")
+            .limit(10)
+            .get();
           if (allDevicesQuery.empty) {
             console.log(`   No devices found in Firestore collection`);
           } else {
-            allDevicesQuery.forEach(doc => {
+            allDevicesQuery.forEach((doc) => {
               const data = doc.data();
-              console.log(`   Device ID: ${doc.id}, Name: "${data.name || 'N/A'}" (length: ${(data.name || '').length})`);
+              console.log(
+                `   Device ID: ${doc.id}, Name: "${
+                  data.name || "N/A"
+                }" (length: ${(data.name || "").length})`
+              );
             });
           }
         } catch (debugError) {
           console.log(`   Error listing devices:`, debugError);
         }
-        
+
         // Auto-create device if it doesn't exist (for testing/development)
         console.log(`🛠️ [HISTORY] Auto-creating device for: ${deviceId}`);
         try {
@@ -101,33 +117,45 @@ exports.processdrivinghistory = onValueWritten(
             updatedAt: timestamp,
             active: true,
             description: `Auto-created device for ${deviceId}`,
-            autoCreated: true
+            autoCreated: true,
           };
-          
-          const newDeviceRef = await db.collection("devices").add(newDeviceData);
-          console.log(`✅ [HISTORY] Auto-created device: ${newDeviceRef.id} for name: ${deviceId}`);
-          
+
+          const newDeviceRef = await db
+            .collection("devices")
+            .add(newDeviceData);
+          console.log(
+            `✅ [HISTORY] Auto-created device: ${newDeviceRef.id} for name: ${deviceId}`
+          );
+
           // Also create a basic vehicle linked to this device
           const newVehicleData = {
             deviceId: newDeviceRef.id,
             name: `Auto Vehicle for ${deviceId}`,
-            ownerId: 'auto-owner', // Default owner for auto-created devices
+            ownerId: "auto-owner", // Default owner for auto-created devices
             createdAt: timestamp,
             updatedAt: timestamp,
             active: true,
-            autoCreated: true
+            autoCreated: true,
           };
-          
-          const newVehicleRef = await db.collection("vehicles").add(newVehicleData);
-          console.log(`✅ [HISTORY] Auto-created vehicle: ${newVehicleRef.id} for device: ${newDeviceRef.id}`);
-          
+
+          const newVehicleRef = await db
+            .collection("vehicles")
+            .add(newVehicleData);
+          console.log(
+            `✅ [HISTORY] Auto-created vehicle: ${newVehicleRef.id} for device: ${newDeviceRef.id}`
+          );
+
           // Now continue with the newly created device
           const firestoreDeviceId = newDeviceRef.id;
           const vehicleId = newVehicleRef.id;
-          const ownerId = 'auto-owner';
-          
+          const ownerId = "auto-owner";
+
           // Check if we should log this entry
-          const shouldLog = await shouldLogHistoryEntry(vehicleId, latitude, longitude);
+          const shouldLog = await shouldLogHistoryEntry(
+            vehicleId,
+            latitude,
+            longitude
+          );
           if (!shouldLog.should) {
             console.log(`⏭️ [HISTORY] Skipping entry: ${shouldLog.reason}`);
             return { success: true, message: shouldLog.reason };
@@ -149,27 +177,36 @@ exports.processdrivinghistory = onValueWritten(
 
           await db.collection("history").add(historyData);
 
-          console.log(`✅ [HISTORY] Entry logged for auto-created vehicle: ${vehicleId} (device: ${deviceId}) at (${latitude}, ${longitude})`);
+          console.log(
+            `✅ [HISTORY] Entry logged for auto-created vehicle: ${vehicleId} (device: ${deviceId}) at (${latitude}, ${longitude})`
+          );
           return {
             success: true,
             message: `History entry logged for auto-created vehicle ${vehicleId} (device: ${deviceId})`,
             timestamp: timestamp.toISOString(),
             vehicleId: vehicleId,
             deviceName: deviceId,
-            autoCreated: true
+            autoCreated: true,
           };
-          
         } catch (autoCreateError) {
-          console.error(`❌ [HISTORY] Error auto-creating device:`, autoCreateError);
-          return { success: false, message: "Device not found and auto-creation failed" };
+          console.error(
+            `❌ [HISTORY] Error auto-creating device:`,
+            autoCreateError
+          );
+          return {
+            success: false,
+            message: "Device not found and auto-creation failed",
+          };
         }
       }
 
       const deviceDoc = deviceQuery.docs[0];
       const deviceData = deviceDoc.data();
       const firestoreDeviceId = deviceDoc.id;
-      
-      console.log(`✅ [HISTORY] Found device: ${firestoreDeviceId} for name: ${deviceId}`);
+
+      console.log(
+        `✅ [HISTORY] Found device: ${firestoreDeviceId} for name: ${deviceId}`
+      );
       console.log(`🔍 [HISTORY] Device data:`, JSON.stringify(deviceData));
 
       // Get vehicle info using the vehicleId from the device document
@@ -179,11 +216,18 @@ exports.processdrivinghistory = onValueWritten(
         return { success: false, message: "No vehicleId linked to device" };
       }
 
-      console.log(`🔍 [HISTORY] Looking for vehicle with ID: ${deviceVehicleId}`);
-      const vehicleDoc = await db.collection("vehicles").doc(deviceVehicleId).get();
+      console.log(
+        `🔍 [HISTORY] Looking for vehicle with ID: ${deviceVehicleId}`
+      );
+      const vehicleDoc = await db
+        .collection("vehicles")
+        .doc(deviceVehicleId)
+        .get();
 
       if (!vehicleDoc.exists) {
-        console.log(`❌ [HISTORY] Vehicle not found for ID: ${deviceVehicleId}`);
+        console.log(
+          `❌ [HISTORY] Vehicle not found for ID: ${deviceVehicleId}`
+        );
         return { success: false, message: "Vehicle not found" };
       }
 
@@ -191,7 +235,9 @@ exports.processdrivinghistory = onValueWritten(
       const vehicleId = vehicleDoc.id;
       const ownerId = vehicleData.ownerId;
 
-      console.log(`🚗 [HISTORY] Found vehicle: ${vehicleId} for device: ${deviceId}`);
+      console.log(
+        `🚗 [HISTORY] Found vehicle: ${vehicleId} for device: ${deviceId}`
+      );
 
       if (!ownerId) {
         console.log(
@@ -450,8 +496,12 @@ exports.querydrivinghistory = onCall(
         historyEntries.push({
           id: doc.id,
           createdAt: data.createdAt.toDate().toISOString(),
-          location: data.location,
+          location: {
+            latitude: Number(data.location.latitude),
+            longitude: Number(data.location.longitude),
+          },
           vehicleId: data.vehicleId,
+          ownerId: data.ownerId || userId, // Include ownerId field
         });
       });
 

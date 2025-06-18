@@ -20,16 +20,44 @@ class HistoryEntry {
     required this.vehicleId,
     required this.ownerId,
   });
-
   factory HistoryEntry.fromMap(Map<String, dynamic> map, String id) {
-    return HistoryEntry(
-      id: id,
-      createdAt: DateTime.parse(map['createdAt']),
-      latitude: map['location']['latitude'].toDouble(),
-      longitude: map['location']['longitude'].toDouble(),
-      vehicleId: map['vehicleId'],
-      ownerId: map['ownerId'],
-    );
+    try {
+      // Handle different date formats from Cloud Functions
+      DateTime createdAt;
+      if (map['createdAt'] is String) {
+        createdAt = DateTime.parse(map['createdAt']);
+      } else if (map['createdAt'] is int) {
+        createdAt = DateTime.fromMillisecondsSinceEpoch(map['createdAt']);
+      } else {
+        print(
+          '⚠️ [WARNING] Unknown createdAt format: ${map['createdAt']}, using current time',
+        );
+        createdAt = DateTime.now(); // Fallback
+      }
+
+      // Safely extract location data
+      final dynamic locationData = map['location'];
+      final Map<String, dynamic> location;
+
+      if (locationData is Map) {
+        location = Map<String, dynamic>.from(locationData);
+      } else {
+        throw Exception('Invalid location data format');
+      }
+
+      return HistoryEntry(
+        id: id,
+        createdAt: createdAt,
+        latitude: (location['latitude'] ?? 0.0).toDouble(),
+        longitude: (location['longitude'] ?? 0.0).toDouble(),
+        vehicleId: map['vehicleId']?.toString() ?? '',
+        ownerId: map['ownerId']?.toString() ?? '',
+      );
+    } catch (e) {
+      print('❌ Error parsing HistoryEntry: $e');
+      print('❌ Raw data: $map');
+      rethrow;
+    }
   }
 }
 
@@ -84,35 +112,62 @@ class HistoryService {
               );
             },
           );
-
       print('🔍 [DEBUG] Cloud Function response: ${result.data}');
       print('🔍 [DEBUG] Response type: ${result.data.runtimeType}');
       print('🔍 [DEBUG] Response keys: ${result.data?.keys?.toList()}');
 
-      final data = result.data;
-      if (data == null) {
-        throw Exception('No data received from Cloud Function');
-      }
+      // Fix: Properly cast the response data to handle Firebase type issues
+      final Map<String, dynamic> data = Map<String, dynamic>.from(
+        result.data as Map,
+      );
 
       if (data['success'] != true) {
         final errorMsg = data['error'] ?? 'Unknown error from Cloud Function';
         print('🔍 [DEBUG] Cloud Function returned error: $errorMsg');
         throw Exception(errorMsg);
       }
-      final List<dynamic> entries = data['entries'] ?? [];
+
+      // Fix: Safely cast the entries array
+      final List<dynamic> rawEntries = data['entries'] ?? [];
 
       // Add debug logging
-      print('Fetched ${entries.length} history entries for vehicle $vehicleId');
-      if (entries.isEmpty) {
+      print(
+        'Fetched ${rawEntries.length} history entries for vehicle $vehicleId',
+      );
+      if (rawEntries.isEmpty) {
         print('No history data found. This could mean:');
         print('1. Vehicle has no GPS data logged yet');
         print('2. Device is not linked to vehicle');
         print('3. No movement detected in the specified time range');
+        return [];
       }
 
-      return entries
-          .map((entry) => HistoryEntry.fromMap(entry, entry['id']))
-          .toList();
+      // Fix: Properly cast each entry and handle potential type issues
+      final List<HistoryEntry> entries = [];
+
+      for (int i = 0; i < rawEntries.length; i++) {
+        try {
+          // Safely cast each entry to Map<String, dynamic>
+          final Map<String, dynamic> entryMap = Map<String, dynamic>.from(
+            rawEntries[i] as Map,
+          );
+
+          // Generate ID if missing
+          final String entryId = entryMap['id']?.toString() ?? 'entry_$i';
+
+          final entry = HistoryEntry.fromMap(entryMap, entryId);
+          entries.add(entry);
+        } catch (entryError) {
+          print(
+            '⚠️ [WARNING] Skipping malformed entry at index $i: $entryError',
+          );
+          print('⚠️ [WARNING] Raw entry data: ${rawEntries[i]}');
+          // Continue processing other entries instead of failing completely
+        }
+      }
+
+      print('✅ Successfully parsed ${entries.length} valid history entries');
+      return entries;
     } on FirebaseFunctionsException catch (e) {
       print('🔥 [ERROR] Firebase Functions Exception:');
       print('  Code: ${e.code}');
@@ -160,6 +215,14 @@ class HistoryService {
         );
       } else if (e.toString().contains('INTERNAL')) {
         throw Exception('Internal service error. Please try again later.');
+      } else if (e.toString().contains('subtype')) {
+        throw Exception(
+          'Data format error. Please try again or contact support.',
+        );
+      } else if (e.toString().contains('_TypeError')) {
+        throw Exception(
+          'Data type mismatch error. The server response format may have changed.',
+        );
       } else {
         throw Exception('Failed to fetch driving history: ${e.toString()}');
       }
