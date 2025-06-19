@@ -3,10 +3,7 @@ import 'package:flutter/material.dart';
 class VehicleEmptyStateWidget extends StatelessWidget {
   final VoidCallback? onAddVehicle;
 
-  const VehicleEmptyStateWidget({
-    super.key,
-    this.onAddVehicle,
-  });
+  const VehicleEmptyStateWidget({super.key, this.onAddVehicle});
 
   @override
   Widget build(BuildContext context) {

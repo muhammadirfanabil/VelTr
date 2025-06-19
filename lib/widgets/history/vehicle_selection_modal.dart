@@ -42,10 +42,7 @@ class VehicleSelectionModal extends StatelessWidget {
               children: [
                 const Text(
                   'Select Vehicle',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
                 IconButton(
@@ -58,9 +55,10 @@ class VehicleSelectionModal extends StatelessWidget {
           const Divider(),
           // Vehicle list
           Expanded(
-            child: isLoadingVehicles
-                ? const Center(child: CircularProgressIndicator())
-                : availableVehicles.isEmpty
+            child:
+                isLoadingVehicles
+                    ? const Center(child: CircularProgressIndicator())
+                    : availableVehicles.isEmpty
                     ? _buildEmptyState()
                     : _buildVehicleList(),
           ),
@@ -74,15 +72,15 @@ class VehicleSelectionModal extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.directions_car_outlined,
-              size: 48, color: Colors.grey[400]),
+          Icon(
+            Icons.directions_car_outlined,
+            size: 48,
+            color: Colors.grey[400],
+          ),
           const SizedBox(height: 16),
           Text(
             'No vehicles found',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[600],
-            ),
+            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
           ),
         ],
       ),
@@ -109,7 +107,9 @@ class VehicleSelectionModal extends StatelessWidget {
           ),
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16, vertical: 8),
+              horizontal: 16,
+              vertical: 8,
+            ),
             leading: Container(
               width: 48,
               height: 48,
@@ -136,24 +136,19 @@ class VehicleSelectionModal extends StatelessWidget {
                 if (vehicle.plateNumber?.isNotEmpty == true)
                   Text(
                     'Plate: ${vehicle.plateNumber}',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
                   ),
                 if (vehicle.vehicleTypes?.isNotEmpty == true)
                   Text(
                     'Type: ${vehicle.vehicleTypes}',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
                   ),
               ],
             ),
-            trailing: isSelected
-                ? Icon(Icons.check_circle, color: Colors.blue[600])
-                : null,
+            trailing:
+                isSelected
+                    ? Icon(Icons.check_circle, color: Colors.blue[600])
+                    : null,
             onTap: () {
               onVehicleSelected(vehicle);
               Navigator.pop(context);

@@ -122,9 +122,10 @@ class HistoryMapWidget extends StatelessWidget {
     return FlutterMap(
       mapController: mapController,
       options: MapOptions(
-        initialCenter: polylinePoints.isNotEmpty
-            ? polylinePoints.first
-            : const LatLng(0, 0),
+        initialCenter:
+            polylinePoints.isNotEmpty
+                ? polylinePoints.first
+                : const LatLng(0, 0),
         initialZoom: 13.0,
         minZoom: 3.0,
         maxZoom: 18.0,
@@ -180,11 +181,7 @@ class HistoryMapWidget extends StatelessWidget {
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 2),
                   ),
-                  child: const Icon(
-                    Icons.stop,
-                    color: Colors.white,
-                    size: 16,
-                  ),
+                  child: const Icon(Icons.stop, color: Colors.white, size: 16),
                 ),
               ),
             ],

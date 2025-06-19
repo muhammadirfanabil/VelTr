@@ -45,22 +45,28 @@ class DateRangeSelectorWidget extends StatelessWidget {
             color: Colors.grey[700],
             borderColor: Colors.grey[300],
             borderWidth: 1.5,
-            constraints: const BoxConstraints(
-              minHeight: 40,
-              minWidth: 80,
-            ),
+            constraints: const BoxConstraints(minHeight: 40, minWidth: 80),
             children: [
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Text('1 Day', style: TextStyle(fontWeight: FontWeight.w500)),
+                child: Text(
+                  '1 Day',
+                  style: TextStyle(fontWeight: FontWeight.w500),
+                ),
               ),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Text('3 Days', style: TextStyle(fontWeight: FontWeight.w500)),
+                child: Text(
+                  '3 Days',
+                  style: TextStyle(fontWeight: FontWeight.w500),
+                ),
               ),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Text('7 Days', style: TextStyle(fontWeight: FontWeight.w500)),
+                child: Text(
+                  '7 Days',
+                  style: TextStyle(fontWeight: FontWeight.w500),
+                ),
               ),
             ],
           ),

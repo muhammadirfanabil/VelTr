@@ -303,13 +303,11 @@ class MyApp extends StatelessWidget {
           return DrivingHistory(
             vehicleId: args['vehicleId'] as String,
             vehicleName: args['vehicleName'] as String,
-          );        }
+          );
+        }
         // If no specific vehicle is selected, use the first available vehicle
         // The DrivingHistory screen will handle vehicle selection internally
-        return const DrivingHistory(
-          vehicleId: '',
-          vehicleName: '',
-        );
+        return const DrivingHistory(vehicleId: '', vehicleName: '');
       },
       '/device': (context) => const DeviceManagerScreen(),
       '/geofence': (context) {

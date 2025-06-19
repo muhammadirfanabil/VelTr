@@ -4,10 +4,7 @@ import '../../services/history/history_service.dart';
 class HistoryStatisticsWidget extends StatelessWidget {
   final List<HistoryEntry> historyEntries;
 
-  const HistoryStatisticsWidget({
-    super.key,
-    required this.historyEntries,
-  });
+  const HistoryStatisticsWidget({super.key, required this.historyEntries});
 
   @override
   Widget build(BuildContext context) {
@@ -93,18 +90,9 @@ class HistoryStatisticsWidget extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
-        ),
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
       ],
     );
   }
@@ -112,7 +100,7 @@ class HistoryStatisticsWidget extends StatelessWidget {
   String _formatDuration(Duration duration) {
     final hours = duration.inHours;
     final minutes = duration.inMinutes.remainder(60);
-    
+
     if (hours > 0) {
       return '${hours}h ${minutes}m';
     } else if (minutes > 0) {

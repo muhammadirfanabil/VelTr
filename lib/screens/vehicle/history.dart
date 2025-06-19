@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 import '../../services/history/history_service.dart';
 import '../../services/vehicle/vehicleService.dart';
 import '../../models/vehicle/vehicle.dart';
@@ -8,7 +6,7 @@ import '../../widgets/history/vehicle_selector_widget.dart';
 import '../../widgets/history/vehicle_selection_modal.dart';
 import '../../widgets/history/date_range_selector_widget.dart';
 import '../../widgets/history/history_statistics_widget.dart';
-import '../../widgets/history/history_map_widget.dart';
+import '../../widgets/history/history_list_widget.dart';
 import '../../widgets/history/empty_state_widgets.dart';
 
 class DrivingHistory extends StatefulWidget {
@@ -29,11 +27,9 @@ class _DrivingHistoryState extends State<DrivingHistory> {
   bool _isLoading = true;
   String? _error;
   List<HistoryEntry> _historyEntries = [];
-  List<LatLng> _polylinePoints = [];
   int _selectedDays = 7;
   final List<int> _dayOptions = [1, 3, 7];
-  final MapController _mapController = MapController();
-  
+
   // Vehicle selector state
   vehicle? _selectedVehicle;
   List<vehicle> _availableVehicles = [];
@@ -48,7 +44,7 @@ class _DrivingHistoryState extends State<DrivingHistory> {
 
   Future<void> _initializeVehicleAndHistory() async {
     await _loadVehicles();
-    
+
     // Set initial selected vehicle based on the passed vehicleId
     if (_availableVehicles.isNotEmpty) {
       if (widget.vehicleId.isNotEmpty) {
@@ -60,7 +56,7 @@ class _DrivingHistoryState extends State<DrivingHistory> {
         _selectedVehicle = _availableVehicles.first;
       }
     }
-    
+
     await _fetchDrivingHistory();
   }
 
@@ -68,7 +64,7 @@ class _DrivingHistoryState extends State<DrivingHistory> {
     setState(() {
       _isLoadingVehicles = true;
     });
-    
+
     try {
       final vehicles = await _vehicleService.getVehiclesStream().first;
       setState(() {
@@ -86,7 +82,7 @@ class _DrivingHistoryState extends State<DrivingHistory> {
 
   Future<void> _fetchDrivingHistory() async {
     if (_selectedVehicle == null) return;
-    
+
     setState(() {
       _isLoading = true;
       _error = null;
@@ -96,19 +92,11 @@ class _DrivingHistoryState extends State<DrivingHistory> {
         vehicleId: _selectedVehicle!.id,
         days: _selectedDays,
       );
-
       setState(() {
         _historyEntries = entries;
-        _polylinePoints =
-            entries.map((e) => LatLng(e.latitude, e.longitude)).toList();
         _isLoading = false;
         _error = null; // Clear any previous errors
       });
-
-      // Center map on first point if available
-      if (_polylinePoints.isNotEmpty) {
-        _mapController.move(_polylinePoints.first, 13.0);
-      }
     } catch (e) {
       print('Error in history screen: $e');
       setState(() {
@@ -132,12 +120,13 @@ class _DrivingHistoryState extends State<DrivingHistory> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => VehicleSelectionModal(
-        availableVehicles: _availableVehicles,
-        selectedVehicle: _selectedVehicle,
-        isLoadingVehicles: _isLoadingVehicles,
-        onVehicleSelected: _selectVehicle,
-      ),
+      builder:
+          (context) => VehicleSelectionModal(
+            availableVehicles: _availableVehicles,
+            selectedVehicle: _selectedVehicle,
+            isLoadingVehicles: _isLoadingVehicles,
+            onVehicleSelected: _selectVehicle,
+          ),
     );
   }
 
@@ -226,13 +215,12 @@ class _DrivingHistoryState extends State<DrivingHistory> {
           ),
           // Statistics Card
           if (!_isLoading && _historyEntries.isNotEmpty)
-            HistoryStatisticsWidget(historyEntries: _historyEntries),
-          // Map
-          Expanded(
-            child: HistoryMapWidget(
+            HistoryStatisticsWidget(
               historyEntries: _historyEntries,
-              polylinePoints: _polylinePoints,
-              mapController: _mapController,
+            ), // History List
+          Expanded(
+            child: HistoryListWidget(
+              historyEntries: _historyEntries,
               isLoading: _isLoading,
               error: _error,
             ),
