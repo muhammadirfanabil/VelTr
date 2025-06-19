@@ -28,7 +28,6 @@ import 'widgets/Common/error_card.dart';
 import 'services/notifications/fcm_service.dart';
 import 'services/device/deviceService.dart';
 
-
 // Model imports
 import 'models/Device/device.dart';
 
