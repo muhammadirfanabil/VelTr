@@ -273,9 +273,8 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
           // Wrap map in SafeArea and error boundary
           _buildMapWithErrorHandling(),
           _buildInstructionCard(),
-          _buildActionButtons(),
-          // Add location buttons on the right side
-          Positioned(right: 16, top: 200, child: _buildLocationButtons()),
+          _buildActionButtons(), // Add location buttons on the right side (positioned lower due to instruction card)
+          Positioned(right: 16, top: 300, child: _buildLocationButtons()),
           if (isSaving) _buildSavingOverlay(),
         ],
       ),
@@ -930,26 +929,99 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
     final theme = Theme.of(context);
 
     return Positioned(
-      top: 100,
+      top: 16,
       left: 16,
       right: 16,
       child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.touch_app, color: theme.colorScheme.primary, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Tap to add points • Points: ${polygonPoints.length}',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
+              // Instruction header
+              Row(
+                children: [
+                  Icon(
+                    Icons.touch_app,
+                    color: theme.colorScheme.primary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Tap to add points • Points: ${polygonPoints.length}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Geofence Name Input
+              TextField(
+                controller: nameController,
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  labelText: 'Geofence Name',
+                  hintText: 'Enter geofence name',
+                  prefixIcon: Icon(
+                    Icons.location_on,
+                    color: theme.colorScheme.primary,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  filled: true,
+                  fillColor: theme.colorScheme.surface,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+
+              // Device Location Info
+              if (deviceLocation != null) ...[
+                Row(
+                  children: [
+                    Icon(Icons.gps_fixed, color: Colors.orange, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Device location: ${deviceLocation!.latitude.toStringAsFixed(6)}, ${deviceLocation!.longitude.toStringAsFixed(6)}${deviceName != null ? " ($deviceName)" : ""}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.orange.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
+
+              // User Location Info
+              if (currentLocation != null) ...[
+                Row(
+                  children: [
+                    Icon(Icons.my_location, color: Colors.blue, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Your location: ${currentLocation!.latitude.toStringAsFixed(6)}, ${currentLocation!.longitude.toStringAsFixed(6)}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
