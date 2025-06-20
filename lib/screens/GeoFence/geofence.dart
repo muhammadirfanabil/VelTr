@@ -5,12 +5,19 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'dart:async';
+
+import 'package:flutter/services.dart';
 import '../../models/Geofence/Geofence.dart';
 import '../../services/Geofence/geofenceService.dart';
 import '../../services/device/deviceService.dart';
 import '../../widgets/Map/mapWidget.dart';
+import '../../widgets/Common/error_card.dart';
+import '../../widgets/Common/loading_overlay.dart';
+import '../../widgets/Common/confirmation_dialog.dart';
+import '../../utils/snackbar.dart';
 import 'index.dart';
 
+@immutable
 class GeofenceMapScreen extends StatefulWidget {
   final String deviceId;
 
@@ -19,6 +26,8 @@ class GeofenceMapScreen extends StatefulWidget {
   @override
   State<GeofenceMapScreen> createState() => _GeofenceMapScreenState();
 }
+
+// Previous imports remain the same...
 
 class _GeofenceMapScreenState extends State<GeofenceMapScreen>
     with SingleTickerProviderStateMixin {
@@ -31,7 +40,6 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
   LatLng? currentLocation;
   LatLng? deviceLocation;
   String? deviceName;
-
   // Services
   final GeofenceService _geofenceService = GeofenceService();
   final DeviceService _deviceService = DeviceService();
@@ -123,12 +131,18 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
       if (mounted) {
         setState(() {
           currentLocation = LatLng(position.latitude, position.longitude);
+          print('Current Location set: $currentLocation'); // Debug print
         });
         _animationController.forward();
       }
     } catch (e) {
       if (mounted) {
-        _showError('Failed to get location: ${e.toString()}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackbarUtils.showError(
+            context,
+            'Failed to get location: ${e.toString()}',
+          ),
+        );
       }
     } finally {
       if (mounted) {
@@ -287,15 +301,17 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
       polygonPoints.add(point);
     });
 
-    _showHapticFeedback();
+    // Provide haptic feedback
+    HapticFeedback.lightImpact();
   }
 
   void _onContinuePressed() {
     if (polygonPoints.length < 3) {
-      _showSnackBar(
-        'At least 3 points are required to create a geofence area.',
-        Colors.orange,
-        Icons.warning,
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackbarUtils.showInfo(
+          context,
+          'At least 3 points are required to create a geofence area.',
+        ),
       );
       return;
     }
@@ -304,10 +320,11 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
       showPolygon = true;
     });
 
-    _showSnackBar(
-      'Geofence area created! Review and save.',
-      Colors.green,
-      Icons.check_circle,
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackbarUtils.showSuccess(
+        context,
+        'Geofence area created! Review and save.',
+      ),
     );
   }
 
@@ -321,83 +338,52 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
       }
     });
 
-    _showHapticFeedback();
+    // Provide haptic feedback
+    HapticFeedback.mediumImpact();
   }
 
-  void _onResetPressed() {
-    _showResetConfirmationDialog();
+  void _onSavePressed() {
+    HapticFeedback.mediumImpact();
+    _showSaveDialog();
   }
 
-  Future<void> _showResetConfirmationDialog() async {
-    final result = await showDialog<bool>(
+  void _onResetPressed() async {
+    final confirmed = await ConfirmationDialog.show(
       context: context,
+      title: 'Reset Points',
+      content:
+          'Are you sure you want to clear all points? This action cannot be undone.',
+      confirmText: 'Reset',
+      confirmColor: Theme.of(context).colorScheme.error,
+    );
+
+    if (confirmed == true) {
+      setState(() {
+        polygonPoints.clear();
+        showPolygon = false;
+      });
+      // Provide haptic feedback
+      HapticFeedback.heavyImpact();
+    }
+  }
+
+  Future<void> _showSaveDialog() async {
+    final theme = Theme.of(context);
+    final nameController = TextEditingController();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
       builder:
           (context) => AlertDialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
-            title: const Row(
+            title: Row(
               children: [
-                Icon(Icons.warning_amber, color: Colors.orange),
-                SizedBox(width: 8),
-                Text('Reset Points'),
-              ],
-            ),
-            content: const Text(
-              'Are you sure you want to clear all points? This action cannot be undone.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Reset'),
-              ),
-            ],
-          ),
-    );
-
-    if (result == true) {
-      setState(() {
-        polygonPoints.clear();
-        showPolygon = false;
-      });
-      _showHapticFeedback();
-    }
-  }
-
-  Future<void> _onSavePressed() async {
-    final result = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => _buildSaveDialog(),
-    );
-
-    if (result != null && result.isNotEmpty) {
-      await _saveGeofence(result);
-    }
-  }
-
-  Widget _buildSaveDialog() {
-    final nameController = TextEditingController();
-
-    return StatefulBuilder(
-      builder:
-          (context, setDialogState) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: const Row(
-              children: [
-                Icon(Icons.save, color: Colors.blue),
-                SizedBox(width: 8),
-                Text('Save Geofence'),
+                Icon(Icons.save, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                const Text('Save Geofence'),
               ],
             ),
             content: Column(
@@ -420,14 +406,14 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.blue[50],
+                    color: theme.colorScheme.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     children: [
                       Icon(
                         Icons.info_outline,
-                        color: Colors.blue[600],
+                        color: theme.colorScheme.primary,
                         size: 20,
                       ),
                       const SizedBox(width: 8),
@@ -435,7 +421,7 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
                         child: Text(
                           'Points: ${polygonPoints.length}',
                           style: TextStyle(
-                            color: Colors.blue[800],
+                            color: theme.colorScheme.primary,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -448,48 +434,46 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(color: theme.colorScheme.onSurface),
+                ),
               ),
-              ElevatedButton(
+              FilledButton(
                 onPressed: () {
                   final name = nameController.text.trim();
                   if (name.isNotEmpty) {
                     Navigator.pop(context, name);
                   }
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue[600],
-                  foregroundColor: Colors.white,
+                style: FilledButton.styleFrom(
+                  backgroundColor: theme.colorScheme.primary,
                 ),
                 child: const Text('Save'),
               ),
             ],
           ),
-    );
+    ).then((result) {
+      if (result != null && result.isNotEmpty) {
+        _saveGeofence(result);
+      }
+    });
   }
 
   Future<void> _saveGeofence(String name) async {
     setState(() => isSaving = true);
 
     try {
-      // Debug logging for device ID consistency
-      debugPrint(
-        '🔧 GeofenceMapScreen: Creating geofence with deviceId: ${widget.deviceId}',
-      );
-      debugPrint(
-        '🔧 GeofenceMapScreen: widget.deviceId type: ${widget.deviceId.runtimeType}',
-      );
-
-      // Convert LatLng points to GeofencePoint objects
       final geofencePoints =
           polygonPoints
               .map(
                 (p) =>
                     GeofencePoint(latitude: p.latitude, longitude: p.longitude),
               )
-              .toList(); // Create Geofence model instance
+              .toList();
+
       final geofence = Geofence(
-        id: '', // Will be generated by Firestore
+        id: '',
         deviceId: widget.deviceId,
         ownerId: FirebaseAuth.instance.currentUser?.uid ?? '',
         name: name,
@@ -498,35 +482,49 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
         createdAt: DateTime.now(),
       );
 
-      // Validate geofence before saving
       final validationError = _geofenceService.validateGeofence(geofence);
       if (validationError != null) {
-        _showError(validationError);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackbarUtils.showError(context, validationError));
         return;
-      } // Save using service layer
-      await _geofenceService.createGeofence(geofence);
+      }
 
-      debugPrint(
-        '✅ GeofenceMapScreen: Geofence "$name" created successfully for device: ${widget.deviceId}',
+      final confirmed = await ConfirmationDialog.show(
+        context: context,
+        title: 'Save Geofence',
+        content: 'Are you sure you want to save this geofence?',
+        confirmText: 'Save',
+        confirmColor: Theme.of(context).colorScheme.primary,
       );
 
-      if (mounted) {
-        _showSnackBar(
-          'Geofence "$name" saved successfully!',
-          Colors.green,
-          Icons.check_circle,
-        );
+      if (confirmed == true) {
+        await _geofenceService.createGeofence(geofence);
 
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => GeofenceListScreen(deviceId: widget.deviceId),
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackbarUtils.showSuccess(
+              context,
+              'Geofence "$name" saved successfully!',
+            ),
+          );
+
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => GeofenceListScreen(deviceId: widget.deviceId),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
-        _showError('Failed to save geofence: ${e.toString()}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackbarUtils.showError(
+            context,
+            'Failed to save geofence: ${e.toString()}',
+          ),
+        );
       }
     } finally {
       if (mounted) {
@@ -535,691 +533,14 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (isLoading || currentLocation == null) {
-      return _buildLoadingScreen();
-    }
-
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: _buildAppBar(),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // Wrap map in SafeArea and error boundary
-            _buildMapWithErrorHandling(),
-            _buildInstructionCard(),
-            _buildActionButtons(),
-            if (isSaving) _buildSavingOverlay(),
-          ],
-        ),
-      ),
-      floatingActionButton: _buildLocationButtons(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-    );
-  }
-
-  Widget _buildMapWithErrorHandling() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        try {
-          return _buildMap();
-        } catch (e) {
-          debugPrint('Map rendering error: $e');
-          return _buildFallbackMap();
-        }
-      },
-    );
-  }
-
-  Widget _buildFallbackMap() {
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      color: Colors.grey[200],
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.map_outlined, size: 64, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text(
-            'Map temporarily unavailable',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Please try again or restart the app',
-            style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                // Force rebuild
-              });
-            },
-            child: const Text('Retry'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLoadingScreen() {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: _buildAppBar(),
-      body: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text(
-              'Getting your location...',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      elevation: 0,
-      backgroundColor: Colors.blue[600],
-      foregroundColor: Colors.white,
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Define Geofence Area',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-          ),
-          if (deviceName != null)
-            Text(
-              'For: $deviceName',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMap() {
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: Container(
-        // Wrap in container to prevent overflow
-        clipBehavior: Clip.hardEdge,
-        decoration: const BoxDecoration(),
-        child: MapWidget(
-          mapController: _mapController,
-          options: MapOptions(
-            initialCenter: deviceLocation ?? currentLocation!,
-            initialZoom: 15.0,
-            minZoom: 5.0,
-            maxZoom: 18.0,
-            onTap: _onMapTap,
-            // Reduce performance overhead
-            keepAlive: true,
-            backgroundColor: Colors.grey[100]!,
-          ),
-          children: [
-            TileLayer(
-              urlTemplate:
-                  'https://tile-{s}.openstreetmap.fr/hot/{z}/{x}/{y}.png',
-              subdomains: const ['a', 'b', 'c'],
-              userAgentPackageName: 'com.example.gps_app',
-              // Add error handling for tile loading
-              errorTileCallback: (tile, error, stackTrace) {
-                debugPrint('Tile loading error: $error');
-              },
-              // Reduce memory usage
-              maxZoom: 18,
-              maxNativeZoom: 18,
-            ),
-            // Conditionally render layers to reduce complexity
-            if (polygonPoints.length >= 2) _buildPolylineLayer(),
-            if (showPolygon && polygonPoints.length >= 3) _buildPolygonLayer(),
-            if (polygonPoints.isNotEmpty) _buildMarkerLayer(),
-            if (deviceLocation != null) _buildDeviceLocationMarker(),
-            _buildCurrentLocationMarker(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPolylineLayer() {
-    if (polygonPoints.length < 2) return const SizedBox.shrink();
-
-    return PolylineLayer(
-      polylines: [
-        Polyline(
-          points: polygonPoints,
-          color: showPolygon ? Colors.blue[600]! : Colors.blue[400]!,
-          strokeWidth: 3.0,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPolygonLayer() {
-    if (!showPolygon || polygonPoints.length < 3) {
-      return const SizedBox.shrink();
-    }
-
-    return PolygonLayer(
-      polygonCulling: false,
-      polygons: [
-        Polygon(
-          points: [...polygonPoints, polygonPoints.first],
-          color: Colors.blue.withOpacity(0.3),
-          borderColor: Colors.blue[600]!,
-          borderStrokeWidth: 3,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMarkerLayer() {
-    return MarkerLayer(
-      markers:
-          polygonPoints.asMap().entries.map((entry) {
-            final index = entry.key + 1;
-            final point = entry.value;
-            return Marker(
-              point: point,
-              width: 40,
-              height: 40,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.red[600],
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Text(
-                    '$index',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-    );
-  }
-
-  Widget _buildCurrentLocationMarker() {
-    return MarkerLayer(
-      markers: [
-        Marker(
-          point: currentLocation!,
-          width: 20,
-          height: 20,
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.blue[600],
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 3),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDeviceLocationMarker() {
-    // Don't show device marker if location is not available
-    if (deviceLocation == null) {
-      return const SizedBox.shrink();
-    }
-
-    return MarkerLayer(
-      markers: [
-        Marker(
-          point: deviceLocation!,
-          width: 40,
-          height: 40,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Outer ring for better visibility
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.orange[600]!.withOpacity(0.2),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.orange[600]!, width: 2),
-                ),
-              ),
-              // Inner device marker
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: Colors.orange[600],
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Icon(Icons.gps_fixed, color: Colors.white, size: 14),
-              ),
-              // Loading indicator if still loading
-              if (isLoadingDeviceLocation)
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.8),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Center(
-                      child: SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.orange,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInstructionCard() {
-    if (showPolygon) return const SizedBox.shrink();
-
-    return Positioned(
-      top: 16,
-      left: 16,
-      right: 16,
-      child: Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Icon(Icons.touch_app, color: Colors.blue[600], size: 24),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Define Vehicle Geofence',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Tap to add points around your vehicle area',
-                      style: TextStyle(color: Colors.grey[700], fontSize: 14),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.motorcycle,
-                          color: Colors.blue[600],
-                          size: 16,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            polygonPoints.isNotEmpty
-                                ? 'Vehicle icon follows your drawing'
-                                : 'Vehicle icon shows current location',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.gps_fixed,
-                          color: Colors.orange[600],
-                          size: 16,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            deviceLocation != null
-                                ? 'Orange marker shows device GPS location'
-                                : isLoadingDeviceLocation
-                                ? 'Loading device GPS location...'
-                                : 'Device GPS location unavailable',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.my_location,
-                          color: Colors.blue[600],
-                          size: 16,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            'Blue marker shows your current location',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Points: ${polygonPoints.length} (min: 3)',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButtons() {
-    return Positioned(
-      bottom: 16,
-      left: 16,
-      right: 16,
-      child: Card(
-        elevation: 8,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Device location info
-              if (deviceLocation != null)
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.orange[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.orange[200]!),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.gps_fixed,
-                        color: Colors.orange[600],
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Vehicle Location',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.orange[800],
-                                fontSize: 12,
-                              ),
-                            ),
-                            Text(
-                              '${deviceLocation!.latitude.toStringAsFixed(6)}, ${deviceLocation!.longitude.toStringAsFixed(6)}',
-                              style: TextStyle(
-                                color: Colors.orange[700],
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              if (deviceLocation != null) const SizedBox(height: 12),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _onUndoPressed,
-                      icon: const Icon(Icons.undo, size: 18),
-                      label: Text('Undo (${polygonPoints.length})'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey[600],
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _onResetPressed,
-                      icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('Reset'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red[600],
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-
-              if (polygonPoints.length >= 3 && !showPolygon)
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _onContinuePressed,
-                    icon: const Icon(Icons.check_circle, size: 20),
-                    label: const Text('Continue'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green[600],
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
-                ),
-
-              if (showPolygon)
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: isSaving ? null : _onSavePressed,
-                    icon:
-                        isSaving
-                            ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
-                              ),
-                            )
-                            : const Icon(Icons.save, size: 20),
-                    label: Text(isSaving ? 'Saving...' : 'Save Geofence'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue[600],
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLocationButtons() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Center on vehicle location
-        if (deviceLocation != null)
-          FloatingActionButton(
-            onPressed: () {
-              _mapController.move(deviceLocation!, 16.0);
-              _showSnackBar(
-                'Centered on vehicle location',
-                Colors.orange,
-                Icons.gps_fixed,
-              );
-            },
-            backgroundColor: Colors.orange[600],
-            foregroundColor: Colors.white,
-            child: const Icon(Icons.gps_fixed),
-            heroTag: "center_vehicle",
-          ),
-
-        if (deviceLocation != null) const SizedBox(height: 8),
-
-        // Center on user location
-        FloatingActionButton(
-          onPressed: () {
-            _mapController.move(currentLocation!, 16.0);
-            _showSnackBar(
-              'Centered on your location',
-              Colors.blue,
-              Icons.my_location,
-            );
-          },
-          backgroundColor: Colors.blue[600],
-          foregroundColor: Colors.white,
-          child: const Icon(Icons.my_location),
-          heroTag: "center_user",
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSavingOverlay() {
-    return Container(
-      color: Colors.black.withOpacity(0.5),
-      child: const Center(
-        child: Card(
-          child: Padding(
-            padding: EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('Saving geofence...', style: TextStyle(fontSize: 16)),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Utility methods
-  void _showSnackBar(String message, Color color, IconData icon) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(icon, color: Colors.white),
-            const SizedBox(width: 8),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: color,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-    );
-  }
-
-  void _showError(String message) {
-    _showSnackBar(message, Colors.red, Icons.error);
-  }
-
-  void _showHapticFeedback() {
-    // Add haptic feedback if needed
-    // HapticFeedback.lightImpact();
-  }
-
+  // Dialog methods
   void _showLocationServiceDialog() {
     showDialog(
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Location Service Disabled'),
-            content: const Text(
-              'Please enable location services to use this feature.',
+            content: const ErrorCard(
+              message: 'Please enable location services to use this feature.',
             ),
             actions: [
               TextButton(
@@ -1236,9 +557,8 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Permission Denied'),
-            content: const Text(
-              'Location permission is required to create geofences.',
+            content: const ErrorCard(
+              message: 'Location permission is required to create geofences.',
             ),
             actions: [
               TextButton(
@@ -1255,9 +575,9 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Permission Permanently Denied'),
-            content: const Text(
-              'Please enable location permission in app settings.',
+            content: const ErrorCard(
+              message:
+                  'Please enable location permission in settings to use this feature.',
             ),
             actions: [
               TextButton(
@@ -1266,6 +586,287 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
               ),
             ],
           ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    final theme = Theme.of(context);
+
+    return Positioned(
+      bottom: 20,
+      left: 16,
+      right: 16,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!showPolygon && polygonPoints.isNotEmpty) ...[
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _onUndoPressed,
+                icon: const Icon(Icons.undo),
+                label: const Text('Undo Last Point'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.grey.shade500,
+                  foregroundColor: theme.colorScheme.onTertiary,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (showPolygon && polygonPoints.isNotEmpty) ...[
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _onResetPressed,
+                icon: const Icon(Icons.clear_all),
+                label: const Text('Reset All Points'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.colorScheme.error,
+                  foregroundColor: theme.colorScheme.onError,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          SizedBox(
+            width: double.infinity,
+            child:
+                showPolygon && polygonPoints.length >= 3
+                    ? FilledButton.icon(
+                      onPressed: isSaving ? null : _onSavePressed,
+                      icon:
+                          isSaving
+                              ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation(
+                                    Colors.white,
+                                  ),
+                                ),
+                              )
+                              : const Icon(Icons.save),
+                      label: Text(isSaving ? 'Saving...' : 'Save Geofence'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: theme.colorScheme.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    )
+                    : FilledButton(
+                      onPressed: _onContinuePressed,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: theme.colorScheme.primary,
+                        foregroundColor: theme.colorScheme.onPrimary,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        polygonPoints.length < 3
+                            ? 'Add ${3 - polygonPoints.length} more point${3 - polygonPoints.length == 1 ? '' : 's'}'
+                            : 'Continue',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.white,
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios,
+            color: theme.colorScheme.primary,
+            size: 20,
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Define Geofence Area',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+            fontSize: 22,
+          ),
+        ),
+      ),
+      body:
+          isLoading || currentLocation == null
+              ? const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text(
+                      'Getting your location...',
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              )
+              : Stack(
+                children: [
+                  FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: MapWidget(
+                      initialCenter: currentLocation,
+                      initialZoom: 15.0,
+                      onTap: _onMapTap,
+                      children: [
+                        TileLayer(
+                          urlTemplate:
+                              'https://tile-{s}.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+                          subdomains: const ['a', 'b', 'c'],
+                          userAgentPackageName: 'com.example.gps_app',
+                          maxZoom: 18,
+                        ),
+                        if (polygonPoints.length >= 2)
+                          PolylineLayer(
+                            polylines: [
+                              Polyline(
+                                points: polygonPoints,
+                                color:
+                                    showPolygon
+                                        ? theme.colorScheme.primary
+                                        : theme.colorScheme.primary.withOpacity(
+                                          0.7,
+                                        ),
+                                strokeWidth: 3.0,
+                              ),
+                            ],
+                          ),
+                        if (showPolygon && polygonPoints.length >= 3)
+                          PolygonLayer(
+                            polygonCulling: false,
+                            polygons: [
+                              Polygon(
+                                points: [...polygonPoints, polygonPoints.first],
+                                color: theme.colorScheme.primary.withOpacity(
+                                  0.3,
+                                ),
+                                borderColor: theme.colorScheme.primary,
+                                borderStrokeWidth: 3,
+                              ),
+                            ],
+                          ),
+                        MarkerLayer(
+                          markers:
+                              polygonPoints.asMap().entries.map((entry) {
+                                final index = entry.key + 1;
+                                final point = entry.value;
+                                return Marker(
+                                  point: point,
+                                  width: 40,
+                                  height: 40,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.secondary,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.3),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        '$index',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: theme.colorScheme.onSecondary,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!showPolygon)
+                    Positioned(
+                      top: 16,
+                      left: 16,
+                      right: 16,
+                      child: Card(
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.touch_app,
+                                color: theme.colorScheme.primary,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Tap to add points',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                        color: theme.colorScheme.onSurface,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Points: ${polygonPoints.length} (min: 3)',
+                                      style: TextStyle(
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  _buildActionButtons(),
+                  if (isSaving) LoadingOverlay(message: 'Saving geofence...'),
+                ],
+              ),
     );
   }
 }

@@ -197,6 +197,7 @@ class _ProfilePageState extends State<ProfilePage> {
       elevation: 0,
       backgroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,
+      centerTitle: true, // Add this line
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_ios, size: 20),
         onPressed:
@@ -209,6 +210,7 @@ class _ProfilePageState extends State<ProfilePage> {
         'Profile',
         style: theme.textTheme.headlineSmall?.copyWith(
           fontWeight: FontWeight.bold,
+          fontSize: 22,
         ),
       ),
       actions: [

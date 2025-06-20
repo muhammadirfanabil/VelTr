@@ -282,27 +282,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ),
       title: Text(
         'Edit Profile',
-        style: theme.textTheme.titleLarge?.copyWith(
+        style: TextStyle(
+          fontSize: 22,
           fontWeight: FontWeight.w600,
+          color: Colors.black,
         ),
       ),
       centerTitle: true,
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 8.0),
-          child: TextButton(
-            onPressed: _isLoading ? null : _saveProfile,
-            child: Text(
-              'Save',
-              style: TextStyle(
-                color: _isLoading ? Colors.grey : theme.colorScheme.primary,
-                fontWeight: FontWeight.w600,
-                fontSize: 16,
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 

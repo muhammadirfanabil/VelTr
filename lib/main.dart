@@ -32,9 +32,6 @@ import 'services/geofence/geofence_alert_service.dart';
 import 'services/device/deviceService.dart';
 import 'services/history/history_service.dart';
 
-// Provider imports
-// import 'providers/vehicle_provider.dart'; // Temporarily commented out
-
 // Model imports
 import 'models/Device/device.dart';
 
