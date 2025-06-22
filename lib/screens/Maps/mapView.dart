@@ -62,7 +62,8 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   String? waktuWita;
   bool isVehicleOn = false;
   bool isLoading = true;
-  bool hasGPSData = false;  bool showNoGPSDialog = false;
+  bool hasGPSData = false;
+  bool showNoGPSDialog = false;
   final MapController _mapController = MapController();
   // User location state
   StreamSubscription<LatLng?>? _userLocationSubscription;
@@ -78,9 +79,11 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   LatLng? get vehicleLocation =>
       (latitude != null && longitude != null)
           ? LatLng(latitude!, longitude!)
-          : null;  @override
+          : null;
+  @override
   void initState() {
-    super.initState();    _deviceService = DeviceService();
+    super.initState();
+    _deviceService = DeviceService();
     _vehicleService = VehicleService();
     _geofenceService =
         GeofenceService(); // Initialize with device name resolution
@@ -130,19 +133,22 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       await _initializeWithDevice();
     }
   }
+
   @override
   void dispose() {
     // Cancel all listeners to prevent memory leaks
     _gpsListener?.cancel();
-    _relayListener?.cancel();    _vehicleListener?.cancel();
+    _relayListener?.cancel();
+    _vehicleListener?.cancel();
     _geofenceListener?.cancel();
     _userLocationSubscription?.cancel();
     super.dispose();
   }
+
   /// Initialize user location tracking
   Future<void> _initializeUserLocation() async {
     debugPrint('🗺️ [MAPVIEW] Initializing user location tracking...');
-    
+
     setState(() {
       _isLoadingUserLocation = true;
     });
@@ -151,9 +157,11 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       // Check if location service is available first
       bool isAvailable = await mapServices.isLocationServiceAvailable();
       debugPrint('🗺️ [MAPVIEW] Location service available: $isAvailable');
-      
+
       if (!isAvailable) {
-        debugPrint('🗺️ [MAPVIEW] Location service not available - cannot initialize user location');
+        debugPrint(
+          '🗺️ [MAPVIEW] Location service not available - cannot initialize user location',
+        );
         setState(() {
           _isLoadingUserLocation = false;
         });
@@ -163,7 +171,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       // Get initial location
       final initialLocation = await mapServices.getCurrentUserLocation();
       debugPrint('🗺️ [MAPVIEW] Initial user location: $initialLocation');
-      
+
       if (mounted && initialLocation != null) {
         setState(() {
           _userLocation = initialLocation;
@@ -181,7 +189,9 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
             setState(() {
               _userLocation = location;
             });
-            debugPrint('🗺️ [MAPVIEW] User location updated in UI: ${location.latitude}, ${location.longitude}');
+            debugPrint(
+              '🗺️ [MAPVIEW] User location updated in UI: ${location.latitude}, ${location.longitude}',
+            );
           }
         },
         onError: (error) {
@@ -208,7 +218,8 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
           _isLoadingUserLocation = false;
         });
       }
-    }  }
+    }
+  }
 
   void _loadAvailableVehicles() {
     setState(() => isLoadingVehicles = true);
@@ -1269,7 +1280,8 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                   : Icon(
                     Icons.layers,
                     color: showGeofences ? Colors.blue : null,
-                  ),          onPressed: isLoadingGeofences ? null : _toggleGeofenceOverlay,
+                  ),
+          onPressed: isLoadingGeofences ? null : _toggleGeofenceOverlay,
         ),
         const SizedBox(width: 8),
         if (!hasGPSData)
@@ -1277,6 +1289,25 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
             child: const Icon(Icons.info_outline),
             onPressed: _showNoGPSDetailsDialog,
           ),
+        const SizedBox(width: 8),
+        // Center on user location button
+        _buildFloatingButton(
+          child:
+              _isLoadingUserLocation
+                  ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                  : const Icon(Icons.my_location),
+          onPressed: _isLoadingUserLocation ? null : _centerOnUser,
+        ),
+        const SizedBox(width: 8),
+        // Center on device location button
+        _buildFloatingButton(
+          child: const Icon(Icons.center_focus_strong),
+          onPressed: _centerOnDevice,
+        ),
         const SizedBox(width: 8),
         _buildUserMenu(),
       ],
@@ -1586,7 +1617,8 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                           ),
                         )
                         .toList(),
-              ),            if (hasGPSData && vehicleLocation != null)
+              ),
+            if (hasGPSData && vehicleLocation != null)
               MarkerLayer(
                 markers: [
                   Marker(
@@ -1599,12 +1631,10 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                     ),
                   ),
                 ],
-              ),            // User location marker
+              ), // User location marker
             if (_userLocation != null)
               MarkerLayer(
-                markers: [
-                  mapServices.getUserLocationMarker(_userLocation)!,
-                ],
+                markers: [mapServices.getUserLocationMarker(_userLocation)!],
               ),
           ],
         ),
@@ -2127,11 +2157,17 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
               left: 0,
               right: 0,
               child: _buildSubtleNotificationBanner(),
-            ),
-
-          // Always show footer
+            ),          // Always show footer
           if (!isLoading)
             Align(alignment: Alignment.bottomCenter, child: StickyFooter()),
+
+          // Floating centering buttons (bottom-right corner)
+          if (!isLoading)
+            Positioned(
+              bottom: 80, // Above the StickyFooter
+              right: 16,
+              child: _buildCenteringButtons(),
+            ),
         ],
       ),
     );
@@ -2165,6 +2201,198 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
               ),
             ],
           ),
+    );
+  }
+
+  /// Center map on user location with smooth animation
+  Future<void> _centerOnUser() async {
+    debugPrint('🗺️ [MAPVIEW] Center on user button pressed');
+    
+    setState(() {
+      _isLoadingUserLocation = true;
+    });
+
+    try {
+      // Try to get fresh user location
+      final userLocation = await mapServices.getCurrentUserLocation();
+      
+      if (userLocation != null) {
+        // Center map with smooth animation
+        _mapController.move(userLocation, 16.0);
+        debugPrint('🗺️ [MAPVIEW] ✅ Centered map on user location: ${userLocation.latitude}, ${userLocation.longitude}');
+        
+        // Update state with fresh location
+        if (mounted) {
+          setState(() {
+            _userLocation = userLocation;
+            _isLoadingUserLocation = false;
+          });
+          
+          // Show success feedback
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Centered on your location'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        debugPrint('🗺️ [MAPVIEW] ❌ Cannot center on user - location not available');
+        
+        if (mounted) {
+          setState(() {
+            _isLoadingUserLocation = false;
+          });
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Your location is not available'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('🗺️ [MAPVIEW] ❌ Error centering on user: $e');
+      
+      if (mounted) {
+        setState(() {
+          _isLoadingUserLocation = false;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to get your location'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  /// Center map on device location with smooth animation
+  Future<void> _centerOnDevice() async {
+    debugPrint('🗺️ [MAPVIEW] Center on device button pressed');
+    
+    if (vehicleLocation != null) {
+      // Center map with smooth animation
+      _mapController.move(vehicleLocation!, 16.0);
+      debugPrint('🗺️ [MAPVIEW] ✅ Centered map on device location: ${vehicleLocation!.latitude}, ${vehicleLocation!.longitude}');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Centered on device location'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } else {
+      debugPrint('🗺️ [MAPVIEW] ❌ Cannot center on device - location not available');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Device location not available'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+
+  /// Build the floating centering buttons (bottom-right corner)
+  Widget _buildCenteringButtons() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Center to User Location button
+        Tooltip(
+          message: 'Center on your location',
+          child: Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(28),
+                onTap: _isLoadingUserLocation ? null : _centerOnUser,
+                child: Center(
+                  child: _isLoadingUserLocation
+                      ? SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                          ),
+                        )
+                      : Icon(
+                          Icons.my_location,
+                          color: _userLocation != null ? Colors.blue : Colors.grey,
+                          size: 28,
+                          semanticLabel: 'Center on your location',
+                        ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        
+        const SizedBox(height: 12),
+        
+        // Center to Device Location button
+        Tooltip(
+          message: 'Center on device location',
+          child: Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(28),
+                onTap: vehicleLocation != null ? _centerOnDevice : null,
+                child: Center(
+                  child: Icon(
+                    Icons.gps_fixed,
+                    color: vehicleLocation != null ? Colors.orange : Colors.grey,
+                    size: 28,
+                    semanticLabel: 'Center on device location',
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
