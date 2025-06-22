@@ -1135,6 +1135,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       isScrollControlled: true,
       builder:
           (context) => VehicleStatusPanel(
+            key: ValueKey('vehicle_panel_${currentDeviceId}_${DateTime.now().millisecondsSinceEpoch}'),
             locationName: hasGPSData ? locationName : 'GPS not available',
             latitude: latitude,
             longitude: longitude,
