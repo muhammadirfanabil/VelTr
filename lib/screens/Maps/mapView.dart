@@ -14,6 +14,7 @@ import '../../models/vehicle/vehicle.dart';
 import '../../services/device/deviceService.dart';
 import '../../services/Geofence/geofenceService.dart';
 import '../../services/notifications/enhanced_notification_service.dart';
+import '../../services/maps/mapsService.dart';
 import '../../models/Geofence/Geofence.dart';
 import '../../widgets/Map/mapWidget.dart';
 import '../../widgets/Common/stickyFooter.dart';
@@ -61,9 +62,12 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   String? waktuWita;
   bool isVehicleOn = false;
   bool isLoading = true;
-  bool hasGPSData = false;
-  bool showNoGPSDialog = false;
+  bool hasGPSData = false;  bool showNoGPSDialog = false;
   final MapController _mapController = MapController();
+  // User location state
+  StreamSubscription<LatLng?>? _userLocationSubscription;
+  LatLng? _userLocation;
+  bool _isLoadingUserLocation = false;
 
   // Default location (you can change this to your preferred default location)
   static const LatLng defaultLocation = LatLng(
@@ -74,16 +78,15 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   LatLng? get vehicleLocation =>
       (latitude != null && longitude != null)
           ? LatLng(latitude!, longitude!)
-          : null;
-  @override
+          : null;  @override
   void initState() {
-    super.initState();
-    _deviceService = DeviceService();
+    super.initState();    _deviceService = DeviceService();
     _vehicleService = VehicleService();
     _geofenceService =
         GeofenceService(); // Initialize with device name resolution
     _initializeDeviceId();
     _loadAvailableVehicles();
+    _initializeUserLocation();
   }
 
   Future<void> _initializeDeviceId() async {
@@ -127,16 +130,85 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       await _initializeWithDevice();
     }
   }
-
   @override
   void dispose() {
     // Cancel all listeners to prevent memory leaks
     _gpsListener?.cancel();
-    _relayListener?.cancel();
-    _vehicleListener?.cancel();
+    _relayListener?.cancel();    _vehicleListener?.cancel();
     _geofenceListener?.cancel();
+    _userLocationSubscription?.cancel();
     super.dispose();
   }
+  /// Initialize user location tracking
+  Future<void> _initializeUserLocation() async {
+    debugPrint('🗺️ [MAPVIEW] Initializing user location tracking...');
+    
+    setState(() {
+      _isLoadingUserLocation = true;
+    });
+
+    try {
+      // Check if location service is available first
+      bool isAvailable = await mapServices.isLocationServiceAvailable();
+      debugPrint('🗺️ [MAPVIEW] Location service available: $isAvailable');
+      
+      if (!isAvailable) {
+        debugPrint('🗺️ [MAPVIEW] Location service not available - cannot initialize user location');
+        setState(() {
+          _isLoadingUserLocation = false;
+        });
+        return;
+      }
+
+      // Get initial location
+      final initialLocation = await mapServices.getCurrentUserLocation();
+      debugPrint('🗺️ [MAPVIEW] Initial user location: $initialLocation');
+      
+      if (mounted && initialLocation != null) {
+        setState(() {
+          _userLocation = initialLocation;
+          _isLoadingUserLocation = false;
+        });
+        debugPrint('🗺️ [MAPVIEW] User location state updated successfully');
+      }
+
+      // Start location tracking stream
+      debugPrint('🗺️ [MAPVIEW] Starting location stream...');
+      _userLocationSubscription = mapServices.getUserLocationStream().listen(
+        (location) {
+          debugPrint('🗺️ [MAPVIEW] Received location update: $location');
+          if (mounted && location != null) {
+            setState(() {
+              _userLocation = location;
+            });
+            debugPrint('🗺️ [MAPVIEW] User location updated in UI: ${location.latitude}, ${location.longitude}');
+          }
+        },
+        onError: (error) {
+          debugPrint('🗺️ [MAPVIEW] Location stream error: $error');
+          if (mounted) {
+            setState(() {
+              _isLoadingUserLocation = false;
+            });
+          }
+        },
+        onDone: () {
+          debugPrint('🗺️ [MAPVIEW] Location stream ended');
+          if (mounted) {
+            setState(() {
+              _isLoadingUserLocation = false;
+            });
+          }
+        },
+      );
+    } catch (e) {
+      debugPrint('🗺️ [MAPVIEW] Failed to initialize user location: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingUserLocation = false;
+        });
+      }
+    }  }
 
   void _loadAvailableVehicles() {
     setState(() => isLoadingVehicles = true);
@@ -1197,8 +1269,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                   : Icon(
                     Icons.layers,
                     color: showGeofences ? Colors.blue : null,
-                  ),
-          onPressed: isLoadingGeofences ? null : _toggleGeofenceOverlay,
+                  ),          onPressed: isLoadingGeofences ? null : _toggleGeofenceOverlay,
         ),
         const SizedBox(width: 8),
         if (!hasGPSData)
@@ -1515,8 +1586,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                           ),
                         )
                         .toList(),
-              ),
-            if (hasGPSData && vehicleLocation != null)
+              ),            if (hasGPSData && vehicleLocation != null)
               MarkerLayer(
                 markers: [
                   Marker(
@@ -1528,6 +1598,12 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                       child: VehicleMarkerIcon(isOn: isVehicleOn),
                     ),
                   ),
+                ],
+              ),            // User location marker
+            if (_userLocation != null)
+              MarkerLayer(
+                markers: [
+                  mapServices.getUserLocationMarker(_userLocation)!,
                 ],
               ),
           ],
