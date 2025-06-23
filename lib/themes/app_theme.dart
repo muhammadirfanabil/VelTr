@@ -9,7 +9,7 @@ class AppTheme {
   // Light Theme
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,
-    brightness: Brightness.light,    // Color Scheme
+    brightness: Brightness.light, // Color Scheme
     colorScheme: AppColors.getColorScheme(false),
 
     // AppBar Theme
@@ -93,7 +93,7 @@ class AppTheme {
   // Dark Theme
   static ThemeData darkTheme = ThemeData(
     useMaterial3: true,
-    brightness: Brightness.dark,    // Color Scheme
+    brightness: Brightness.dark, // Color Scheme
     colorScheme: AppColors.getColorScheme(true),
 
     // AppBar Theme

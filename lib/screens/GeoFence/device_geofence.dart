@@ -59,7 +59,8 @@ class _DeviceListScreenState extends State<DeviceListScreen> {
 
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                child: ListTile(                  leading: Icon(AppIcons.device, color: AppColors.info),
+                child: ListTile(
+                  leading: Icon(AppIcons.device, color: AppColors.info),
                   title: Text(
                     displayName,
                     style: TextStyle(
@@ -71,7 +72,10 @@ class _DeviceListScreenState extends State<DeviceListScreen> {
                     'ID: $deviceId',
                     style: TextStyle(color: AppColors.textSecondary),
                   ),
-                  trailing: Icon(Icons.chevron_right, color: AppColors.textSecondary),
+                  trailing: Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textSecondary,
+                  ),
                   onTap: () {
                     Navigator.push(
                       context,

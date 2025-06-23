@@ -41,6 +41,7 @@ class NotificationCard extends StatelessWidget {
       child: _buildCard(),
     );
   }
+
   Widget _buildDeleteBackground() {
     return Container(
       alignment: Alignment.centerRight,
@@ -48,7 +49,8 @@ class NotificationCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.error,
         borderRadius: BorderRadius.circular(16),
-      ),      child: Column(
+      ),
+      child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(AppIcons.delete, color: Colors.white, size: 28),
@@ -68,7 +70,8 @@ class NotificationCard extends StatelessWidget {
 
   Widget _buildCard() {
     return GestureDetector(
-      onTap: onTap,      child: Container(
+      onTap: onTap,
+      child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: AppColors.surface,
@@ -156,7 +159,8 @@ class NotificationCard extends StatelessWidget {
   }
 
   Widget _buildTitle() {
-    return Text(      notification.title,
+    return Text(
+      notification.title,
       style: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w700,
@@ -218,6 +222,7 @@ class NotificationCard extends StatelessWidget {
       ],
     );
   }
+
   Widget _buildActionIndicator() {
     return Container(
       padding: const EdgeInsets.all(8),

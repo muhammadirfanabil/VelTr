@@ -9,7 +9,7 @@ class AppIcons {
   // ============================================================================
   // NAVIGATION & SYSTEM ICONS
   // ============================================================================
-  
+
   static const IconData home = Icons.home;
   static const IconData map = Icons.map;
   static const IconData notifications = Icons.notifications;
@@ -25,23 +25,25 @@ class AppIcons {
   // ============================================================================
   // DEVICE & VEHICLE ICONS
   // ============================================================================
-  
+
   static const IconData device = Icons.devices;
   static const IconData vehicle = Icons.directions_car;
   static const IconData motorcycle = Icons.motorcycle;
   static const IconData truck = Icons.local_shipping;
   static const IconData gps = Icons.gps_fixed;
   static const IconData gpsOff = Icons.gps_off;
-  static const IconData batteryFull = Icons.battery_full;  static const IconData batteryHalf = Icons.battery_std;
+  static const IconData batteryFull = Icons.battery_full;
+  static const IconData batteryHalf = Icons.battery_std;
   static const IconData batteryLow = Icons.battery_alert;
-  static const IconData batteryEmpty = Icons.battery_0_bar;static const IconData signal = Icons.signal_cellular_4_bar;
+  static const IconData batteryEmpty = Icons.battery_0_bar;
+  static const IconData signal = Icons.signal_cellular_4_bar;
   static const IconData signalWeak = Icons.signal_cellular_alt;
   static const IconData signalOff = Icons.signal_cellular_off;
 
   // ============================================================================
   // MAP & LOCATION ICONS
   // ============================================================================
-  
+
   static const IconData location = Icons.location_on;
   static const IconData locationOff = Icons.location_off;
   static const IconData myLocation = Icons.my_location;
@@ -58,7 +60,7 @@ class AppIcons {
   // ============================================================================
   // NOTIFICATION ICONS
   // ============================================================================
-  
+
   static const IconData notificationBell = Icons.notifications;
   static const IconData notificationAlert = Icons.notification_important;
   static const IconData notificationClear = Icons.clear_all;
@@ -72,7 +74,7 @@ class AppIcons {
   // ============================================================================
   // ACTION ICONS
   // ============================================================================
-  
+
   static const IconData add = Icons.add;
   static const IconData edit = Icons.edit;
   static const IconData delete = Icons.delete;
@@ -90,7 +92,7 @@ class AppIcons {
   // ============================================================================
   // STATUS ICONS
   // ============================================================================
-  
+
   static const IconData online = Icons.circle;
   static const IconData offline = Icons.circle_outlined;
   static const IconData active = Icons.play_circle_filled;
@@ -104,7 +106,7 @@ class AppIcons {
   // ============================================================================
   // TIME & HISTORY ICONS
   // ============================================================================
-  
+
   static const IconData history = Icons.history;
   static const IconData time = Icons.access_time;
   static const IconData calendar = Icons.calendar_today;
@@ -115,7 +117,7 @@ class AppIcons {
   // ============================================================================
   // USER & ACCOUNT ICONS
   // ============================================================================
-  
+
   static const IconData user = Icons.person;
   static const IconData userCircle = Icons.account_circle;
   static const IconData users = Icons.group;
@@ -127,7 +129,7 @@ class AppIcons {
   // ============================================================================
   // CUSTOM ASSET ICONS
   // ============================================================================
-  
+
   /// Custom app icon paths
   static const String appIconSvg = 'assets/icons/appicon1.svg';
   static const String appIconBlack = 'assets/icons/appiconblk.svg';
@@ -139,7 +141,7 @@ class AppIcons {
   // ============================================================================
   // UTILITY METHODS
   // ============================================================================
-  
+
   /// Get icon for vehicle type
   static IconData getVehicleIcon(String? vehicleType) {
     switch (vehicleType?.toLowerCase()) {
@@ -154,7 +156,7 @@ class AppIcons {
         return vehicle;
     }
   }
-  
+
   /// Get icon for battery level
   static IconData getBatteryIcon(int batteryLevel) {
     if (batteryLevel > 75) return batteryFull;
@@ -162,13 +164,14 @@ class AppIcons {
     if (batteryLevel > 25) return batteryLow;
     return batteryEmpty;
   }
-    /// Get icon for signal strength
+
+  /// Get icon for signal strength
   static IconData getSignalIcon(int signalStrength) {
     if (signalStrength > 75) return signal;
     if (signalStrength > 25) return signalWeak;
     return signalOff;
   }
-  
+
   /// Get icon for notification type
   static IconData getNotificationIcon(String notificationType) {
     switch (notificationType.toLowerCase()) {
@@ -188,7 +191,7 @@ class AppIcons {
         return notificationBell;
     }
   }
-  
+
   /// Get icon for geofence status
   static IconData getGeofenceIcon(String status) {
     switch (status.toLowerCase()) {
@@ -207,7 +210,7 @@ class AppIcons {
         return geofence;
     }
   }
-  
+
   /// Get icon for device status
   static IconData getDeviceStatusIcon(bool isOnline, bool hasGps) {
     if (!isOnline) return offline;

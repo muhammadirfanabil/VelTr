@@ -172,9 +172,13 @@ class _GeofenceStatusIndicatorState extends State<GeofenceStatusIndicator>
           animation: _pulseAnimation,
           builder: (context, child) {
             return Transform.scale(
-              scale: insideCount > 0 ? _pulseAnimation.value : 1.0,              child: Icon(
+              scale: insideCount > 0 ? _pulseAnimation.value : 1.0,
+              child: Icon(
                 insideCount > 0 ? AppIcons.gps : AppIcons.gpsOff,
-                color: insideCount > 0 ? AppColors.success : AppColors.textTertiary,
+                color:
+                    insideCount > 0
+                        ? AppColors.success
+                        : AppColors.textTertiary,
                 size: 20,
               ),
             );
@@ -186,7 +190,8 @@ class _GeofenceStatusIndicatorState extends State<GeofenceStatusIndicator>
             widget.deviceName,
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
           ),
-        ),        Container(
+        ),
+        Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: insideCount > 0 ? AppColors.success : AppColors.textTertiary,
@@ -206,7 +211,8 @@ class _GeofenceStatusIndicatorState extends State<GeofenceStatusIndicator>
   }
 
   Widget _buildInsideGeofences(List<GeofenceStatus> statuses) {
-    return Container(      padding: const EdgeInsets.all(8),
+    return Container(
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: AppColors.successLight,
         borderRadius: BorderRadius.circular(8),
@@ -229,7 +235,8 @@ class _GeofenceStatusIndicatorState extends State<GeofenceStatusIndicator>
               ),
             ],
           ),
-          const SizedBox(height: 4),          ...statuses.map(
+          const SizedBox(height: 4),
+          ...statuses.map(
             (status) => _buildGeofenceItem(
               status.geofence.name,
               AppIcons.location,
@@ -242,7 +249,8 @@ class _GeofenceStatusIndicatorState extends State<GeofenceStatusIndicator>
   }
 
   Widget _buildOutsideGeofences(List<GeofenceStatus> statuses) {
-    return Container(      padding: const EdgeInsets.all(8),
+    return Container(
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: AppColors.backgroundSecondary,
         borderRadius: BorderRadius.circular(8),
@@ -253,7 +261,11 @@ class _GeofenceStatusIndicatorState extends State<GeofenceStatusIndicator>
         children: [
           Row(
             children: [
-              Icon(AppIcons.locationOff, color: AppColors.textSecondary, size: 16),
+              Icon(
+                AppIcons.locationOff,
+                color: AppColors.textSecondary,
+                size: 16,
+              ),
               const SizedBox(width: 4),
               Text(
                 'Outside Geofences',
@@ -277,6 +289,7 @@ class _GeofenceStatusIndicatorState extends State<GeofenceStatusIndicator>
       ),
     );
   }
+
   Widget _buildGeofenceItem(String name, IconData icon, Color color) {
     return Padding(
       padding: const EdgeInsets.only(top: 2),

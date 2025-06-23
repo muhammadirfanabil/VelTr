@@ -24,9 +24,11 @@ class _EnhancedNotificationsScreenState
       UnifiedNotificationService();
 
   @override
-  Widget build(BuildContext context) {    return Scaffold(
+  Widget build(BuildContext context) {
+    return Scaffold(
       backgroundColor: AppColors.backgroundPrimary,
-      appBar: AppBar(        leading: IconButton(
+      appBar: AppBar(
+        leading: IconButton(
           icon: Icon(AppIcons.back, size: 20),
           onPressed:
               () => Navigator.pushReplacementNamed(
@@ -50,9 +52,13 @@ class _EnhancedNotificationsScreenState
           StreamBuilder<List<UnifiedNotification>>(
             stream: _notificationService.getNotificationsStream(),
             builder: (context, snapshot) {
-              if (snapshot.hasData && snapshot.data!.isNotEmpty) {                return IconButton(
+              if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                return IconButton(
                   onPressed: () => _showClearAllConfirmation(context),
-                  icon: Icon(AppIcons.notificationClear, color: AppColors.textSecondary),
+                  icon: Icon(
+                    AppIcons.notificationClear,
+                    color: AppColors.textSecondary,
+                  ),
                   tooltip: 'Clear all notifications',
                 );
               }
@@ -76,7 +82,8 @@ class _EnhancedNotificationsScreenState
               child: StreamBuilder<List<NotificationDateGroup>>(
                 stream: _notificationService.getGroupedNotificationsStream(),
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {                    return Center(
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -102,7 +109,8 @@ class _EnhancedNotificationsScreenState
                     return Center(
                       child: Container(
                         margin: const EdgeInsets.all(24),
-                        padding: const EdgeInsets.all(32),                        decoration: BoxDecoration(
+                        padding: const EdgeInsets.all(32),
+                        decoration: BoxDecoration(
                           color: AppColors.surface,
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
@@ -126,7 +134,8 @@ class _EnhancedNotificationsScreenState
                                 AppIcons.error,
                                 size: 48,
                                 color: AppColors.error,
-                              ),                            ),
+                              ),
+                            ),
                             const SizedBox(height: 16),
                             Text(
                               'Something went wrong',
@@ -154,7 +163,8 @@ class _EnhancedNotificationsScreenState
                     return Center(
                       child: Container(
                         margin: const EdgeInsets.all(24),
-                        padding: const EdgeInsets.all(40),                        decoration: BoxDecoration(
+                        padding: const EdgeInsets.all(40),
+                        decoration: BoxDecoration(
                           color: AppColors.surface,
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
@@ -166,7 +176,8 @@ class _EnhancedNotificationsScreenState
                           ],
                         ),
                         child: Column(
-                          mainAxisSize: MainAxisSize.min,                          children: [
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
                             Container(
                               padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(

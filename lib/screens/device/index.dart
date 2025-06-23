@@ -28,6 +28,7 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
       body: _buildBody(),
     );
   }
+
   PreferredSizeWidget _buildAppBar(ThemeData theme, ColorScheme colorScheme) {
     return AppBar(
       leading: IconButton(
@@ -62,6 +63,7 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
       ],
     );
   }
+
   Widget _buildBody() {
     return Container(
       decoration: BoxDecoration(
@@ -566,7 +568,8 @@ class DeviceCard extends StatelessWidget {
     ],
   );
 
-  Widget _buildTapHint() => Container(    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+  Widget _buildTapHint() => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
     decoration: BoxDecoration(
       color: AppColors.infoLight,
       borderRadius: BorderRadius.circular(4),
@@ -590,7 +593,8 @@ class DeviceCard extends StatelessWidget {
   );
 
   Widget _buildLinkToVehicleButton() {
-    if (onLinkToVehicle == null) return const SizedBox.shrink();    return Container(
+    if (onLinkToVehicle == null) return const SizedBox.shrink();
+    return Container(
       width: double.infinity,
       child: ElevatedButton.icon(
         onPressed: onLinkToVehicle,

@@ -10,10 +10,12 @@ import 'package:flutter/services.dart';
 import '../../models/Geofence/Geofence.dart';
 import '../../services/Geofence/geofenceService.dart';
 import '../../services/device/deviceService.dart';
+import '../../services/maps/map_markers_service.dart';
 import '../../widgets/Map/mapWidget.dart';
 import '../../widgets/Common/error_card.dart';
 import '../../widgets/Common/loading_overlay.dart';
 import '../../widgets/Common/confirmation_dialog.dart';
+import '../../theme/app_colors.dart';
 import '../../utils/snackbar.dart';
 import 'index.dart';
 
@@ -211,6 +213,9 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
                 debugPrint(
                   '✅ [DEVICE_GPS] Device location updated: $lat, $lon',
                 );
+
+                // Center map on both locations when device location is available
+                _centerMapOnLocations();
               } else {
                 debugPrint('⚠️ [DEVICE_GPS] Invalid GPS coordinates received');
               }
@@ -589,6 +594,46 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
     );
   }
 
+  /// Centers the map on both user and device locations when available
+  void _centerMapOnLocations() {
+    if (currentLocation == null) return;
+
+    try {
+      if (deviceLocation != null) {
+        // If both locations are available, calculate center point
+        final centerLat =
+            (currentLocation!.latitude + deviceLocation!.latitude) / 2;
+        final centerLng =
+            (currentLocation!.longitude + deviceLocation!.longitude) / 2;
+        _mapController.move(LatLng(centerLat, centerLng), 14.0);
+      } else {
+        // If only user location is available, center on user
+        _mapController.move(currentLocation!, 15.0);
+      }
+    } catch (e) {
+      debugPrint('Error centering map: $e');
+    }
+  }
+  /// Builds the current user location marker (blue dot) using centralized service
+  Widget _buildCurrentLocationMarker() {
+    if (currentLocation == null) return const SizedBox.shrink();
+
+    return MapMarkersService.createUserLocationMarker(currentLocation!);
+  }
+  /// Builds the device location marker using centralized service
+  Widget _buildDeviceLocationMarker() {
+    // Don't show device marker if location is not available
+    if (deviceLocation == null) {
+      return const SizedBox.shrink();
+    }
+
+    return MapMarkersService.createDeviceLocationMarker(
+      deviceLocation!,
+      isLoading: isLoadingDeviceLocation,
+      deviceName: deviceName,
+    );
+  }
+
   Widget _buildActionButtons() {
     final theme = Theme.of(context);
 
@@ -755,9 +800,9 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
                                 points: polygonPoints,
                                 color:
                                     showPolygon
-                                        ? theme.colorScheme.primary
-                                        : theme.colorScheme.primary.withOpacity(
-                                          0.7,
+                                        ? AppColors.primaryBlue
+                                        : AppColors.primaryBlue.withValues(
+                                          alpha: 0.7,
                                         ),
                                 strokeWidth: 3.0,
                               ),
@@ -769,49 +814,24 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
                             polygons: [
                               Polygon(
                                 points: [...polygonPoints, polygonPoints.first],
-                                color: theme.colorScheme.primary.withOpacity(
-                                  0.3,
+                                color: AppColors.primaryBlue.withValues(
+                                  alpha: 0.3,
                                 ),
-                                borderColor: theme.colorScheme.primary,
+                                borderColor: AppColors.primaryBlue,
                                 borderStrokeWidth: 3,
                               ),
                             ],
+                          ),                        // Polygon point markers using centralized service
+                        if (polygonPoints.isNotEmpty)
+                          MapMarkersService.createPolygonPointMarkers(
+                            polygonPoints,
                           ),
-                        MarkerLayer(
-                          markers:
-                              polygonPoints.asMap().entries.map((entry) {
-                                final index = entry.key + 1;
-                                final point = entry.value;
-                                return Marker(
-                                  point: point,
-                                  width: 40,
-                                  height: 40,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: theme.colorScheme.secondary,
-                                      shape: BoxShape.circle,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.3),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        '$index',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: theme.colorScheme.onSecondary,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                        ),
+                        // User location marker (blue dot)
+                        if (currentLocation != null)
+                          _buildCurrentLocationMarker(),
+                        // Device location marker
+                        if (deviceLocation != null)
+                          _buildDeviceLocationMarker(),
                       ],
                     ),
                   ),

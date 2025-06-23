@@ -58,6 +58,7 @@ enum GeofenceAction {
         return Icons.help_outline_rounded;
     }
   }
+
   Color get color {
     switch (this) {
       case GeofenceAction.enter:
@@ -227,6 +228,7 @@ class UnifiedNotification {
     }
     return Icons.notifications_rounded;
   }
+
   /// Get color based on notification type
   Color get color {
     if (type == NotificationType.geofence && geofenceAction != null) {

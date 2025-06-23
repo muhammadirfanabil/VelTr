@@ -8,6 +8,7 @@ import 'dart:math' as math;
 import '../../models/Geofence/Geofence.dart';
 import '../../services/Geofence/geofenceService.dart';
 import '../../services/device/deviceService.dart';
+import '../../services/maps/map_markers_service.dart';
 import '../../widgets/Map/mapWidget.dart';
 import 'package:flutter/services.dart';
 
@@ -259,7 +260,8 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
             Navigator.of(context).pop();
           }
         }
-      },      child: Scaffold(
+      },
+      child: Scaffold(
         backgroundColor: AppColors.backgroundPrimary,
         appBar: _buildAppBar(),
         body: _buildBody(),
@@ -294,6 +296,7 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
       },
     );
   }
+
   Widget _buildFallbackMap() {
     return Container(
       width: double.infinity,
@@ -330,16 +333,13 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
       ),
     );
   }
+
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       elevation: 0,
       backgroundColor: AppColors.backgroundPrimary,
       leading: IconButton(
-        icon: Icon(
-          AppIcons.back,
-          color: AppColors.primaryBlue,
-          size: 20,
-        ),
+        icon: Icon(AppIcons.back, color: AppColors.primaryBlue, size: 20),
         onPressed: () => Navigator.pop(context),
       ),
       title: Text(
@@ -372,7 +372,8 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
         polygonPoints.isNotEmpty ? polygonPoints.first : const LatLng(0, 0);
 
     return MapWidget(
-      mapController: _mapController,      options: MapOptions(
+      mapController: _mapController,
+      options: MapOptions(
         initialCenter: center,
         initialZoom: 15.0,
         onTap: _onMapTap,
@@ -399,6 +400,7 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
       ],
     );
   }
+
   Widget _buildPolylineLayer() {
     if (polygonPoints.length < 2) return const SizedBox.shrink();
 
@@ -428,133 +430,24 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
       ],
     );
   }
-
   Widget _buildMarkerLayer() {
-    return MarkerLayer(
-      markers:
-          polygonPoints.asMap().entries.map((entry) {
-            final index = entry.key + 1;
-            final point = entry.value;
-            return Marker(
-              point: point,
-              width: 40,
-              height: 40,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppColors.accentRed,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.textPrimary.withValues(alpha: 0.3),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Text(
-                    '$index',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.backgroundPrimary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-    );
+    return MapMarkersService.createPolygonPointMarkers(polygonPoints);
   }
   Widget _buildCurrentLocationMarker() {
     if (currentLocation == null) return const SizedBox.shrink();
 
-    return MarkerLayer(
-      markers: [
-        Marker(
-          point: currentLocation!,
-          width: 20,
-          height: 20,
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.info,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.backgroundPrimary, width: 3),
-            ),
-          ),
-        ),
-      ],
-    );
+    return MapMarkersService.createUserLocationMarker(currentLocation!);
   }
-
   Widget _buildDeviceLocationMarker() {
     // Don't show device marker if location is not available
     if (deviceLocation == null) {
       return const SizedBox.shrink();
     }
 
-    return MarkerLayer(
-      markers: [        Marker(
-          point: deviceLocation!,
-          width: 40,
-          height: 40,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Outer ring for better visibility
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.warning.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.warning, width: 2),
-                ),
-              ),
-              // Inner device marker
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: AppColors.warning,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.backgroundPrimary, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.textPrimary.withValues(alpha: 0.3),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Icon(AppIcons.gps, color: AppColors.backgroundPrimary, size: 14),
-              ),
-              // Loading indicator if still loading
-              if (isLoadingDeviceLocation)
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.backgroundPrimary.withValues(alpha: 0.8),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            AppColors.warning,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ],
+    return MapMarkersService.createDeviceLocationMarker(
+      deviceLocation!,
+      isLoading: isLoadingDeviceLocation,
+      deviceName: deviceName,
     );
   }
 
@@ -564,7 +457,8 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
     return Positioned(
       bottom: 20,
       left: 16,
-      right: 16,      child: Column(
+      right: 16,
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           // Show points info when available
@@ -593,10 +487,7 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
                         ),
                         Text(
                           '${polygonPoints.length} points defined${polygonPoints.length >= 3 ? " (Valid geofence)" : " (Minimum 3 required)"}',
-                          style: TextStyle(
-                            color: AppColors.info,
-                            fontSize: 11,
-                          ),
+                          style: TextStyle(color: AppColors.info, fontSize: 11),
                         ),
                       ],
                     ),

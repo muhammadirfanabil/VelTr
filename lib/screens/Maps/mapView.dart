@@ -22,7 +22,6 @@ import '../../widgets/motoricon.dart';
 import '../../widgets/tracker.dart';
 import '../../theme/app_colors.dart';
 
-
 class GPSMapScreen extends StatefulWidget {
   final String deviceId;
   final String userId;
@@ -450,8 +449,12 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                                     decoration: BoxDecoration(
                                       color:
                                           isSelected
-                                              ? AppColors.info.withValues(alpha: 0.1)
-                                              : AppColors.surface.withValues(alpha: 0.1),
+                                              ? AppColors.info.withValues(
+                                                alpha: 0.1,
+                                              )
+                                              : AppColors.surface.withValues(
+                                                alpha: 0.1,
+                                              ),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Icon(
@@ -548,7 +551,9 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                                 width: 40,
                                 height: 40,
                                 decoration: BoxDecoration(
-                                  color: AppColors.warning.withValues(alpha: 0.1),
+                                  color: AppColors.warning.withValues(
+                                    alpha: 0.1,
+                                  ),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: const Icon(
@@ -1139,7 +1144,9 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       isScrollControlled: true,
       isDismissible: true, // Enable background tap and back button dismissal
       enableDrag: true, // Allow dragging to dismiss
-      barrierColor: AppColors.surface.withValues(alpha: 0.5), // Semi-transparent overlay for visual feedback
+      barrierColor: AppColors.surface.withValues(
+        alpha: 0.5,
+      ), // Semi-transparent overlay for visual feedback
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
