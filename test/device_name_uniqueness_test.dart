@@ -7,11 +7,20 @@ import '../lib/models/Device/device.dart';
 
 // Mock classes
 class MockFirebaseFirestore extends Mock implements FirebaseFirestore {}
-class MockCollectionReference extends Mock implements CollectionReference<Map<String, dynamic>> {}
-class MockQuerySnapshot extends Mock implements QuerySnapshot<Map<String, dynamic>> {}
-class MockQueryDocumentSnapshot extends Mock implements QueryDocumentSnapshot<Map<String, dynamic>> {}
+
+class MockCollectionReference extends Mock
+    implements CollectionReference<Map<String, dynamic>> {}
+
+class MockQuerySnapshot extends Mock
+    implements QuerySnapshot<Map<String, dynamic>> {}
+
+class MockQueryDocumentSnapshot extends Mock
+    implements QueryDocumentSnapshot<Map<String, dynamic>> {}
+
 class MockQuery extends Mock implements Query<Map<String, dynamic>> {}
+
 class MockFirebaseAuth extends Mock implements FirebaseAuth {}
+
 class MockUser extends Mock implements User {}
 
 void main() {
@@ -45,10 +54,13 @@ void main() {
 
     test('should allow unique device names', () async {
       // Arrange
-      when(mockCollection.where('name', isEqualTo: 'UniqueDevice'))
-          .thenReturn(mockQuery);
+      when(
+        mockCollection.where('name', isEqualTo: 'UniqueDevice'),
+      ).thenReturn(mockQuery);
       when(mockQuery.get()).thenAnswer((_) async => mockSnapshot);
-      when(mockSnapshot.docs).thenReturn([]); // No existing devices with this name
+      when(
+        mockSnapshot.docs,
+      ).thenReturn([]); // No existing devices with this name
 
       // Act & Assert
       expect(
@@ -61,20 +73,25 @@ void main() {
       // Arrange
       final mockDoc = MockQueryDocumentSnapshot();
       when(mockDoc.id).thenReturn('existing-device-id');
-      
-      when(mockCollection.where('name', isEqualTo: 'DuplicateDevice'))
-          .thenReturn(mockQuery);
+
+      when(
+        mockCollection.where('name', isEqualTo: 'DuplicateDevice'),
+      ).thenReturn(mockQuery);
       when(mockQuery.get()).thenAnswer((_) async => mockSnapshot);
-      when(mockSnapshot.docs).thenReturn([mockDoc]); // Existing device with this name
+      when(
+        mockSnapshot.docs,
+      ).thenReturn([mockDoc]); // Existing device with this name
 
       // Act & Assert
       expect(
         () async => await deviceService.addDevice(name: 'DuplicateDevice'),
-        throwsA(isA<Exception>().having(
-          (e) => e.toString(),
-          'message',
-          contains('Device name "DuplicateDevice" is already in use'),
-        )),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            contains('Device name "DuplicateDevice" is already in use'),
+          ),
+        ),
       );
     });
 
@@ -82,9 +99,10 @@ void main() {
       // Arrange
       final mockDoc = MockQueryDocumentSnapshot();
       when(mockDoc.id).thenReturn('device-id-123');
-      
-      when(mockCollection.where('name', isEqualTo: 'ExistingDevice'))
-          .thenReturn(mockQuery);
+
+      when(
+        mockCollection.where('name', isEqualTo: 'ExistingDevice'),
+      ).thenReturn(mockQuery);
       when(mockQuery.get()).thenAnswer((_) async => mockSnapshot);
       when(mockSnapshot.docs).thenReturn([mockDoc]); // Same device
 
@@ -108,11 +126,14 @@ void main() {
       // Arrange
       final mockDoc = MockQueryDocumentSnapshot();
       when(mockDoc.id).thenReturn('different-device-id');
-      
-      when(mockCollection.where('name', isEqualTo: 'ExistingDevice'))
-          .thenReturn(mockQuery);
+
+      when(
+        mockCollection.where('name', isEqualTo: 'ExistingDevice'),
+      ).thenReturn(mockQuery);
       when(mockQuery.get()).thenAnswer((_) async => mockSnapshot);
-      when(mockSnapshot.docs).thenReturn([mockDoc]); // Different device with this name
+      when(
+        mockSnapshot.docs,
+      ).thenReturn([mockDoc]); // Different device with this name
 
       // Create a mock device trying to update to existing name
       final device = Device(
@@ -126,11 +147,13 @@ void main() {
       // Act & Assert
       expect(
         () async => await deviceService.updateDevice(device),
-        throwsA(isA<Exception>().having(
-          (e) => e.toString(),
-          'message',
-          contains('Device name "ExistingDevice" is already in use'),
-        )),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            contains('Device name "ExistingDevice" is already in use'),
+          ),
+        ),
       );
     });
   });

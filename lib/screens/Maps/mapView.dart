@@ -20,6 +20,8 @@ import '../../widgets/Map/mapWidget.dart';
 import '../../widgets/Common/stickyFooter.dart';
 import '../../widgets/motoricon.dart';
 import '../../widgets/tracker.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_icons.dart';
 
 class GPSMapScreen extends StatefulWidget {
   final String deviceId;

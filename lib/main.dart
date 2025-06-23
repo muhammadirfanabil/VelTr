@@ -284,7 +284,8 @@ class MyApp extends StatelessWidget {
       },
       '/home': (context) => const DeviceRouterScreen(),
       '/profile': (context) => const ProfilePage(),
-      '/edit-profile': (context) => const EditProfileScreen(),      '/notifications': (context) => const EnhancedNotificationsScreen(),
+      '/edit-profile': (context) => const EditProfileScreen(),
+      '/notifications': (context) => const EnhancedNotificationsScreen(),
       '/vehicle': (context) => const VehicleIndexScreen(),
       '/manage-vehicle': (context) => const ManageVehicle(),
       '/drive-history': (context) {

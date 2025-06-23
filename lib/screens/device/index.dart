@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/Device/device.dart';
-import '../../models/vehicle/vehicle.dart';
 import '../../services/device/deviceService.dart';
-import '../../services/vehicle/vehicleService.dart';
-import '../../widgets/device/device_card.dart';
 import '../../widgets/Common/error_card.dart';
 import '../../constants/app_constants.dart';
 import '../../utils/snackbar.dart';
@@ -18,7 +15,6 @@ class DeviceManagerScreen extends StatefulWidget {
 
 class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
   final DeviceService _deviceService = DeviceService();
-  final VehicleService _vehicleService = VehicleService();
 
   @override
   Widget build(BuildContext context) {
@@ -388,146 +384,6 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
     }
   }
 
-  void _showLinkToVehicleDialog(Device device) async {
-    try {
-      // Get vehicles that don't have devices attached
-      final vehicleStream = _vehicleService.getVehiclesStream();
-      final allVehicles = await vehicleStream.first;
-      final unlinkedVehicles =
-          allVehicles
-              .where(
-                (vehicle) =>
-                    vehicle.deviceId == null || vehicle.deviceId!.isEmpty,
-              )
-              .toList();
-
-      if (unlinkedVehicles.isEmpty) {
-        _showNoUnlinkedVehiclesDialog();
-        return;
-      }
-
-      showDialog(
-        context: context,
-        builder:
-            (context) => AlertDialog(
-              title: const Text('Link Device to Vehicle'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Select a vehicle to link with "${device.name}":'),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.maxFinite,
-                    height: 200,
-                    child: ListView.builder(
-                      itemCount: unlinkedVehicles.length,
-                      itemBuilder: (context, index) {
-                        final vehicle = unlinkedVehicles[index];
-                        return ListTile(
-                          leading: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Icon(
-                              Icons.directions_car,
-                              color: Colors.blue,
-                            ),
-                          ),
-                          title: Text(vehicle.name),
-                          subtitle:
-                              vehicle.plateNumber != null
-                                  ? Text(vehicle.plateNumber!)
-                                  : null,
-                          trailing: const Icon(
-                            Icons.arrow_forward_ios,
-                            size: 16,
-                          ),
-                          onTap: () {
-                            Navigator.pop(context);
-                            _linkDeviceToVehicle(device, vehicle);
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-              ],
-            ),
-      );
-    } catch (e) {
-      _showSnackBar('Error loading vehicles: $e', Colors.red);
-    }
-  }
-
-  void _showNoUnlinkedVehiclesDialog() {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('No Available Vehicles'),
-            content: const Text(
-              'All vehicles already have devices attached. '
-              'You need to add a new vehicle or unlink an existing device first.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/vehicle');
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Add Vehicle'),
-              ),
-            ],
-          ),
-    );
-  }
-
-  Future<void> _linkDeviceToVehicle(Device device, vehicle vehicleObj) async {
-    try {
-      // Update device with vehicle ID
-      await _deviceService.assignDeviceToVehicle(device.id, vehicleObj.id);
-
-      // Update vehicle with device ID
-      await _vehicleService.updateVehicle(
-        vehicleObj.copyWith(deviceId: device.id, updatedAt: DateTime.now()),
-      );
-      _showSnackBar(
-        'Device "${device.name}" linked to vehicle "${vehicleObj.name}" successfully',
-        Colors.green,
-      );
-    } catch (e) {
-      _showSnackBar('Error linking device to vehicle: $e', Colors.red);
-    }
-  }
-
-  void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: color,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
   void _showSuccessSnackbar(String message) {
     ScaffoldMessenger.of(
       context,
@@ -539,9 +395,6 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
       context,
     ).showSnackBar(SnackbarUtils.showError(context, message));
   }
-
-  String _formatDate(DateTime dateTime) =>
-      '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
 }
 
 class DeviceCard extends StatelessWidget {

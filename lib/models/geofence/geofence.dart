@@ -5,8 +5,11 @@ class GeofencePoint {
   final double longitude;
 
   const GeofencePoint({required this.latitude, required this.longitude});
-
   Map<String, dynamic> toMap() {
+    return {'latitude': latitude, 'longitude': longitude};
+  }
+
+  Map<String, dynamic> toJson() {
     return {'latitude': latitude, 'longitude': longitude};
   }
 
@@ -14,6 +17,13 @@ class GeofencePoint {
     return GeofencePoint(
       latitude: (map['latitude'] ?? map['lat'] ?? 0.0).toDouble(),
       longitude: (map['longitude'] ?? map['lng'] ?? 0.0).toDouble(),
+    );
+  }
+
+  factory GeofencePoint.fromJson(Map<String, dynamic> json) {
+    return GeofencePoint(
+      latitude: (json['latitude'] ?? json['lat'] ?? 0.0).toDouble(),
+      longitude: (json['longitude'] ?? json['lng'] ?? 0.0).toDouble(),
     );
   }
 
@@ -75,6 +85,27 @@ class Geofence {
     );
   }
 
+  /// Creates a Geofence instance from JSON data
+  factory Geofence.fromJson(Map<String, dynamic> json) {
+    return Geofence(
+      id: json['id'] ?? '',
+      deviceId: json['deviceId'] ?? '',
+      ownerId: json['ownerId'] ?? '',
+      name: json['name'] ?? '',
+      address: json['address'],
+      points:
+          List<Map<String, dynamic>>.from(
+            json['points'] ?? [],
+          ).map((point) => GeofencePoint.fromMap(point)).toList(),
+      status: json['status'] ?? true,
+      createdAt: DateTime.parse(
+        json['createdAt'] ?? DateTime.now().toIso8601String(),
+      ),
+      updatedAt:
+          json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+    );
+  }
+
   /// Converts Geofence instance to a map for Firestore
   Map<String, dynamic> toMap() {
     return {
@@ -86,6 +117,21 @@ class Geofence {
       'status': status,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
+    };
+  }
+
+  /// Converts Geofence instance to JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'deviceId': deviceId,
+      'ownerId': ownerId,
+      'name': name,
+      'address': address,
+      'points': points.map((point) => point.toMap()).toList(),
+      'status': status,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt?.toIso8601String(),
     };
   }
 
