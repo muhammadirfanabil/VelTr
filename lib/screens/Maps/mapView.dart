@@ -38,6 +38,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   late final VehicleService _vehicleService;
   late final GeofenceService _geofenceService;
   String? currentDeviceId;
+  String? currentVehicleId; // Track current vehicle ID for geofences
   String? deviceName;
 
   // Firebase listeners for proper disposal
@@ -108,6 +109,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
         currentDeviceId =
             deviceName ??
             widget.deviceId; // Use device.name or fallback to widget.deviceId
+        currentVehicleId = widget.deviceId; // Initialize with widget device ID for geofences
       });
       debugPrint('🔧 [DEVICE_INIT] Current device ID set to: $currentDeviceId');
       debugPrint(
@@ -118,7 +120,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       // Initialize geofence overlay with simple loading (like add/update flow)
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          _loadGeofenceOverlayData();
+          _loadGeofenceOverlayDataForVehicle(currentVehicleId ?? widget.deviceId);
         }
       });
     } catch (e) {
@@ -126,6 +128,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       // Fallback to using widget.deviceId directly
       setState(() {
         currentDeviceId = widget.deviceId;
+        currentVehicleId = widget.deviceId; // Also set fallback for vehicle ID
       });
       debugPrint(
         '🔧 [DEVICE_INIT] Fallback - using widget.deviceId: $currentDeviceId',
@@ -269,6 +272,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     setState(() {
       isLoading = true;
       deviceName = vehicleName;
+      currentVehicleId = vehicleId; // Update current vehicle ID for geofences
       // Reset current data
       latitude = null;
       longitude = null;
@@ -1495,8 +1499,8 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
         // Always show the map, with GPS location if available, otherwise default location
         MapWidget(
           key: ValueKey(
-            'map_${widget.deviceId}',
-          ), // Force rebuild on device change
+            'map_${currentDeviceId}_${deviceGeofences.length}_${showGeofences ? 'overlay' : 'no-overlay'}',
+          ), // Force rebuild on device change, geofence count change, or overlay state change
           mapController: _mapController,
           options: MapOptions(
             initialCenter: mapCenter,
@@ -1516,6 +1520,13 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
               subdomains: const ['a', 'b', 'c'],
               userAgentPackageName: 'com.example.gps_app',
               maxZoom: 18,
+            ),
+            // Debug map rendering state
+            Builder(
+              builder: (context) {
+                debugPrint('🗺️ [MAP_RENDER] Building map layers - showGeofences: $showGeofences, geofence count: ${deviceGeofences.length}');
+                return const SizedBox.shrink();
+              },
             ),
             // Geofence polygons - render before markers for proper layering
             if (showGeofences && deviceGeofences.isNotEmpty) ...[
@@ -1549,7 +1560,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
               Builder(
                 builder: (context) {
                   if (showGeofences && deviceGeofences.isEmpty) {
-                    debugPrint('🗺️ [GEOFENCE_RENDER] Overlay enabled but no geofences to render (count: 0)');
+                    debugPrint('🗺️ [GEOFENCE_RENDER] Overlay enabled but no geofences to render (count: 0) - SHOULD CLEAR PREVIOUS OVERLAYS');
                   } else if (!showGeofences && deviceGeofences.isNotEmpty) {
                     debugPrint('🗺️ [GEOFENCE_RENDER] Geofences available (${deviceGeofences.length}) but overlay disabled');
                   } else if (!showGeofences && deviceGeofences.isEmpty) {
@@ -1894,6 +1905,15 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
           final geo = geofences[i];
           debugPrint('   Geofence $i: ${geo.name} (${geo.points.length} points, Device: ${geo.deviceId})');
         }
+        
+        // Special handling for empty geofence lists to ensure proper clearing
+        if (geofences.isEmpty) {
+          debugPrint('🧹 [MAP_OVERLAY_SIMPLE] No geofences found for device ${widget.deviceId} - ensuring overlay is properly cleared');
+          setState(() {
+            deviceGeofences = [];
+            showGeofences = false; // Disable overlay when no geofences are available
+          });
+        }
       }
     } catch (e) {
       debugPrint('❌ [MAP_OVERLAY_SIMPLE] Error loading geofences: $e');
@@ -1920,7 +1940,8 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     // If enabling overlay and no data loaded, fetch it now
     if (newState && deviceGeofences.isEmpty) {
       debugPrint('🔄 [MAP_OVERLAY_SIMPLE] Loading geofences because overlay enabled and no data');
-      await _loadGeofenceOverlayData();
+      // Use current vehicle ID instead of widget.deviceId
+      await _loadGeofenceOverlayDataForVehicle(currentVehicleId ?? widget.deviceId);
       
       if (mounted) {
         setState(() {
@@ -1984,6 +2005,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     debugPrint('📥 [MAP_OVERLAY_SIMPLE] Loading geofence data for vehicle: $vehicleId');
     debugPrint('📥 [MAP_OVERLAY_SIMPLE] Current device ID (for GPS): $currentDeviceId');
     debugPrint('📥 [MAP_OVERLAY_SIMPLE] Vehicle ID (for geofences): $vehicleId');
+    debugPrint('📥 [MAP_OVERLAY_SIMPLE] Current tracked vehicle ID: $currentVehicleId');
 
     if (isLoadingGeofences) {
       debugPrint('⚠️ [MAP_OVERLAY_SIMPLE] Already loading geofences, skipping...');
@@ -2028,6 +2050,15 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
         deviceGeofences = geofences;
         isLoadingGeofences = false;
       });
+
+      // Special handling for empty geofence lists to ensure proper clearing
+      if (geofences.isEmpty) {
+        debugPrint('🧹 [MAP_OVERLAY_SIMPLE] No geofences found for vehicle $vehicleId - ensuring overlay is properly cleared');
+        setState(() {
+          deviceGeofences = [];
+          showGeofences = false; // Disable overlay when no geofences are available
+        });
+      }
 
     } catch (error) {
       debugPrint('❌ [MAP_OVERLAY_SIMPLE] Error loading geofences: $error');
