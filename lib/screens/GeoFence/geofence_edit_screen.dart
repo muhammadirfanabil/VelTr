@@ -14,6 +14,8 @@ import 'package:flutter/services.dart';
 import '../../utils/snackbar.dart';
 import '../../widgets/Common/loading_overlay.dart';
 import '../../widgets/Common/confirmation_dialog.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_icons.dart';
 
 class GeofenceEditScreen extends StatefulWidget {
   final Geofence geofence;
@@ -257,9 +259,8 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
             Navigator.of(context).pop();
           }
         }
-      },
-      child: Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.surface,
+      },      child: Scaffold(
+        backgroundColor: AppColors.backgroundPrimary,
         appBar: _buildAppBar(),
         body: _buildBody(),
       ),
@@ -293,29 +294,28 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
       },
     );
   }
-
   Widget _buildFallbackMap() {
     return Container(
       width: double.infinity,
       height: double.infinity,
-      color: Colors.grey[200],
+      color: AppColors.backgroundSecondary,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.map_outlined, size: 64, color: Colors.grey[400]),
+          Icon(AppIcons.map, size: 64, color: AppColors.textTertiary),
           const SizedBox(height: 16),
           Text(
             'Map temporarily unavailable',
             style: TextStyle(
               fontSize: 16,
-              color: Colors.grey[600],
+              color: AppColors.textSecondary,
               fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Please try again or restart the app',
-            style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+            style: TextStyle(fontSize: 14, color: AppColors.textTertiary),
           ),
           const SizedBox(height: 24),
           ElevatedButton(
@@ -330,17 +330,14 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
       ),
     );
   }
-
   PreferredSizeWidget _buildAppBar() {
-    final theme = Theme.of(context);
-
     return AppBar(
       elevation: 0,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.backgroundPrimary,
       leading: IconButton(
         icon: Icon(
-          Icons.arrow_back_ios,
-          color: theme.colorScheme.primary,
+          AppIcons.back,
+          color: AppColors.primaryBlue,
           size: 20,
         ),
         onPressed: () => Navigator.pop(context),
@@ -349,7 +346,7 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
         'Edit Geofence',
         style: TextStyle(
           fontWeight: FontWeight.bold,
-          color: Colors.black,
+          color: AppColors.textPrimary,
           fontSize: 22,
         ),
       ),
@@ -360,7 +357,7 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
             child: Text(
               'Unsaved',
               style: TextStyle(
-                color: theme.colorScheme.error,
+                color: AppColors.error,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
@@ -375,12 +372,11 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
         polygonPoints.isNotEmpty ? polygonPoints.first : const LatLng(0, 0);
 
     return MapWidget(
-      mapController: _mapController,
-      options: MapOptions(
+      mapController: _mapController,      options: MapOptions(
         initialCenter: center,
         initialZoom: 15.0,
         onTap: _onMapTap,
-        backgroundColor: Colors.grey[100]!,
+        backgroundColor: AppColors.backgroundSecondary,
       ),
       children: [
         TileLayer(
@@ -403,17 +399,14 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
       ],
     );
   }
-
   Widget _buildPolylineLayer() {
-    final theme = Theme.of(context);
-
     if (polygonPoints.length < 2) return const SizedBox.shrink();
 
     return PolylineLayer(
       polylines: [
         Polyline(
           points: polygonPoints,
-          color: theme.colorScheme.primary,
+          color: AppColors.primaryBlue,
           strokeWidth: 3.0,
         ),
       ],
@@ -421,8 +414,6 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
   }
 
   Widget _buildPolygonLayer() {
-    final theme = Theme.of(context);
-
     if (polygonPoints.length < 3) return const SizedBox.shrink();
 
     return PolygonLayer(
@@ -430,8 +421,8 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
       polygons: [
         Polygon(
           points: [...polygonPoints, polygonPoints.first],
-          color: theme.colorScheme.primary.withValues(alpha: 0.3),
-          borderColor: theme.colorScheme.primary,
+          color: AppColors.primaryBlue.withValues(alpha: 0.3),
+          borderColor: AppColors.primaryBlue,
           borderStrokeWidth: 3,
         ),
       ],
@@ -439,8 +430,6 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
   }
 
   Widget _buildMarkerLayer() {
-    final theme = Theme.of(context);
-
     return MarkerLayer(
       markers:
           polygonPoints.asMap().entries.map((entry) {
@@ -452,11 +441,11 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
               height: 40,
               child: Container(
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.secondary,
+                  color: AppColors.accentRed,
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
+                      color: AppColors.textPrimary.withValues(alpha: 0.3),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
@@ -467,7 +456,7 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
                     '$index',
                     style: TextStyle(
                       fontSize: 14,
-                      color: theme.colorScheme.onSecondary,
+                      color: AppColors.backgroundPrimary,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -477,7 +466,6 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
           }).toList(),
     );
   }
-
   Widget _buildCurrentLocationMarker() {
     if (currentLocation == null) return const SizedBox.shrink();
 
@@ -489,9 +477,9 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
           height: 20,
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.blue[600],
+              color: AppColors.info,
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 3),
+              border: Border.all(color: AppColors.backgroundPrimary, width: 3),
             ),
           ),
         ),
@@ -506,8 +494,7 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
     }
 
     return MarkerLayer(
-      markers: [
-        Marker(
+      markers: [        Marker(
           point: deviceLocation!,
           width: 40,
           height: 40,
@@ -519,9 +506,9 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: Colors.orange[600]!.withOpacity(0.2),
+                  color: AppColors.warning.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.orange[600]!, width: 2),
+                  border: Border.all(color: AppColors.warning, width: 2),
                 ),
               ),
               // Inner device marker
@@ -529,35 +516,35 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
                 width: 24,
                 height: 24,
                 decoration: BoxDecoration(
-                  color: Colors.orange[600],
+                  color: AppColors.warning,
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
+                  border: Border.all(color: AppColors.backgroundPrimary, width: 2),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
+                      color: AppColors.textPrimary.withValues(alpha: 0.3),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
                   ],
                 ),
-                child: Icon(Icons.gps_fixed, color: Colors.white, size: 14),
+                child: Icon(AppIcons.gps, color: AppColors.backgroundPrimary, size: 14),
               ),
               // Loading indicator if still loading
               if (isLoadingDeviceLocation)
                 Positioned.fill(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.8),
+                      color: AppColors.backgroundPrimary.withValues(alpha: 0.8),
                       shape: BoxShape.circle,
                     ),
-                    child: const Center(
+                    child: Center(
                       child: SizedBox(
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
                           valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.orange,
+                            AppColors.warning,
                           ),
                         ),
                       ),
@@ -577,8 +564,7 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
     return Positioned(
       bottom: 20,
       left: 16,
-      right: 16,
-      child: Column(
+      right: 16,      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           // Show points info when available
@@ -586,12 +572,12 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blue[50],
+                color: AppColors.infoLight,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.my_location, color: Colors.blue[600], size: 20),
+                  Icon(AppIcons.myLocation, color: AppColors.info, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -601,14 +587,14 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
                           'Geofence Points',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Colors.blue[800],
+                            color: AppColors.infoText,
                             fontSize: 12,
                           ),
                         ),
                         Text(
                           '${polygonPoints.length} points defined${polygonPoints.length >= 3 ? " (Valid geofence)" : " (Minimum 3 required)"}',
                           style: TextStyle(
-                            color: Colors.blue[700],
+                            color: AppColors.info,
                             fontSize: 11,
                           ),
                         ),

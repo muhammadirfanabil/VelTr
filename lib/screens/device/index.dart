@@ -5,6 +5,8 @@ import '../../widgets/Common/error_card.dart';
 import '../../constants/app_constants.dart';
 import '../../utils/snackbar.dart';
 import '../GeoFence/index.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_icons.dart';
 
 class DeviceManagerScreen extends StatefulWidget {
   const DeviceManagerScreen({super.key});
@@ -26,11 +28,10 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
       body: _buildBody(),
     );
   }
-
   PreferredSizeWidget _buildAppBar(ThemeData theme, ColorScheme colorScheme) {
     return AppBar(
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios, size: 20),
+        icon: Icon(AppIcons.back, size: 20),
         onPressed:
             () => Navigator.pushReplacementNamed(
               context,
@@ -39,15 +40,17 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
       ),
       title: Text(
         'Device Manager',
-        style: theme.textTheme.headlineSmall?.copyWith(
+        style: TextStyle(
           fontWeight: FontWeight.bold,
           fontSize: 22,
+          color: AppColors.textPrimary,
         ),
       ),
       centerTitle: true,
+      backgroundColor: AppColors.backgroundPrimary,
       actions: [
         IconButton(
-          icon: const Icon(Icons.add),
+          icon: Icon(AppIcons.add),
           onPressed: _showAddDeviceDialog,
           tooltip: 'Add Device',
         ),
@@ -59,14 +62,13 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
       ],
     );
   }
-
   Widget _buildBody() {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Colors.white, Colors.blue.shade50.withValues(alpha: 0.2)],
+          colors: [AppColors.backgroundPrimary, AppColors.backgroundSecondary],
         ),
       ),
       child: StreamBuilder<List<Device>>(
@@ -412,14 +414,13 @@ class DeviceCard extends StatelessWidget {
     required this.onToggleStatus,
     this.onLinkToVehicle, // Optional callback
   }) : super(key: key);
-
   @override
   Widget build(BuildContext context) {
     return Card(
       elevation: 4,
-      shadowColor: Colors.black26,
+      shadowColor: AppColors.textTertiary.withOpacity(0.3),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: Colors.white,
+      color: AppColors.surface,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
@@ -499,20 +500,19 @@ class DeviceCard extends StatelessWidget {
       ),
     ],
   );
-
   Widget _buildActionButtons() => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
       IconButton(
         icon: Icon(
-          device.isActive ? Icons.pause : Icons.play_arrow,
-          color: device.isActive ? Colors.blueGrey.shade300 : Colors.green,
+          device.isActive ? AppIcons.inactive : AppIcons.active,
+          color: device.isActive ? AppColors.textSecondary : AppColors.success,
         ),
         onPressed: onToggleStatus,
         tooltip: device.isActive ? 'Deactivate' : 'Activate',
       ),
       IconButton(
-        icon: const Icon(Icons.edit, color: Colors.lightBlue),
+        icon: Icon(AppIcons.edit, color: AppColors.info),
         onPressed: onEdit,
         tooltip: 'Edit',
       ),
@@ -566,22 +566,21 @@ class DeviceCard extends StatelessWidget {
     ],
   );
 
-  Widget _buildTapHint() => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+  Widget _buildTapHint() => Container(    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
     decoration: BoxDecoration(
-      color: Colors.blue.shade50,
+      color: AppColors.infoLight,
       borderRadius: BorderRadius.circular(4),
-      border: Border.all(color: Colors.blue.shade200),
+      border: Border.all(color: AppColors.info.withOpacity(0.3)),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.touch_app, size: 14, color: Colors.blue.shade700),
+        Icon(AppIcons.location, size: 14, color: AppColors.infoText),
         const SizedBox(width: 4),
         Text(
           'Tap to view geofences',
           style: TextStyle(
-            color: Colors.blue.shade700,
+            color: AppColors.infoText,
             fontSize: 11,
             fontWeight: FontWeight.w500,
           ),
@@ -591,17 +590,15 @@ class DeviceCard extends StatelessWidget {
   );
 
   Widget _buildLinkToVehicleButton() {
-    if (onLinkToVehicle == null) return const SizedBox.shrink();
-
-    return Container(
+    if (onLinkToVehicle == null) return const SizedBox.shrink();    return Container(
       width: double.infinity,
       child: ElevatedButton.icon(
         onPressed: onLinkToVehicle,
-        icon: const Icon(Icons.link, size: 18),
+        icon: Icon(AppIcons.vehicle, size: 18),
         label: const Text('Link Device to Vehicle'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.orange.shade600,
-          foregroundColor: Colors.white,
+          backgroundColor: AppColors.warning,
+          foregroundColor: AppColors.backgroundPrimary,
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),

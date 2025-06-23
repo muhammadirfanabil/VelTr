@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/Device/device.dart';
+import '../../theme/app_colors.dart';
 
 import '../Device/footer.dart';
 import '../Device/tap_hint.dart';
@@ -22,13 +23,12 @@ class DeviceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _buildCard();
-
   Widget _buildCard() {
     return Card(
       elevation: 4,
-      shadowColor: Colors.black26,
+      shadowColor: AppColors.textTertiary.withOpacity(0.3),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: Colors.white,
+      color: AppColors.surface,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),

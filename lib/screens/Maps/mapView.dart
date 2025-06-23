@@ -21,7 +21,7 @@ import '../../widgets/Common/stickyFooter.dart';
 import '../../widgets/motoricon.dart';
 import '../../widgets/tracker.dart';
 import '../../theme/app_colors.dart';
-import '../../theme/app_icons.dart';
+
 
 class GPSMapScreen extends StatefulWidget {
   final String deviceId;
@@ -450,8 +450,8 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                                     decoration: BoxDecoration(
                                       color:
                                           isSelected
-                                              ? Colors.blue.withOpacity(0.1)
-                                              : Colors.grey.withOpacity(0.1),
+                                              ? AppColors.info.withValues(alpha: 0.1)
+                                              : AppColors.surface.withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Icon(
@@ -548,7 +548,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                                 width: 40,
                                 height: 40,
                                 decoration: BoxDecoration(
-                                  color: Colors.orange.withOpacity(0.1),
+                                  color: AppColors.warning.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: const Icon(
@@ -618,7 +618,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                             width: 40,
                             height: 40,
                             decoration: BoxDecoration(
-                              color: Colors.green.withOpacity(0.1),
+                              color: AppColors.success.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: const Icon(Icons.add, color: Colors.green),
@@ -1139,9 +1139,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       isScrollControlled: true,
       isDismissible: true, // Enable background tap and back button dismissal
       enableDrag: true, // Allow dragging to dismiss
-      barrierColor: Colors.black.withOpacity(
-        0.5,
-      ), // Semi-transparent overlay for visual feedback
+      barrierColor: AppColors.surface.withValues(alpha: 0.5), // Semi-transparent overlay for visual feedback
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
