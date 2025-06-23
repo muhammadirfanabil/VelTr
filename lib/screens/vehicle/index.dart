@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../widgets/Common/stickyFooter.dart';
+import '../../constants/app_constants.dart';
 
 class VehicleIndexScreen extends StatefulWidget {
   const VehicleIndexScreen({Key? key}) : super(key: key);
@@ -17,19 +18,22 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
       backgroundColor:
           Colors.white, // Make scaffold transparent to show gradient
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Vehicle Settings',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 24,
-            color: Colors.black,
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
           ),
         ),
         backgroundColor: Colors.transparent, // Make AppBar transparent
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, size: 20),
-          onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
+          onPressed:
+              () => Navigator.pushReplacementNamed(
+                context,
+                AppConstants.trackVehicleRoute,
+              ),
         ),
       ),
       body: Container(
@@ -115,7 +119,7 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.1),
+          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.1),
         ),
       ),
       child: Column(
@@ -130,7 +134,9 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
     return Container(
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: theme.colorScheme.outline.withOpacity(0.1)),
+          bottom: BorderSide(
+            color: theme.colorScheme.outline.withValues(alpha: 0.1),
+          ),
         ),
       ),
       child: ListTile(
@@ -139,7 +145,7 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withOpacity(0.1),
+            color: theme.colorScheme.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Icon(item.icon, color: theme.colorScheme.primary, size: 20),

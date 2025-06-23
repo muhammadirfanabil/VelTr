@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+// import 'package:provider/provider.dart'; // Temporarily commented out
 import 'firebase_options.dart';
 import 'themes/app_theme.dart';
 
@@ -17,6 +18,7 @@ import 'screens/vehicle/history.dart';
 import 'screens/Maps/mapView.dart';
 import 'screens/GeoFence/index.dart';
 import 'screens/GeoFence/device_geofence.dart';
+import 'screens/geofence/geofence_alerts_screen.dart';
 import 'screens/device/index.dart';
 import 'screens/notifications/notifications_screen.dart';
 
@@ -25,21 +27,33 @@ import 'widgets/Common/loading_screen.dart';
 import 'widgets/Common/error_card.dart';
 
 // Service imports
-import 'services/notifications/fcm_service.dart';
+import 'services/notifications/enhanced_notification_service.dart';
+import 'services/geofence/geofence_alert_service.dart';
 import 'services/device/deviceService.dart';
-
+import 'services/history/history_service.dart';
 
 // Model imports
 import 'models/Device/device.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
+  print('🚀 [MAIN] Starting Firebase initialization...');
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  print('✅ [MAIN] Firebase initialized successfully');
+
+  // Set background message handler
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-  final fcmService = FCMService();
-  await fcmService.initFCM();
+  // Initialize enhanced notification service
+  final notificationService = EnhancedNotificationService();
+  await notificationService.initialize();
+  // Initialize geofence alert service
+  final geofenceAlertService = GeofenceAlertService();
+  await geofenceAlertService.initialize();
+
+  // Initialize history service
+  HistoryService.initialize();
 
   runApp(const MyApp());
 }
@@ -72,17 +86,16 @@ class _DeviceRouterScreenState extends State<DeviceRouterScreen> {
 
           // Always navigate to map view regardless of device availability
           // The map will handle no-device scenarios internally
-          final primaryDevice = _getPrimaryDevice(devices);
-
-          // Use primary device if available, otherwise use placeholder
-          final deviceId = primaryDevice?.name ?? 'no_device_placeholder';
-
+          final primaryDevice = _getPrimaryDevice(
+            devices,
+          ); // Use primary device if available, otherwise use placeholder
+          final deviceId = primaryDevice?.id ?? 'no_device_placeholder';
           debugPrint('🚀 [DEVICE_ROUTER] Device selection logic:');
           debugPrint(
             '🚀 [DEVICE_ROUTER] Total devices found: ${devices.length}',
           );
           debugPrint(
-            '🚀 [DEVICE_ROUTER] Primary device selected: ${primaryDevice?.name ?? "none"}',
+            '🚀 [DEVICE_ROUTER] Primary device selected: ${primaryDevice?.id ?? "none"} (name: ${primaryDevice?.name ?? "none"})',
           );
           debugPrint(
             '🚀 [DEVICE_ROUTER] Final deviceId for GPS map: $deviceId',
@@ -117,40 +130,60 @@ class _DeviceRouterScreenState extends State<DeviceRouterScreen> {
       '🎯 [DEVICE_SELECTION] Selecting primary device from ${devices.length} devices',
     );
 
-    // Priority: Active devices with valid GPS coordinates
-    final activeWithGPS = devices.where((d) => d.isActive && d.hasValidGPS);
+    // CRITICAL: Only consider devices that are linked to vehicles
+    final linkedDevices =
+        devices
+            .where((d) => d.vehicleId != null && d.vehicleId!.isNotEmpty)
+            .toList();
+
     debugPrint(
-      '🎯 [DEVICE_SELECTION] Active devices with GPS: ${activeWithGPS.length}',
+      '🎯 [DEVICE_SELECTION] Devices linked to vehicles: ${linkedDevices.length}',
     );
 
-    if (activeWithGPS.isNotEmpty) {
-      final selected = activeWithGPS.first;
+    if (linkedDevices.isEmpty) {
       debugPrint(
-        '🎯 [DEVICE_SELECTION] Selected device with GPS: ${selected.name}',
+        '🚫 [DEVICE_SELECTION] No devices linked to vehicles - returning null',
+      );
+      return null;
+    }
+
+    // Priority: Active linked devices with valid GPS coordinates
+    final activeLinkedWithGPS = linkedDevices.where(
+      (d) => d.isActive && d.hasValidGPS,
+    );
+    debugPrint(
+      '🎯 [DEVICE_SELECTION] Active linked devices with GPS: ${activeLinkedWithGPS.length}',
+    );
+
+    if (activeLinkedWithGPS.isNotEmpty) {
+      final selected = activeLinkedWithGPS.first;
+      debugPrint(
+        '🎯 [DEVICE_SELECTION] Selected linked device with GPS: ${selected.name} (vehicleId: ${selected.vehicleId})',
       );
       return selected;
     }
 
-    // Fallback: Any active device
-    final activeDevices = devices.where((d) => d.isActive);
+    // Fallback: Any active linked device
+    final activeLinkedDevices = linkedDevices.where((d) => d.isActive);
     debugPrint(
-      '🎯 [DEVICE_SELECTION] Active devices (any): ${activeDevices.length}',
+      '🎯 [DEVICE_SELECTION] Active linked devices (any): ${activeLinkedDevices.length}',
     );
 
-    if (activeDevices.isNotEmpty) {
-      final selected = activeDevices.first;
+    if (activeLinkedDevices.isNotEmpty) {
+      final selected = activeLinkedDevices.first;
       debugPrint(
-        '🎯 [DEVICE_SELECTION] Selected active device: ${selected.name}',
+        '🎯 [DEVICE_SELECTION] Selected active linked device: ${selected.name} (vehicleId: ${selected.vehicleId})',
       );
       return selected;
     }
 
-    // Last resort: Any device
-    final anyDevice = devices.isNotEmpty ? devices.first : null;
+    // Last resort: Any linked device
+    final anyLinkedDevice =
+        linkedDevices.isNotEmpty ? linkedDevices.first : null;
     debugPrint(
-      '🎯 [DEVICE_SELECTION] Last resort device: ${anyDevice?.name ?? "none"}',
+      '🎯 [DEVICE_SELECTION] Last resort linked device: ${anyLinkedDevice?.name ?? "none"} (vehicleId: ${anyLinkedDevice?.vehicleId ?? "none"})',
     );
-    return anyDevice;
+    return anyLinkedDevice;
   }
 
   Widget _buildErrorScreen(String error) {
@@ -189,9 +222,16 @@ class _DeviceRouterScreenState extends State<DeviceRouterScreen> {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
+    // Temporarily commented out for local vehicle selector implementation
+    // return MultiProvider(
+    //   providers: [
+    //     ChangeNotifierProvider(
+    //       create: (context) => VehicleProvider()..initialize(),
+    //     ),
+    //   ],
+    //   child: MaterialApp(
     return MaterialApp(
       title: 'VelTr',
       theme: ThemeData(
@@ -247,9 +287,24 @@ class MyApp extends StatelessWidget {
       '/profile': (context) => const ProfilePage(),
       '/edit-profile': (context) => const EditProfileScreen(),
       '/notifications': (context) => const NotificationsScreen(),
+      '/geofence-alerts': (context) => const GeofenceAlertsScreen(),
       '/vehicle': (context) => const VehicleIndexScreen(),
       '/manage-vehicle': (context) => const ManageVehicle(),
-      '/drive-history': (context) => const DrivingHistory(),
+      '/drive-history': (context) {
+        final args =
+            ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+        if (args != null &&
+            args['vehicleId'] != null &&
+            args['vehicleName'] != null) {
+          return DrivingHistory(
+            vehicleId: args['vehicleId'] as String,
+            vehicleName: args['vehicleName'] as String,
+          );
+        }
+        // If no specific vehicle is selected, use the first available vehicle
+        // The DrivingHistory screen will handle vehicle selection internally
+        return const DrivingHistory(vehicleId: '', vehicleName: '');
+      },
       '/device': (context) => const DeviceManagerScreen(),
       '/geofence': (context) {
         final args =

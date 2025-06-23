@@ -144,9 +144,13 @@ class _ManageVehicleState extends State<ManageVehicle> {
             ),
           );
         }
-
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+          return Container(
+            height: 60,
+            child: const Center(
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
         }
 
         final devices = snapshot.data ?? [];
@@ -160,20 +164,83 @@ class _ManageVehicleState extends State<ManageVehicle> {
           return _buildEmptyDeviceContainer();
         }
 
-        return DropdownButtonFormField<String>(
-          value: currentValue,
-          decoration: _buildInputDecoration('Device', Icons.device_hub_rounded),
-          items:
-              devices
-                  .map(
-                    (device) =>
-                        _buildDeviceDropdownItem(device, currentVehicleId),
-                  )
-                  .toList(),
-          onChanged: (value) {
-            print('Device selected: $value');
-            setState(() => _selectedDeviceId = value ?? '');
-          },
+        // Separate devices: those with vehicles vs those without
+        final devicesWithVehicles =
+            devices
+                .where(
+                  (device) =>
+                      device.vehicleId != null && device.vehicleId!.isNotEmpty,
+                )
+                .toList();
+        final devicesWithoutVehicles =
+            devices
+                .where(
+                  (device) =>
+                      device.vehicleId == null || device.vehicleId!.isEmpty,
+                )
+                .toList();
+
+        // Build dropdown items
+        List<DropdownMenuItem<String>> dropdownItems = [];
+
+        // Add devices that are already linked to vehicles
+        for (final device in devicesWithVehicles) {
+          dropdownItems.add(
+            _buildLinkedDeviceDropdownItem(device, currentVehicleId),
+          );
+        } // Add unlinked devices with "Attach to Vehicle" label
+        for (final device in devicesWithoutVehicles) {
+          dropdownItems.add(_buildUnlinkedDeviceDropdownItem(device));
+        }
+
+        // If no items available, return empty container message
+        if (dropdownItems.isEmpty) {
+          return _buildEmptyDeviceContainer();
+        }
+        return ConstrainedBox(
+          constraints: const BoxConstraints(
+            minHeight: 56,
+            maxHeight: 300, // Prevent dropdown from growing too large
+          ),
+          child: DropdownButtonFormField<String>(
+            value: currentValue,
+            decoration: _buildInputDecoration(
+              'Device',
+              Icons.device_hub_rounded,
+            ),
+            items: dropdownItems,
+            isExpanded: true, // Allow text to use full width
+            dropdownColor: Colors.white,
+            iconSize: 24,
+            onChanged: (value) {
+              try {
+                if (value != null && value.startsWith('attach_')) {
+                  // Handle "Attach to Vehicle" action for unlinked devices
+                  final deviceId = value.substring('attach_'.length);
+                  _handleAttachToVehicle(deviceId);
+                } else if (value != null && value.isNotEmpty) {
+                  // Simple validation: just check if the value is in our devices list
+                  final isValidDevice = devicesWithVehicles.any(
+                    (device) => device.id == value,
+                  );
+
+                  if (isValidDevice) {
+                    print('Device selected: $value');
+                    setState(() => _selectedDeviceId = value);
+                  } else {
+                    print('Invalid device selection: $value');
+                    setState(() => _selectedDeviceId = '');
+                  }
+                } else {
+                  // Clear selection
+                  setState(() => _selectedDeviceId = '');
+                }
+              } catch (e) {
+                print('Error in device selection: $e');
+                setState(() => _selectedDeviceId = '');
+              }
+            },
+          ),
         );
       },
     );
@@ -195,41 +262,6 @@ class _ManageVehicleState extends State<ManageVehicle> {
       debugPrint('Error checking device availability: $e');
       _showSnackBar(
         'Error verifying device: $e',
-        Colors.red,
-        Icons.error_rounded,
-      );
-    }
-  }
-
-  Future<void> _assignDevice(String deviceId, String vehicleId) async {
-    try {
-      await _vehicleService.assignDevice(deviceId, vehicleId);
-      _showSnackBar(
-        'Device assigned successfully',
-        Colors.green,
-        Icons.check_circle_rounded,
-      );
-    } catch (e) {
-      _showSnackBar(
-        'Failed to assign device: $e',
-        Colors.red,
-        Icons.error_rounded,
-      );
-    }
-  }
-
-  Future<void> _unassignDevice(String deviceId) async {
-    try {
-      await _vehicleService.detachDeviceFromVehicle(deviceId);
-      setState(() => _selectedDeviceId = '');
-      _showSnackBar(
-        'Device unassigned successfully',
-        Colors.green,
-        Icons.check_circle_rounded,
-      );
-    } catch (e) {
-      _showSnackBar(
-        'Failed to unassign device: $e',
         Colors.red,
         Icons.error_rounded,
       );
@@ -276,41 +308,181 @@ class _ManageVehicleState extends State<ManageVehicle> {
     );
   }
 
-  DropdownMenuItem<String> _buildDeviceDropdownItem(
+  /// Build dropdown item for devices that are already linked to vehicles
+  DropdownMenuItem<String> _buildLinkedDeviceDropdownItem(
     Device device,
     String? currentVehicleId,
   ) {
-    // A device is available if:
-    // 1. It's not assigned to any vehicle (device.vehicleId is null or empty)
-    // 2. OR it's assigned to the current vehicle being edited
+    // Safety check: only build item if device has a vehicleId
+    if (device.vehicleId == null || device.vehicleId!.isEmpty) {
+      // Return a disabled item as fallback instead of throwing
+      return DropdownMenuItem<String>(
+        value: null,
+        enabled: false,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48, maxHeight: 56),
+          child: Container(
+            width: double.infinity,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '${device.name} (No Vehicle Link)',
+              style: TextStyle(fontSize: 16, color: Colors.grey.shade400),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // A device is available if it's assigned to the current vehicle being edited
+    final isAssignedToCurrentVehicle = device.vehicleId == currentVehicleId;
     final isAssignedToOtherVehicle =
         device.vehicleId != null &&
         device.vehicleId!.isNotEmpty &&
         device.vehicleId != currentVehicleId;
 
-    // Create a simple text representation
     String displayText = device.name;
     if (device.isActive) {
       displayText += ' (Active)';
     } else {
       displayText += ' (Inactive)';
     }
+
     if (isAssignedToOtherVehicle) {
       displayText += ' - Assigned to other vehicle';
     }
-
     return DropdownMenuItem<String>(
       value: device.id,
-      enabled: !isAssignedToOtherVehicle,
-      child: Text(
-        displayText,
-        style: TextStyle(
-          fontSize: 16,
-          color:
-              isAssignedToOtherVehicle ? Colors.grey.shade400 : Colors.black87,
+      enabled: isAssignedToCurrentVehicle || !isAssignedToOtherVehicle,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 48, maxHeight: 56),
+        child: Container(
+          width: double.infinity,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            displayText,
+            style: TextStyle(
+              fontSize: 16,
+              color:
+                  isAssignedToOtherVehicle
+                      ? Colors.grey.shade400
+                      : Colors.black87,
+            ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
         ),
-        overflow: TextOverflow.ellipsis,
       ),
+    );
+  }
+
+  /// Build dropdown item for devices that are not linked to any vehicle
+  DropdownMenuItem<String> _buildUnlinkedDeviceDropdownItem(Device device) {
+    // Safety check: ensure device truly has no vehicleId
+    if (device.vehicleId != null && device.vehicleId!.isNotEmpty) {
+      // Return a disabled item as fallback instead of throwing
+      return DropdownMenuItem<String>(
+        value: null,
+        enabled: false,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48, maxHeight: 56),
+          child: Container(
+            width: double.infinity,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '${device.name} (Already Linked)',
+              style: TextStyle(fontSize: 16, color: Colors.grey.shade400),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          ),
+        ),
+      );
+    }
+
+    String displayText = '${device.name} - Attach to Vehicle';
+
+    return DropdownMenuItem<String>(
+      value: 'attach_${device.id}', // Use 'attach_' prefix for unlinked devices
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 48, maxHeight: 56),
+        child: Container(
+          width: double.infinity,
+          child: Row(
+            children: [
+              Icon(Icons.link, color: Colors.orange, size: 16),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  displayText,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.orange,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Handle the "Attach to Vehicle" action
+  void _handleAttachToVehicle(String deviceId) async {
+    try {
+      // Check if any vehicles exist
+      final vehicleStream = _vehicleService.getVehiclesStream();
+      final vehicles = await vehicleStream.first;
+
+      if (vehicles.isEmpty) {
+        _showNoVehiclesDialog();
+      } else {
+        // Navigate to device edit page or show vehicle selector
+        Navigator.pushNamed(context, '/device/edit', arguments: deviceId);
+      }
+    } catch (e) {
+      _showSnackBar(
+        'Error checking vehicles: $e',
+        Colors.red,
+        Icons.error_rounded,
+      );
+    }
+  }
+
+  /// Show dialog when no vehicles are available for attachment
+  void _showNoVehiclesDialog() {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('No Vehicles Available'),
+            content: const Text(
+              'You need to add a vehicle before you can attach this device. '
+              'Would you like to add a vehicle now?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/vehicle');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Add Vehicle'),
+              ),
+            ],
+          ),
     );
   }
 
@@ -641,44 +813,56 @@ class _ManageVehicleState extends State<ManageVehicle> {
           ),
         ],
       ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildTextField(
-              controllers[0],
-              'Vehicle Name',
-              'e.g., Toyota Camry 2023',
-              Icons.directions_car_rounded,
-              true,
-              TextCapitalization.words,
-            ),
-            const SizedBox(height: 20),
-            _buildTextField(
-              controllers[1],
-              'Vehicle Type',
-              'e.g., Sedan, SUV, Truck',
-              Icons.category_rounded,
-              false,
-              TextCapitalization.words,
-            ),
-            const SizedBox(height: 20),
-            _buildTextField(
-              controllers[2],
-              'License Plate',
-              'e.g., ABC-1234',
-              Icons.confirmation_number_rounded,
-              false,
-              TextCapitalization.characters,
-            ),
-            if (showDeviceDropdown) ...[
-              const SizedBox(height: 20),
-              _buildDeviceDropdown(
-                currentValue: currentDeviceId,
-                currentVehicleId: currentVehicleId,
+      content: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.9,
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
+        ),
+        child: IntrinsicHeight(
+          child: Container(
+            width: double.maxFinite,
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildTextField(
+                    controllers[0],
+                    'Vehicle Name',
+                    'e.g., Toyota Camry 2023',
+                    Icons.directions_car_rounded,
+                    true,
+                    TextCapitalization.words,
+                  ),
+                  const SizedBox(height: 20),
+                  _buildTextField(
+                    controllers[1],
+                    'Vehicle Type',
+                    'e.g., Sedan, SUV, Truck',
+                    Icons.category_rounded,
+                    false,
+                    TextCapitalization.words,
+                  ),
+                  const SizedBox(height: 20),
+                  _buildTextField(
+                    controllers[2],
+                    'License Plate',
+                    'e.g., ABC-1234',
+                    Icons.confirmation_number_rounded,
+                    false,
+                    TextCapitalization.characters,
+                  ),
+                  if (showDeviceDropdown) ...[
+                    const SizedBox(height: 20),
+                    _buildDeviceDropdown(
+                      currentValue: currentDeviceId,
+                      currentVehicleId: currentVehicleId,
+                    ),
+                  ],
+                ],
               ),
-            ],
-          ],
+            ),
+          ),
         ),
       ),
       actions: [

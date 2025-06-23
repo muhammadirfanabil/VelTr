@@ -12,8 +12,7 @@ dependencies {
     // Tambahkan produk Firebase lain sesuai kebutuhan
 }
 
-android {
-    namespace = "com.example.gps_app"
+android {    namespace = "com.example.gps_app"
     compileSdk = 35
     ndkVersion = "27.0.12077973"
 
@@ -30,9 +29,17 @@ android {
     defaultConfig {
         applicationId = "com.example.gps_app"
         minSdk = 23
-        targetSdk = 33
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
+        
+        // Optimize for map rendering
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        // Optimize OpenGL for better performance
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+        }
     }
 
     buildTypes {

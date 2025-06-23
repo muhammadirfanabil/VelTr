@@ -25,12 +25,20 @@ I have successfully completed both the UI/UX refinement implementation and compr
 - ✅ **GPS Data Logging** - Monitor Firebase real-time data reception
 - ✅ **Device Initialization Logging** - Track Firestore→MAC address resolution
 
+### **3. Device Filtering for MapView (IMPLEMENTED ✅)**
+
+- ✅ **Strict vehicleId validation** - Only devices with valid vehicleId can be passed to mapView
+- ✅ **Primary device selection filtering** - Device router now filters by vehicleId requirement
+- ✅ **Unlinked device exclusion** - Devices with vehicleId == null are completely excluded
+- ✅ **Debug logging for device filtering** - Track vehicleId validation in device selection
+- ✅ **Build verification** - `flutter build apk` succeeds with all changes
+
 ## 🔧 **Technical Implementation Details**
 
 ### **Files Modified:**
 
 1. **`lib/screens/Maps/mapView.dart`** - Main implementation (UI refinement + debugging)
-2. **`lib/main.dart`** - Device router debugging
+2. **`lib/main.dart`** - Device router debugging + device filtering by vehicleId
 3. **`pubspec.yaml`** - Already had geolocator package
 
 ### **Key Features Added:**

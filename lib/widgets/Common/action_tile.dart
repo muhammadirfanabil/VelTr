@@ -19,7 +19,7 @@ class ActionTile extends StatelessWidget {
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: colorScheme.primaryContainer.withValues(alpha: 0.2),
+          color: colorScheme.primaryContainer.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(action.icon, color: colorScheme.primary, size: 20),

@@ -1,1 +1,42 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"gps-project-a5c9a","appId":"1:1025991041896:android:a1fa7840e74527eb502cdd","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"gps-project-a5c9a","configurations":{"android":"1:1025991041896:android:a1fa7840e74527eb502cdd","ios":"1:1025991041896:ios:e42edeecab41a87e502cdd","macos":"1:1025991041896:ios:e42edeecab41a87e502cdd","web":"1:1025991041896:web:60caae73384a8fdc502cdd","windows":"1:1025991041896:web:0e9e27c2f7196107502cdd"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "gps-project-a5c9a",
+          "appId": "1:1025991041896:android:a1fa7840e74527eb502cdd",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "gps-project-a5c9a",
+          "configurations": {
+            "android": "1:1025991041896:android:a1fa7840e74527eb502cdd",
+            "ios": "1:1025991041896:ios:e42edeecab41a87e502cdd",
+            "macos": "1:1025991041896:ios:e42edeecab41a87e502cdd",
+            "web": "1:1025991041896:web:60caae73384a8fdc502cdd",
+            "windows": "1:1025991041896:web:0e9e27c2f7196107502cdd"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "indexes": "firestore.indexes.json"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": []
+    }
+  ]
+}

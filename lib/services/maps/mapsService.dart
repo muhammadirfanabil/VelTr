@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_database/firebase_database.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 class mapServices {
   final String deviceId;
@@ -278,5 +281,183 @@ class mapServices {
     } catch (e) {
       debugPrint("Error syncing device status: $e");
     }
+  }
+
+  // USER LOCATION FUNCTIONALITY
+  /// Checks if location services are enabled and permissions are granted
+  static Future<bool> isLocationServiceAvailable() async {
+    debugPrint('🗺️ [MAPSERVICE] Checking location service availability...');
+
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    debugPrint('🗺️ [MAPSERVICE] Location service enabled: $serviceEnabled');
+
+    if (!serviceEnabled) {
+      debugPrint('🗺️ [MAPSERVICE] ❌ Location services are disabled');
+      return false;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    debugPrint('🗺️ [MAPSERVICE] Current permission status: $permission');
+
+    if (permission == LocationPermission.denied) {
+      debugPrint(
+        '🗺️ [MAPSERVICE] Permission denied, requesting permission...',
+      );
+      permission = await Geolocator.requestPermission();
+      debugPrint('🗺️ [MAPSERVICE] Permission after request: $permission');
+
+      if (permission == LocationPermission.denied) {
+        debugPrint('🗺️ [MAPSERVICE] ❌ Location permissions are denied');
+        return false;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      debugPrint(
+        '🗺️ [MAPSERVICE] ❌ Location permissions are permanently denied',
+      );
+      return false;
+    }
+
+    debugPrint('🗺️ [MAPSERVICE] ✅ Location service is available');
+    return true;
+  }
+
+  /// Gets the current user location
+  static Future<LatLng?> getCurrentUserLocation() async {
+    debugPrint('🗺️ [MAPSERVICE] Getting current user location...');
+
+    try {
+      if (!await isLocationServiceAvailable()) {
+        debugPrint('🗺️ [MAPSERVICE] ❌ Location service not available');
+        return null;
+      }
+
+      debugPrint('🗺️ [MAPSERVICE] Requesting position from GPS...');
+      Position position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 10,
+        ),
+      );
+
+      debugPrint(
+        '🗺️ [MAPSERVICE] ✅ User location obtained: ${position.latitude}, ${position.longitude}',
+      );
+      debugPrint(
+        '🗺️ [MAPSERVICE] Location details - Accuracy: ${position.accuracy}m, Altitude: ${position.altitude}m',
+      );
+      return LatLng(position.latitude, position.longitude);
+    } catch (e) {
+      debugPrint('🗺️ [MAPSERVICE] ❌ Failed to get current location: $e');
+      return null;
+    }
+  }
+
+  /// Gets a stream of user location updates
+  static Stream<LatLng?> getUserLocationStream() {
+    debugPrint('🗺️ [MAPSERVICE] Starting user location stream...');
+
+    return Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 10, // Only update when user moves 10 meters
+            timeLimit: Duration(seconds: 30), // Timeout after 30 seconds
+          ),
+        )
+        .map((Position position) {
+          debugPrint(
+            '🗺️ [MAPSERVICE] 📍 Location stream update: ${position.latitude}, ${position.longitude}',
+          );
+          debugPrint(
+            '🗺️ [MAPSERVICE] Stream details - Accuracy: ${position.accuracy}m, Speed: ${position.speed}m/s',
+          );
+          return LatLng(position.latitude, position.longitude);
+        })
+        .handleError((error) {
+          debugPrint('🗺️ [MAPSERVICE] ❌ Location stream error: $error');
+          return null;
+        });
+  }
+
+  /// Creates a marker for the user's current location
+  static Marker? getUserLocationMarker(LatLng? userLocation) {
+    if (userLocation == null) {
+      debugPrint(
+        '🗺️ [MAPSERVICE] ❌ Cannot create user location marker - location is null',
+      );
+      return null;
+    }
+
+    debugPrint(
+      '🗺️ [MAPSERVICE] ✅ Creating user location marker for: ${userLocation.latitude}, ${userLocation.longitude}',
+    );
+
+    return Marker(
+      point: userLocation,
+      width: 40,
+      height: 40,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.blue,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 3),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: const Icon(Icons.person, color: Colors.white, size: 20),
+      ),
+    );
+  }
+
+  /// Creates a circle layer showing location accuracy
+  static CircleMarker? getUserLocationAccuracyCircle(
+    LatLng? userLocation, {
+    double? accuracy,
+  }) {
+    if (userLocation == null) return null;
+
+    return CircleMarker(
+      point: userLocation,
+      radius: accuracy ?? 50.0,
+      color: Colors.blue.withOpacity(0.1),
+      borderColor: Colors.blue.withOpacity(0.3),
+      borderStrokeWidth: 1,
+    );
+  }
+
+  /// Centers the map on user location with smooth animation
+  static Future<void> centerMapOnUser(
+    MapController mapController, {
+    double zoom = 16.0,
+  }) async {
+    final userLocation = await getCurrentUserLocation();
+    if (userLocation != null) {
+      mapController.move(userLocation, zoom);
+      debugPrint(
+        '🗺️ [MAP_CENTER] Centered map on user location: ${userLocation.latitude}, ${userLocation.longitude}',
+      );
+    } else {
+      debugPrint(
+        '🗺️ [MAP_CENTER] Cannot center on user location: location not available',
+      );
+    }
+  }
+
+  /// Centers the map on device location with smooth animation
+  static void centerMapOnDevice(
+    MapController mapController,
+    LatLng deviceLocation, {
+    double zoom = 16.0,
+  }) {
+    mapController.move(deviceLocation, zoom);
+    debugPrint(
+      '🗺️ [MAP_CENTER] Centered map on device location: ${deviceLocation.latitude}, ${deviceLocation.longitude}',
+    );
   }
 }
