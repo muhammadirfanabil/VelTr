@@ -2,8 +2,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geocoding/geocoding.dart';
+import 'dart:async';
 import '../../models/Geofence/Geofence.dart';
 
+/// Service responsible for all geofence operations including overlay data loading
+/// This service handles fetching, parsing, and providing geofence data with proper filtering
 class GeofenceService {
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
@@ -652,4 +655,61 @@ class GeofenceService {
           return geofences;
         });
   }
+  // ======================== OVERLAY MANAGEMENT METHODS (SIMPLIFIED) ========================
+  
+  /// Simple overlay data fetching using the same logic as add/update geofence screens
+  Future<List<Geofence>> loadGeofenceOverlayData(String deviceId) async {
+    debugPrint('� [OVERLAY_SIMPLE] Loading geofence data for device: $deviceId');
+    
+    if (deviceId.isEmpty) {
+      debugPrint('❌ [OVERLAY_SIMPLE] Empty device ID, returning empty list');
+      return [];
+    }
+
+    if (_currentUserId == null) {
+      debugPrint('❌ [OVERLAY_SIMPLE] No current user, returning empty list');
+      return [];
+    }
+
+    try {
+      debugPrint('🔄 [OVERLAY_SIMPLE] Fetching from Firestore...');
+      
+      // Use the same query pattern as the working geofence screens
+      final snapshot = await _firestore
+          .collection('geofences')
+          .where('deviceId', isEqualTo: deviceId)
+          .where('ownerId', isEqualTo: _currentUserId)
+          .limit(50)
+          .get();
+
+      debugPrint('📦 [OVERLAY_SIMPLE] Received ${snapshot.docs.length} docs from Firestore');
+
+      final geofences = <Geofence>[];
+      
+      for (final doc in snapshot.docs) {
+        try {
+          final geofence = Geofence.fromMap(doc.data(), doc.id);
+          
+          // Validate geofence has minimum required points for polygon
+          if (geofence.points.length >= 3) {
+            geofences.add(geofence);
+            debugPrint('✅ [OVERLAY_SIMPLE] Added geofence: ${geofence.name} (${geofence.points.length} points)');
+          } else {
+            debugPrint('⚠️ [OVERLAY_SIMPLE] Skipped invalid geofence ${geofence.name} (insufficient points: ${geofence.points.length})');
+          }
+        } catch (e) {
+          debugPrint('❌ [OVERLAY_SIMPLE] Error parsing geofence doc ${doc.id}: $e');
+        }
+      }
+
+      debugPrint('📊 [OVERLAY_SIMPLE] Successfully loaded ${geofences.length} valid geofences');
+      return geofences;
+      
+    } catch (e) {
+      debugPrint('❌ [OVERLAY_SIMPLE] Error loading geofences: $e');
+      return [];
+    }
+  }
+
+  // ======================== END SIMPLIFIED OVERLAY MANAGEMENT ========================
 }

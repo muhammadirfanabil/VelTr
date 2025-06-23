@@ -86,17 +86,13 @@ class _DeviceRouterScreenState extends State<DeviceRouterScreen> {
 
           // Always navigate to map view regardless of device availability
           // The map will handle no-device scenarios internally
-          final primaryDevice = _getPrimaryDevice(devices);
-
-          // Use primary device if available, otherwise use placeholder
-          final deviceId = primaryDevice?.name ?? 'no_device_placeholder';
-
-          debugPrint('🚀 [DEVICE_ROUTER] Device selection logic:');
+          final primaryDevice = _getPrimaryDevice(devices);          // Use primary device if available, otherwise use placeholder
+          final deviceId = primaryDevice?.id ?? 'no_device_placeholder';          debugPrint('🚀 [DEVICE_ROUTER] Device selection logic:');
           debugPrint(
             '🚀 [DEVICE_ROUTER] Total devices found: ${devices.length}',
           );
           debugPrint(
-            '🚀 [DEVICE_ROUTER] Primary device selected: ${primaryDevice?.name ?? "none"}',
+            '🚀 [DEVICE_ROUTER] Primary device selected: ${primaryDevice?.id ?? "none"} (name: ${primaryDevice?.name ?? "none"})',
           );
           debugPrint(
             '🚀 [DEVICE_ROUTER] Final deviceId for GPS map: $deviceId',

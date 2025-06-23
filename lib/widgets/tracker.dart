@@ -41,21 +41,13 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
       vsync: this,
     );
 
-    _slideAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOutCubic,
-    ));
+    _slideAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
+    );
 
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOut,
-    ));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
 
     _animationController.forward();
   }
@@ -66,7 +58,8 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
     super.dispose();
   }
 
-  bool get hasValidCoordinates => widget.latitude != null && widget.longitude != null;
+  bool get hasValidCoordinates =>
+      widget.latitude != null && widget.longitude != null;
 
   String get coordinatesText =>
       hasValidCoordinates
@@ -107,74 +100,78 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
   void _showLocationDetails() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Icon(Icons.location_on, color: Colors.blue.shade600, size: 24),
-            const SizedBox(width: 8),
-            const Text('Location Details'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (widget.locationName != null) ...[
-              _DetailRow(
-                icon: Icons.place,
-                label: 'Address',
-                value: widget.locationName!,
-              ),
-              const SizedBox(height: 12),
-            ],
-            if (hasValidCoordinates) ...[
-              _DetailRow(
-                icon: Icons.my_location,
-                label: 'Latitude',
-                value: widget.latitude!.toStringAsFixed(6),
-              ),
-              const SizedBox(height: 8),
-              _DetailRow(
-                icon: Icons.my_location,
-                label: 'Longitude',
-                value: widget.longitude!.toStringAsFixed(6),
-              ),
-              const SizedBox(height: 12),
-            ],
-            _DetailRow(
-              icon: Icons.access_time,
-              label: 'Last Update',
-              value: lastActiveText,
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-            if (widget.satellites != null && widget.satellites! > 0) ...[
-              const SizedBox(height: 8),
-              _DetailRow(
-                icon: Icons.satellite_alt,
-                label: 'Satellites',
-                value: '${widget.satellites} connected',
+            title: Row(
+              children: [
+                Icon(Icons.location_on, color: Colors.blue.shade600, size: 24),
+                const SizedBox(width: 8),
+                const Text('Location Details'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (widget.locationName != null) ...[
+                  _DetailRow(
+                    icon: Icons.place,
+                    label: 'Address',
+                    value: widget.locationName!,
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                if (hasValidCoordinates) ...[
+                  _DetailRow(
+                    icon: Icons.my_location,
+                    label: 'Latitude',
+                    value: widget.latitude!.toStringAsFixed(6),
+                  ),
+                  const SizedBox(height: 8),
+                  _DetailRow(
+                    icon: Icons.my_location,
+                    label: 'Longitude',
+                    value: widget.longitude!.toStringAsFixed(6),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                _DetailRow(
+                  icon: Icons.access_time,
+                  label: 'Last Update',
+                  value: lastActiveText,
+                ),
+                if (widget.satellites != null && widget.satellites! > 0) ...[
+                  const SizedBox(height: 8),
+                  _DetailRow(
+                    icon: Icons.satellite_alt,
+                    label: 'Satellites',
+                    value: '${widget.satellites} connected',
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              if (hasValidCoordinates)
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _copyLocation();
+                  },
+                  icon: const Icon(Icons.copy, size: 18),
+                  label: const Text('Copy'),
+                ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close'),
               ),
             ],
-          ],
-        ),
-        actions: [
-          if (hasValidCoordinates)
-            TextButton.icon(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _copyLocation();
-              },
-              icon: const Icon(Icons.copy, size: 18),
-              label: const Text('Copy'),
-            ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
           ),
-        ],
-      ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -189,7 +186,10 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
             child: Align(
               alignment: Alignment.bottomCenter,
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                margin: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
@@ -228,11 +228,13 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
-                                          widget.locationName ?? 'Loading location...',
-                                          style: theme.textTheme.titleMedium?.copyWith(
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.black87,
-                                          ),
+                                          widget.locationName ??
+                                              'Loading location...',
+                                          style: theme.textTheme.titleMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.black87,
+                                              ),
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                         ),
@@ -253,14 +255,14 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
                           _buildStatusBadge(theme),
                         ],
                       ),
-                      
+
                       const SizedBox(height: 16),
-                      
+
                       // Information grid
                       _buildInfoGrid(theme),
-                      
+
                       const SizedBox(height: 20),
-                      
+
                       // Action button (Turn On/Off only)
                       _buildActionButton(theme),
                     ],
@@ -343,11 +345,7 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Icon(
-                    Icons.copy,
-                    size: 14,
-                    color: Colors.grey.shade500,
-                  ),
+                  Icon(Icons.copy, size: 14, color: Colors.grey.shade500),
                 ],
               ),
             ),
@@ -378,9 +376,9 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
               ],
             ),
           ),
-        
+
         const SizedBox(height: 12),
-        
+
         // Last update and satellites info
         Row(
           children: [
@@ -393,7 +391,7 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
                 theme: theme,
               ),
             ),
-            
+
             if (widget.satellites != null && widget.satellites! > 0) ...[
               const SizedBox(width: 16),
               _buildInfoItem(
@@ -418,11 +416,7 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          size: 14,
-          color: Colors.grey.shade600,
-        ),
+        Icon(icon, size: 14, color: Colors.grey.shade600),
         const SizedBox(width: 6),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -452,12 +446,12 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
     if (widget.lastUpdated == null || widget.lastUpdated!.isEmpty) {
       return 'No data';
     }
-    
+
     try {
       final updatedTime = DateTime.parse(widget.lastUpdated!);
       final now = DateTime.now();
       final difference = now.difference(updatedTime);
-      
+
       if (difference.inMinutes < 1) {
         return 'Just now';
       } else if (difference.inMinutes < 60) {
@@ -485,16 +479,12 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
         ),
         label: Text(
           widget.isVehicleOn ? 'Turn Off Device' : 'Turn On Device',
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 15,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
         ),
         style: ElevatedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 16),
-          backgroundColor: widget.isVehicleOn 
-              ? Colors.red.shade600 
-              : Colors.green.shade600,
+          backgroundColor:
+              widget.isVehicleOn ? Colors.red.shade600 : Colors.green.shade600,
           foregroundColor: Colors.white,
           elevation: 0,
           shadowColor: Colors.transparent,
@@ -521,15 +511,11 @@ class _DetailRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          icon,
-          size: 18,
-          color: Colors.grey.shade600,
-        ),
+        Icon(icon, size: 18, color: Colors.grey.shade600),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
