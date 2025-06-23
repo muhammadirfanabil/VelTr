@@ -1,31 +1,16 @@
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 
 class AppTheme {
-  // Define your colors
-  static const Color primaryBlue = Color(0xFF11468F);
-  static const Color accentRed = Color(0xFFDA1212);
+  // Define your colors (maintained for backward compatibility)
+  static const Color primaryBlue = AppColors.primaryBlue;
+  static const Color accentRed = AppColors.accentRed;
 
   // Light Theme
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,
-    brightness: Brightness.light,
-
-    // Color Scheme
-    colorScheme: ColorScheme.light(
-      primary: primaryBlue,
-      secondary: accentRed,
-      // Derived colors
-      primaryContainer: primaryBlue.withValues(alpha: 0.1),
-      secondaryContainer: accentRed.withValues(alpha: 0.1),
-      surface: Colors.white,
-      background: Colors.grey[50]!,
-      error: accentRed,
-      onPrimary: Colors.white,
-      onSecondary: Colors.white,
-      onSurface: Colors.black87,
-      onBackground: Colors.black87,
-      onError: Colors.white,
-    ),
+    brightness: Brightness.light, // Color Scheme
+    colorScheme: AppColors.getColorScheme(false),
 
     // AppBar Theme
     appBarTheme: AppBarTheme(
@@ -108,28 +93,8 @@ class AppTheme {
   // Dark Theme
   static ThemeData darkTheme = ThemeData(
     useMaterial3: true,
-    brightness: Brightness.dark,
-
-    // Color Scheme
-    colorScheme: ColorScheme.dark(
-      primary: primaryBlue.withValues(
-        alpha: 0.8,
-      ), // Slightly muted for dark theme
-      secondary: accentRed.withValues(
-        alpha: 0.8,
-      ), // Slightly muted for dark theme
-      // Derived colors
-      primaryContainer: primaryBlue.withValues(alpha: 0.2),
-      secondaryContainer: accentRed.withValues(alpha: 0.2),
-      surface: Color(0xFF1E1E1E), // Dark surface
-      background: Color(0xFF121212), // Dark background
-      error: accentRed.withValues(alpha: 0.8),
-      onPrimary: Colors.white,
-      onSecondary: Colors.white,
-      onSurface: Colors.white,
-      onBackground: Colors.white,
-      onError: Colors.white,
-    ),
+    brightness: Brightness.dark, // Color Scheme
+    colorScheme: AppColors.getColorScheme(true),
 
     // AppBar Theme
     appBarTheme: AppBarTheme(

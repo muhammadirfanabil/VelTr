@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'index.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_icons.dart';
 
 class DeviceListScreen extends StatefulWidget {
   final String deviceId;
@@ -58,13 +60,22 @@ class _DeviceListScreenState extends State<DeviceListScreen> {
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 child: ListTile(
-                  leading: const Icon(Icons.devices, color: Colors.blue),
+                  leading: Icon(AppIcons.device, color: AppColors.info),
                   title: Text(
                     displayName,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
-                  subtitle: Text('ID: $deviceId'),
-                  trailing: const Icon(Icons.chevron_right),
+                  subtitle: Text(
+                    'ID: $deviceId',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                  trailing: Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textSecondary,
+                  ),
                   onTap: () {
                     Navigator.push(
                       context,

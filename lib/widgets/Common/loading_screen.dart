@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_colors.dart';
 
 class LoadingScreen extends StatelessWidget {
   final String message;
@@ -10,17 +11,19 @@ class LoadingScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.background,
+      backgroundColor: AppColors.backgroundPrimary,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(color: theme.colorScheme.primary),
+            CircularProgressIndicator(color: AppColors.primaryBlue),
             const SizedBox(height: 24),
             Text(
               message,
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: theme.colorScheme.onBackground,
+              style: TextStyle(
+                fontSize: 16,
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w500,
               ),
               textAlign: TextAlign.center,
             ),
@@ -30,8 +33,9 @@ class LoadingScreen extends StatelessWidget {
               builder: (context, snapshot) {
                 return Text(
                   snapshot.data ?? '',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onBackground.withOpacity(0.7),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
                   ),
                 );
               },

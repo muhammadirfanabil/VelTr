@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../models/Device/device.dart';
-import '../../models/vehicle/vehicle.dart';
 import '../../services/device/deviceService.dart';
-import '../../services/vehicle/vehicleService.dart';
-import '../../widgets/device/device_card.dart';
 import '../../widgets/Common/error_card.dart';
 import '../../constants/app_constants.dart';
 import '../../utils/snackbar.dart';
 import '../GeoFence/index.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_icons.dart';
 
 class DeviceManagerScreen extends StatefulWidget {
   const DeviceManagerScreen({super.key});
@@ -18,7 +17,6 @@ class DeviceManagerScreen extends StatefulWidget {
 
 class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
   final DeviceService _deviceService = DeviceService();
-  final VehicleService _vehicleService = VehicleService();
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +32,7 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
   PreferredSizeWidget _buildAppBar(ThemeData theme, ColorScheme colorScheme) {
     return AppBar(
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios, size: 20),
+        icon: Icon(AppIcons.back, size: 20),
         onPressed:
             () => Navigator.pushReplacementNamed(
               context,
@@ -43,15 +41,17 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
       ),
       title: Text(
         'Device Manager',
-        style: theme.textTheme.headlineSmall?.copyWith(
+        style: TextStyle(
           fontWeight: FontWeight.bold,
           fontSize: 22,
+          color: AppColors.textPrimary,
         ),
       ),
       centerTitle: true,
+      backgroundColor: AppColors.backgroundPrimary,
       actions: [
         IconButton(
-          icon: const Icon(Icons.add),
+          icon: Icon(AppIcons.add),
           onPressed: _showAddDeviceDialog,
           tooltip: 'Add Device',
         ),
@@ -70,7 +70,7 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Colors.white, Colors.blue.shade50.withValues(alpha: 0.2)],
+          colors: [AppColors.backgroundPrimary, AppColors.backgroundSecondary],
         ),
       ),
       child: StreamBuilder<List<Device>>(
@@ -388,146 +388,6 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
     }
   }
 
-  void _showLinkToVehicleDialog(Device device) async {
-    try {
-      // Get vehicles that don't have devices attached
-      final vehicleStream = _vehicleService.getVehiclesStream();
-      final allVehicles = await vehicleStream.first;
-      final unlinkedVehicles =
-          allVehicles
-              .where(
-                (vehicle) =>
-                    vehicle.deviceId == null || vehicle.deviceId!.isEmpty,
-              )
-              .toList();
-
-      if (unlinkedVehicles.isEmpty) {
-        _showNoUnlinkedVehiclesDialog();
-        return;
-      }
-
-      showDialog(
-        context: context,
-        builder:
-            (context) => AlertDialog(
-              title: const Text('Link Device to Vehicle'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Select a vehicle to link with "${device.name}":'),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.maxFinite,
-                    height: 200,
-                    child: ListView.builder(
-                      itemCount: unlinkedVehicles.length,
-                      itemBuilder: (context, index) {
-                        final vehicle = unlinkedVehicles[index];
-                        return ListTile(
-                          leading: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Icon(
-                              Icons.directions_car,
-                              color: Colors.blue,
-                            ),
-                          ),
-                          title: Text(vehicle.name),
-                          subtitle:
-                              vehicle.plateNumber != null
-                                  ? Text(vehicle.plateNumber!)
-                                  : null,
-                          trailing: const Icon(
-                            Icons.arrow_forward_ios,
-                            size: 16,
-                          ),
-                          onTap: () {
-                            Navigator.pop(context);
-                            _linkDeviceToVehicle(device, vehicle);
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-              ],
-            ),
-      );
-    } catch (e) {
-      _showSnackBar('Error loading vehicles: $e', Colors.red);
-    }
-  }
-
-  void _showNoUnlinkedVehiclesDialog() {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('No Available Vehicles'),
-            content: const Text(
-              'All vehicles already have devices attached. '
-              'You need to add a new vehicle or unlink an existing device first.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/vehicle');
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Add Vehicle'),
-              ),
-            ],
-          ),
-    );
-  }
-
-  Future<void> _linkDeviceToVehicle(Device device, vehicle vehicleObj) async {
-    try {
-      // Update device with vehicle ID
-      await _deviceService.assignDeviceToVehicle(device.id, vehicleObj.id);
-
-      // Update vehicle with device ID
-      await _vehicleService.updateVehicle(
-        vehicleObj.copyWith(deviceId: device.id, updatedAt: DateTime.now()),
-      );
-      _showSnackBar(
-        'Device "${device.name}" linked to vehicle "${vehicleObj.name}" successfully',
-        Colors.green,
-      );
-    } catch (e) {
-      _showSnackBar('Error linking device to vehicle: $e', Colors.red);
-    }
-  }
-
-  void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: color,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
   void _showSuccessSnackbar(String message) {
     ScaffoldMessenger.of(
       context,
@@ -539,9 +399,6 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
       context,
     ).showSnackBar(SnackbarUtils.showError(context, message));
   }
-
-  String _formatDate(DateTime dateTime) =>
-      '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
 }
 
 class DeviceCard extends StatelessWidget {
@@ -559,14 +416,13 @@ class DeviceCard extends StatelessWidget {
     required this.onToggleStatus,
     this.onLinkToVehicle, // Optional callback
   }) : super(key: key);
-
   @override
   Widget build(BuildContext context) {
     return Card(
       elevation: 4,
-      shadowColor: Colors.black26,
+      shadowColor: AppColors.textTertiary.withOpacity(0.3),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: Colors.white,
+      color: AppColors.surface,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
@@ -646,20 +502,19 @@ class DeviceCard extends StatelessWidget {
       ),
     ],
   );
-
   Widget _buildActionButtons() => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
       IconButton(
         icon: Icon(
-          device.isActive ? Icons.pause : Icons.play_arrow,
-          color: device.isActive ? Colors.blueGrey.shade300 : Colors.green,
+          device.isActive ? AppIcons.inactive : AppIcons.active,
+          color: device.isActive ? AppColors.textSecondary : AppColors.success,
         ),
         onPressed: onToggleStatus,
         tooltip: device.isActive ? 'Deactivate' : 'Activate',
       ),
       IconButton(
-        icon: const Icon(Icons.edit, color: Colors.lightBlue),
+        icon: Icon(AppIcons.edit, color: AppColors.info),
         onPressed: onEdit,
         tooltip: 'Edit',
       ),
@@ -716,19 +571,19 @@ class DeviceCard extends StatelessWidget {
   Widget _buildTapHint() => Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
     decoration: BoxDecoration(
-      color: Colors.blue.shade50,
+      color: AppColors.infoLight,
       borderRadius: BorderRadius.circular(4),
-      border: Border.all(color: Colors.blue.shade200),
+      border: Border.all(color: AppColors.info.withOpacity(0.3)),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.touch_app, size: 14, color: Colors.blue.shade700),
+        Icon(AppIcons.location, size: 14, color: AppColors.infoText),
         const SizedBox(width: 4),
         Text(
           'Tap to view geofences',
           style: TextStyle(
-            color: Colors.blue.shade700,
+            color: AppColors.infoText,
             fontSize: 11,
             fontWeight: FontWeight.w500,
           ),
@@ -739,16 +594,15 @@ class DeviceCard extends StatelessWidget {
 
   Widget _buildLinkToVehicleButton() {
     if (onLinkToVehicle == null) return const SizedBox.shrink();
-
     return Container(
       width: double.infinity,
       child: ElevatedButton.icon(
         onPressed: onLinkToVehicle,
-        icon: const Icon(Icons.link, size: 18),
+        icon: Icon(AppIcons.vehicle, size: 18),
         label: const Text('Link Device to Vehicle'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.orange.shade600,
-          foregroundColor: Colors.white,
+          backgroundColor: AppColors.warning,
+          foregroundColor: AppColors.backgroundPrimary,
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),

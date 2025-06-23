@@ -37,6 +37,24 @@ class vehicle {
     );
   }
 
+  /// Creates a vehicle instance from JSON data.
+  factory vehicle.fromJson(Map<String, dynamic> json) {
+    return vehicle(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      ownerId: json['ownerId'] ?? '',
+      deviceId: json['deviceId'],
+      vehicleTypes: json['vehicleTypes'],
+      plateNumber: json['plateNumber'],
+      createdAt: DateTime.parse(
+        json['createdAt'] ?? DateTime.now().toIso8601String(),
+      ),
+      updatedAt: DateTime.parse(
+        json['updatedAt'] ?? DateTime.now().toIso8601String(),
+      ),
+    );
+  }
+
   /// Converts this vehicle to a map for Firestore storage.
   Map<String, dynamic> toMap() {
     return {
@@ -47,6 +65,20 @@ class vehicle {
       'plate_number': plateNumber,
       'created_at': Timestamp.fromDate(createdAt),
       'updated_at': Timestamp.fromDate(updatedAt),
+    };
+  }
+
+  /// Converts this vehicle to JSON.
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'ownerId': ownerId,
+      'deviceId': deviceId,
+      'vehicleTypes': vehicleTypes,
+      'plateNumber': plateNumber,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
     };
   }
 

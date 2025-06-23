@@ -46,7 +46,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '1025991041896',
     projectId: 'gps-project-a5c9a',
     authDomain: 'gps-project-a5c9a.firebaseapp.com',
-    databaseURL: 'https://gps-project-a5c9a-default-rtdb.asia-southeast1.firebasedatabase.app',
+    databaseURL:
+        'https://gps-project-a5c9a-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'gps-project-a5c9a.firebasestorage.app',
     measurementId: 'G-L7KF4C3QXS',
   );
@@ -56,7 +57,8 @@ class DefaultFirebaseOptions {
     appId: '1:1025991041896:android:a1fa7840e74527eb502cdd',
     messagingSenderId: '1025991041896',
     projectId: 'gps-project-a5c9a',
-    databaseURL: 'https://gps-project-a5c9a-default-rtdb.asia-southeast1.firebasedatabase.app',
+    databaseURL:
+        'https://gps-project-a5c9a-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'gps-project-a5c9a.firebasestorage.app',
   );
 
@@ -65,7 +67,8 @@ class DefaultFirebaseOptions {
     appId: '1:1025991041896:ios:e42edeecab41a87e502cdd',
     messagingSenderId: '1025991041896',
     projectId: 'gps-project-a5c9a',
-    databaseURL: 'https://gps-project-a5c9a-default-rtdb.asia-southeast1.firebasedatabase.app',
+    databaseURL:
+        'https://gps-project-a5c9a-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'gps-project-a5c9a.firebasestorage.app',
     iosBundleId: 'com.example.gpsApp',
   );
@@ -75,7 +78,8 @@ class DefaultFirebaseOptions {
     appId: '1:1025991041896:ios:e42edeecab41a87e502cdd',
     messagingSenderId: '1025991041896',
     projectId: 'gps-project-a5c9a',
-    databaseURL: 'https://gps-project-a5c9a-default-rtdb.asia-southeast1.firebasedatabase.app',
+    databaseURL:
+        'https://gps-project-a5c9a-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'gps-project-a5c9a.firebasestorage.app',
     iosBundleId: 'com.example.gpsApp',
   );
@@ -86,7 +90,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '1025991041896',
     projectId: 'gps-project-a5c9a',
     authDomain: 'gps-project-a5c9a.firebaseapp.com',
-    databaseURL: 'https://gps-project-a5c9a-default-rtdb.asia-southeast1.firebasedatabase.app',
+    databaseURL:
+        'https://gps-project-a5c9a-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'gps-project-a5c9a.firebasestorage.app',
     measurementId: 'G-K71RL8QTHP',
   );

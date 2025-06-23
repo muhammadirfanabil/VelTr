@@ -38,6 +38,24 @@ class Device {
     );
   }
 
+  /// Creates a Device instance from JSON data.
+  factory Device.fromJson(Map<String, dynamic> json) {
+    return Device(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      ownerId: json['ownerId'],
+      vehicleId: json['vehicleId'],
+      gpsData: json['gpsData'] as Map<String, dynamic>?,
+      isActive: json['isActive'] ?? true,
+      createdAt: DateTime.parse(
+        json['createdAt'] ?? DateTime.now().toIso8601String(),
+      ),
+      updatedAt: DateTime.parse(
+        json['updatedAt'] ?? DateTime.now().toIso8601String(),
+      ),
+    );
+  }
+
   /// Converts this Device to a map for Firestore storage.
   Map<String, dynamic> toMap() {
     return {
@@ -48,6 +66,20 @@ class Device {
       'isActive': isActive,
       'created_at': Timestamp.fromDate(createdAt),
       'updated_at': Timestamp.fromDate(updatedAt),
+    };
+  }
+
+  /// Converts this Device to JSON.
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'ownerId': ownerId,
+      'vehicleId': vehicleId,
+      'gpsData': gpsData,
+      'isActive': isActive,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
     };
   }
 
