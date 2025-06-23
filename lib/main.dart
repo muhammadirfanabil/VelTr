@@ -18,9 +18,8 @@ import 'screens/vehicle/history.dart';
 import 'screens/Maps/mapView.dart';
 import 'screens/GeoFence/index.dart';
 import 'screens/GeoFence/device_geofence.dart';
-import 'screens/geofence/geofence_alerts_screen.dart';
 import 'screens/device/index.dart';
-import 'screens/notifications/notifications_screen.dart';
+import 'screens/notifications/enhanced_notifications_screen.dart';
 
 // Widget Imports
 import 'widgets/Common/loading_screen.dart';
@@ -285,9 +284,7 @@ class MyApp extends StatelessWidget {
       },
       '/home': (context) => const DeviceRouterScreen(),
       '/profile': (context) => const ProfilePage(),
-      '/edit-profile': (context) => const EditProfileScreen(),
-      '/notifications': (context) => const NotificationsScreen(),
-      '/geofence-alerts': (context) => const GeofenceAlertsScreen(),
+      '/edit-profile': (context) => const EditProfileScreen(),      '/notifications': (context) => const EnhancedNotificationsScreen(),
       '/vehicle': (context) => const VehicleIndexScreen(),
       '/manage-vehicle': (context) => const ManageVehicle(),
       '/drive-history': (context) {
