@@ -5,6 +5,7 @@ class userInformation {
   String id;
   String name;
   String emailAddress;
+  String phoneNumber;
   List<String> vehicleIds; // List of vehicle IDs owned by the user
   DateTime createdAt;
   DateTime updatedAt;
@@ -13,15 +14,16 @@ class userInformation {
     required this.id,
     required this.name,
     required this.emailAddress,
+    this.phoneNumber = '',
     this.vehicleIds = const [],
     required this.createdAt,
     required this.updatedAt,
   });
-
   userInformation copyWith({
     String? id,
     String? name,
     String? emailAddress,
+    String? phoneNumber,
     List<String>? vehicleIds,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -30,12 +32,12 @@ class userInformation {
       id: id ?? this.id,
       name: name ?? this.name,
       emailAddress: emailAddress ?? this.emailAddress,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
       vehicleIds: vehicleIds ?? this.vehicleIds,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
-
   factory userInformation.fromMap(
     Map<String, dynamic> data,
     String documentId,
@@ -44,6 +46,7 @@ class userInformation {
       id: documentId,
       name: data['name'] ?? '',
       emailAddress: data['email'] ?? data['emailAddress'] ?? '',
+      phoneNumber: data['phone_number'] ?? data['phoneNumber'] ?? '',
       vehicleIds: List<String>.from(
         data['vehicleIds'] ?? data['vehicle_ids'] ?? [],
       ),
@@ -57,12 +60,12 @@ class userInformation {
               : DateTime.now(),
     );
   }
-
   factory userInformation.fromJson(Map<String, dynamic> json) {
     return userInformation(
       id: json['id'] ?? '',
       name: json['name'] ?? '',
       emailAddress: json['emailAddress'] ?? '',
+      phoneNumber: json['phoneNumber'] ?? '',
       vehicleIds: List<String>.from(json['vehicleIds'] ?? []),
       createdAt: DateTime.parse(
         json['createdAt'] ?? DateTime.now().toIso8601String(),
@@ -72,22 +75,22 @@ class userInformation {
       ),
     );
   }
-
   Map<String, dynamic> toMap() {
     return {
       'name': name,
       'email': emailAddress,
+      'phone_number': phoneNumber,
       'vehicleIds': vehicleIds,
       'created_at': Timestamp.fromDate(createdAt),
       'updated_at': Timestamp.fromDate(updatedAt),
     };
   }
-
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'name': name,
       'emailAddress': emailAddress,
+      'phoneNumber': phoneNumber,
       'vehicleIds': vehicleIds,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
