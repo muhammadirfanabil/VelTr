@@ -245,4 +245,114 @@ class AuthService {
       return false;
     }
   }
+
+  /// Verify current password by re-authenticating the user
+  static Future<bool> verifyCurrentPassword(String currentPassword) async {
+    try {
+      final User? currentUser = FirebaseAuth.instance.currentUser;
+
+      if (currentUser == null || currentUser.email == null) {
+        throw Exception('No user is currently signed in');
+      }
+
+      // Create credential for re-authentication
+      final credential = EmailAuthProvider.credential(
+        email: currentUser.email!,
+        password: currentPassword,
+      );
+
+      // Try to re-authenticate
+      await currentUser.reauthenticateWithCredential(credential);
+      return true;
+    } on FirebaseAuthException catch (e) {
+      // Handle specific Firebase auth errors
+      switch (e.code) {
+        case 'wrong-password':
+        case 'invalid-credential':
+          return false;
+        case 'too-many-requests':
+          throw Exception('Too many failed attempts. Please try again later.');
+        case 'user-mismatch':
+          throw Exception('User credentials do not match.');
+        case 'user-not-found':
+          throw Exception('User account not found.');
+        case 'invalid-email':
+          throw Exception('Invalid email address.');
+        default:
+          throw Exception('Authentication error: ${e.message}');
+      }
+    } catch (e) {
+      throw Exception('Failed to verify password: $e');
+    }
+  }
+
+  /// Change user password
+  static Future<bool> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final User? currentUser = FirebaseAuth.instance.currentUser;
+
+      if (currentUser == null) {
+        throw Exception('No user is currently signed in');
+      }
+
+      // First verify the current password
+      final isCurrentPasswordValid = await verifyCurrentPassword(
+        currentPassword,
+      );
+      if (!isCurrentPasswordValid) {
+        throw Exception('Current password is incorrect');
+      }
+
+      // Update the password
+      await currentUser.updatePassword(newPassword);
+
+      // Log the password change in Firestore (optional, for security audit)
+      await FirebaseFirestore.instance
+          .collection('users_information')
+          .doc(currentUser.uid)
+          .update({'password_last_changed': FieldValue.serverTimestamp()});
+
+      return true;
+    } on FirebaseAuthException catch (e) {
+      // Handle specific Firebase auth errors
+      switch (e.code) {
+        case 'weak-password':
+          throw Exception(
+            'The new password is too weak. Please choose a stronger password.',
+          );
+        case 'requires-recent-login':
+          throw Exception(
+            'For security reasons, please log out and log back in before changing your password.',
+          );
+        case 'too-many-requests':
+          throw Exception('Too many requests. Please try again later.');
+        default:
+          throw Exception('Failed to change password: ${e.message}');
+      }
+    } catch (e) {
+      if (e.toString().contains('Current password is incorrect')) {
+        rethrow;
+      }
+      throw Exception('Failed to change password: $e');
+    }
+  }
+  /// Validate password strength
+  static String? validatePassword(String password) {
+    if (password.length < 8) {
+      return 'Password must be at least 8 characters long';
+    }
+    if (!password.contains(RegExp(r'[A-Z]'))) {
+      return 'Password must contain at least one uppercase letter';
+    }
+    if (!password.contains(RegExp(r'[a-z]'))) {
+      return 'Password must contain at least one lowercase letter';
+    }
+    if (!password.contains(RegExp(r'[0-9]'))) {
+      return 'Password must contain at least one number';
+    }
+    return null; // Password is valid
+  }
 }

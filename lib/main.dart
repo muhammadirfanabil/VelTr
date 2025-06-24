@@ -10,6 +10,7 @@ import 'themes/app_theme.dart';
 import 'screens/Auth/login.dart';
 import 'screens/Auth/RegisterOne.dart';
 import 'screens/Auth/GoogleSignupScreen.dart';
+import 'screens/Auth/change_password_screen.dart';
 import 'screens/Users/Profile.dart';
 import 'screens/users/edit_profile.dart';
 import 'screens/Vehicle/index.dart';
@@ -272,7 +273,12 @@ class MyApp extends StatelessWidget {
 
   Map<String, WidgetBuilder> _buildRoutes() {
     return {
-      '/login': (context) => const LoginScreen(),
+      '/login': (context) => const LoginScreen(),      '/change-password': (context) {
+        final args =
+            ModalRoute.of(context)?.settings.arguments as Map<String, String>?;
+        final email = args?['email'] ?? FirebaseAuth.instance.currentUser?.email ?? '';
+        return ChangePasswordScreen(email: email);
+      },
       '/registerone': (context) => const RegisterOne(),
       '/google-signup': (context) {
         final args =

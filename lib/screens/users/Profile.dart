@@ -167,6 +167,12 @@ class _ProfilePageState extends State<ProfilePage> {
         subtitle: 'View past journeys',
         route: AppConstants.driveHistoryRoute,
       ),
+      const ActionItem(
+        icon: Icons.history_outlined,
+        title: 'Change Password',
+        subtitle: 'Update your account password',
+        route: AppConstants.changePasswordRoute,
+      ),
     ];
   }
 

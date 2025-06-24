@@ -230,15 +230,11 @@ class _RegisterOneState extends State<RegisterOne> {
                         toggleVisibility:
                             () => setState(
                               () => _obscurePassword = !_obscurePassword,
-                            ),
-                        validator: (val) {
+                            ),                        validator: (val) {
                           if (val == null || val.isEmpty) {
                             return 'Password is required';
                           }
-                          if (val.length < 6) {
-                            return 'Password must be at least 6 characters';
-                          }
-                          return null;
+                          return AuthService.validatePassword(val);
                         },
                       ),
                       const SizedBox(height: 16),

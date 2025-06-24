@@ -139,11 +139,9 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackbarUtils.showError(
-            context,
-            'Failed to get location: ${e.toString()}',
-          ),
+        SnackbarUtils.showError(
+          context,
+          'Failed to get location: ${e.toString()}',
         );
       }
     } finally {
@@ -312,11 +310,9 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
 
   void _onContinuePressed() {
     if (polygonPoints.length < 3) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackbarUtils.showInfo(
-          context,
-          'At least 3 points are required to create a geofence area.',
-        ),
+      SnackbarUtils.showInfo(
+        context,
+        'At least 3 points are required to create a geofence area.',
       );
       return;
     }
@@ -325,11 +321,9 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
       showPolygon = true;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackbarUtils.showSuccess(
-        context,
-        'Geofence area created! Review and save.',
-      ),
+    SnackbarUtils.showSuccess(
+      context,
+      'Geofence area created! Review and save.',
     );
   }
 
@@ -486,12 +480,9 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
         status: true,
         createdAt: DateTime.now(),
       );
-
       final validationError = _geofenceService.validateGeofence(geofence);
       if (validationError != null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackbarUtils.showError(context, validationError));
+        SnackbarUtils.showError(context, validationError);
         return;
       }
 
@@ -502,16 +493,13 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
         confirmText: 'Save',
         confirmColor: Theme.of(context).colorScheme.primary,
       );
-
       if (confirmed == true) {
         await _geofenceService.createGeofence(geofence);
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackbarUtils.showSuccess(
-              context,
-              'Geofence "$name" saved successfully!',
-            ),
+          SnackbarUtils.showSuccess(
+            context,
+            'Geofence "$name" saved successfully!',
           );
 
           Navigator.pushReplacement(
@@ -524,11 +512,9 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackbarUtils.showError(
-            context,
-            'Failed to save geofence: ${e.toString()}',
-          ),
+        SnackbarUtils.showError(
+          context,
+          'Failed to save geofence: ${e.toString()}',
         );
       }
     } finally {
