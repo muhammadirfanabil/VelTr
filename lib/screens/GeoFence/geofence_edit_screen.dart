@@ -430,14 +430,17 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
       ],
     );
   }
+
   Widget _buildMarkerLayer() {
     return MapMarkersService.createPolygonPointMarkers(polygonPoints);
   }
+
   Widget _buildCurrentLocationMarker() {
     if (currentLocation == null) return const SizedBox.shrink();
 
     return MapMarkersService.createUserLocationMarker(currentLocation!);
   }
+
   Widget _buildDeviceLocationMarker() {
     // Don't show device marker if location is not available
     if (deviceLocation == null) {

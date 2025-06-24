@@ -614,12 +614,14 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
       debugPrint('Error centering map: $e');
     }
   }
+
   /// Builds the current user location marker (blue dot) using centralized service
   Widget _buildCurrentLocationMarker() {
     if (currentLocation == null) return const SizedBox.shrink();
 
     return MapMarkersService.createUserLocationMarker(currentLocation!);
   }
+
   /// Builds the device location marker using centralized service
   Widget _buildDeviceLocationMarker() {
     // Don't show device marker if location is not available
@@ -821,7 +823,7 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
                                 borderStrokeWidth: 3,
                               ),
                             ],
-                          ),                        // Polygon point markers using centralized service
+                          ), // Polygon point markers using centralized service
                         if (polygonPoints.isNotEmpty)
                           MapMarkersService.createPolygonPointMarkers(
                             polygonPoints,

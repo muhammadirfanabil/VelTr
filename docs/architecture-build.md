@@ -9,18 +9,21 @@ The application follows a clean architecture pattern with clear separation of co
 ### Clean Architecture Layers
 
 #### Presentation Layer
+
 - **Screens**: UI screens and navigation
 - **Widgets**: Reusable UI components
 - **State Management**: UI state and business logic coordination
 - **View Models**: Screen-specific business logic
 
 #### Application Layer
+
 - **Services**: Business logic and application services
 - **Use Cases**: Specific application operations
 - **Repositories**: Data access abstraction
 - **DTOs**: Data transfer objects
 
 #### Infrastructure Layer
+
 - **Data Sources**: External data sources (Firebase, APIs, local storage)
 - **Models**: Data models and entities
 - **Network**: HTTP clients and network utilities
@@ -78,6 +81,7 @@ lib/
 ### Environment Configuration
 
 #### Development Environment
+
 ```yaml
 # pubspec.yaml - development configuration
 flutter:
@@ -87,6 +91,7 @@ flutter:
 ```
 
 #### Production Environment
+
 ```yaml
 # pubspec.yaml - production configuration
 flutter:
@@ -98,6 +103,7 @@ flutter:
 ### Build Scripts
 
 #### Android Build
+
 ```bash
 # Debug build
 flutter build apk --debug --flavor dev
@@ -110,6 +116,7 @@ flutter build appbundle --release --flavor prod
 ```
 
 #### iOS Build
+
 ```bash
 # Debug build
 flutter build ios --debug --flavor dev
@@ -121,6 +128,7 @@ flutter build ios --release --flavor prod --obfuscate --split-debug-info=build/d
 ### CI/CD Pipeline
 
 #### GitHub Actions Configuration
+
 ```yaml
 name: Build and Test
 on:
@@ -138,7 +146,7 @@ jobs:
       - run: flutter pub get
       - run: flutter test
       - run: flutter analyze
-      
+
   build:
     needs: test
     runs-on: ubuntu-latest
@@ -154,6 +162,7 @@ jobs:
 ### Firebase Integration
 
 #### Firestore Collections
+
 ```
 users/                               # User accounts and profiles
 ├── {userId}/
@@ -177,6 +186,7 @@ notifications/                      # User notifications
 ```
 
 #### Realtime Database Structure
+
 ```
 devices/                            # Real-time device data
 ├── {deviceMacAddress}/
@@ -195,6 +205,7 @@ devices/                            # Real-time device data
 ### Local Storage
 
 #### SQLite Schema
+
 ```sql
 -- Local device cache
 CREATE TABLE devices (
@@ -231,12 +242,14 @@ CREATE TABLE geofences (
 ## State Management
 
 ### Architecture Pattern
+
 - **Provider Pattern**: State management using Provider package
 - **Repository Pattern**: Data access through repository interfaces
 - **Service Locator**: Dependency injection using GetIt
 - **Event-Driven**: Event bus for loose coupling between components
 
 ### State Management Structure
+
 ```dart
 // Service registration
 void setupServiceLocator() {
@@ -263,18 +276,21 @@ class AppProviders extends StatelessWidget {
 ## Security Architecture
 
 ### Authentication & Authorization
+
 - **Firebase Authentication**: User authentication with email/password and Google OAuth
 - **JWT Tokens**: Secure API communication with JSON Web Tokens
 - **Role-Based Access**: User roles and permissions for feature access
 - **Device Association**: Secure device-user relationship management
 
 ### Data Security
+
 - **Encryption at Rest**: Local database encryption using SQLCipher
 - **Encryption in Transit**: HTTPS/TLS for all network communications
 - **API Security**: Authenticated API calls with proper authorization headers
 - **Input Validation**: Comprehensive input validation and sanitization
 
 ### Privacy Protection
+
 - **Data Minimization**: Collect only necessary user data
 - **Consent Management**: User consent for data collection and processing
 - **Data Retention**: Automatic data purging based on retention policies
@@ -283,17 +299,19 @@ class AppProviders extends StatelessWidget {
 ## Performance Architecture
 
 ### Optimization Strategies
+
 - **Lazy Loading**: On-demand loading of screens and data
 - **Connection Pooling**: Efficient database connection management
 - **Caching Strategy**: Multi-level caching (memory, disk, network)
 - **Background Processing**: Non-blocking background operations
 
 ### Memory Management
+
 ```dart
 // Proper disposal of resources
 class DeviceProvider extends ChangeNotifier {
   StreamSubscription? _deviceSubscription;
-  
+
   @override
   void dispose() {
     _deviceSubscription?.cancel();
@@ -303,6 +321,7 @@ class DeviceProvider extends ChangeNotifier {
 ```
 
 ### Network Optimization
+
 - **Request Batching**: Batch multiple API requests
 - **Compression**: Data compression for network requests
 - **Offline Support**: Comprehensive offline functionality
@@ -311,12 +330,14 @@ class DeviceProvider extends ChangeNotifier {
 ## Testing Architecture
 
 ### Testing Strategy
+
 - **Unit Tests**: Comprehensive unit testing for business logic
 - **Widget Tests**: UI component testing
 - **Integration Tests**: End-to-end testing of user flows
 - **Performance Tests**: Performance and memory usage testing
 
 ### Test Structure
+
 ```
 test/
 ├── unit/
@@ -335,28 +356,31 @@ test/
 ## Development Guidelines
 
 ### Code Quality Standards
+
 - **Linting**: Strict linting rules with flutter_lints package
 - **Code Formatting**: Consistent code formatting with dartfmt
 - **Documentation**: Comprehensive code documentation
 - **Type Safety**: Strong typing throughout the application
 
 ### Development Workflow
+
 1. **Feature Branches**: Feature development in separate branches
 2. **Code Review**: Mandatory code review for all changes
 3. **Automated Testing**: All tests must pass before merge
 4. **Documentation**: Update documentation with changes
 
 ### Error Handling
+
 ```dart
 // Centralized error handling
 class ErrorHandler {
   static void handleError(Object error, StackTrace stackTrace) {
     // Log error
     logger.error('Error occurred: $error', error, stackTrace);
-    
+
     // Report to crash analytics
     FirebaseCrashlytics.instance.recordError(error, stackTrace);
-    
+
     // Show user-friendly message
     showErrorSnackbar(getErrorMessage(error));
   }
@@ -366,6 +390,7 @@ class ErrorHandler {
 ## Deployment Architecture
 
 ### Release Process
+
 1. **Version Increment**: Update version numbers in pubspec.yaml
 2. **Testing**: Run comprehensive test suite
 3. **Build**: Generate release builds for Android and iOS
@@ -373,11 +398,13 @@ class ErrorHandler {
 5. **Store Upload**: Upload to Google Play Store and Apple App Store
 
 ### Environment Management
+
 - **Development**: Local development environment
 - **Staging**: Pre-production testing environment
 - **Production**: Live production environment
 
 ### Monitoring & Analytics
+
 - **Crash Reporting**: Firebase Crashlytics for crash monitoring
 - **Performance Monitoring**: Firebase Performance for app performance
 - **Usage Analytics**: Firebase Analytics for user behavior
@@ -386,12 +413,14 @@ class ErrorHandler {
 ## Future Architecture Improvements
 
 ### Planned Enhancements
+
 - **Microservices**: Migration to microservices architecture
 - **GraphQL**: GraphQL API implementation for efficient data fetching
 - **Event Sourcing**: Event sourcing for audit trails and data history
 - **CQRS**: Command Query Responsibility Segregation for better scalability
 
 ### Technical Debt
+
 - **Legacy Code**: Refactor legacy components to modern architecture
 - **Testing Coverage**: Increase automated testing coverage
 - **Documentation**: Complete architecture documentation

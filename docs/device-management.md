@@ -9,20 +9,24 @@ The Device Management System handles GPS tracking devices, their registration, m
 ### Core Files
 
 #### Screens
+
 - `lib/screens/device/index.dart` - Main device list and management screen
 - `lib/screens/device/device_details.dart` - Individual device information and controls
 - `lib/screens/device/device_registration.dart` - New device registration flow
 
 #### Services
+
 - `lib/services/device/deviceService.dart` - Core device CRUD operations and Firebase integration
 - `lib/services/device/device_monitoring_service.dart` - Real-time device status and GPS monitoring
 - `lib/services/device/device_validation_service.dart` - Device ID and data validation
 
 #### Models
+
 - `lib/models/device/device.dart` - Device data model with GPS and status information
 - `lib/models/device/device_status.dart` - Device status tracking model
 
 #### Widgets
+
 - `lib/widgets/Device/device_card.dart` - Device list item with status and quick actions
 - `lib/widgets/Device/device_info.dart` - Detailed device information display
 - `lib/widgets/Device/gps_info.dart` - GPS-specific information and status
@@ -30,6 +34,7 @@ The Device Management System handles GPS tracking devices, their registration, m
 ## Data Flow
 
 ### 1. Device Registration Flow
+
 1. **User Input**: User enters device ID/MAC address and device name
 2. **Validation**: System validates device ID format and uniqueness
 3. **Device Lookup**: Firebase query to check if device exists and is available
@@ -38,6 +43,7 @@ The Device Management System handles GPS tracking devices, their registration, m
 6. **Confirmation**: Success notification and navigation to device list
 
 ### 2. Real-time Monitoring Flow
+
 1. **Connection Setup**: Firebase Realtime Database listener for device GPS data
 2. **Data Stream**: Continuous GPS coordinates, timestamp, and status updates
 3. **Processing**: Raw GPS data validation and coordinate parsing
@@ -46,6 +52,7 @@ The Device Management System handles GPS tracking devices, their registration, m
 6. **Alert Generation**: Notifications for device status changes
 
 ### 3. Device Control Flow
+
 1. **Command Input**: User initiates device control (turn on/off, settings)
 2. **Command Transmission**: Control commands sent via Firebase messaging
 3. **Acknowledgment**: Device acknowledgment received and processed
@@ -114,6 +121,7 @@ Future<bool> sendCommand(String deviceId, DeviceCommand command)
 ## UI Behavior
 
 ### Device List Screen
+
 - **Device Cards**: Visual list showing device name, status, last location
 - **Real-time Status**: Live online/offline indicators with color coding
 - **Quick Actions**: Tap to view details, long-press for context menu
@@ -121,6 +129,7 @@ Future<bool> sendCommand(String deviceId, DeviceCommand command)
 - **Pull to Refresh**: Manual refresh of device list and status
 
 ### Device Details Screen
+
 - **Location Map**: Real-time device location on interactive map
 - **Status Information**: Comprehensive device status and GPS data
 - **Control Panel**: Device control buttons (power, settings, etc.)
@@ -128,6 +137,7 @@ Future<bool> sendCommand(String deviceId, DeviceCommand command)
 - **Settings**: Device-specific configuration options
 
 ### Device Registration
+
 - **ID Input**: Device ID/MAC address input with validation
 - **Name Assignment**: User-friendly device name entry
 - **Validation Feedback**: Real-time validation status and error messages
@@ -135,6 +145,7 @@ Future<bool> sendCommand(String deviceId, DeviceCommand command)
 - **Success Confirmation**: Registration completion confirmation
 
 ### Device Info Bottom Sheet
+
 - **Modern Design**: Compact, modern card with rounded corners
 - **Interactive Elements**: Tap to copy coordinates, view details
 - **Status Badge**: Visual online/offline indicator with color coding
@@ -144,12 +155,14 @@ Future<bool> sendCommand(String deviceId, DeviceCommand command)
 ## Technical Implementation Details
 
 ### Real-time Data Synchronization
+
 - **Firebase Listeners**: Continuous GPS data streams from devices
 - **Data Validation**: Server-side validation of GPS coordinates and timestamps
 - **Offline Handling**: Graceful handling of network connectivity issues
 - **Background Processing**: Continued monitoring when app is backgrounded
 
 ### Device Status Calculation
+
 ```dart
 // Status determination logic
 bool isOnline = (currentTime - lastUpdate) < ONLINE_THRESHOLD;
@@ -158,12 +171,14 @@ Duration lastSeen = currentTime - lastUpdate;
 ```
 
 ### GPS Data Processing
+
 - **Coordinate Validation**: Validate latitude/longitude ranges
 - **Accuracy Filtering**: Filter out low-accuracy GPS readings
 - **Movement Detection**: Detect significant location changes
 - **Speed Calculation**: Calculate speed from coordinate changes
 
 ### Performance Optimizations
+
 - **Connection Pooling**: Efficient Firebase connection management
 - **Data Caching**: Local caching of recent device data
 - **Lazy Loading**: On-demand loading of device details
@@ -172,16 +187,19 @@ Duration lastSeen = currentTime - lastUpdate;
 ## Developer Notes
 
 ### Device ID Formats
+
 - **MAC Address**: Standard 6-byte MAC address format (XX:XX:XX:XX:XX:XX)
 - **IMEI**: 15-digit International Mobile Equipment Identity
 - **Custom ID**: Alphanumeric device identifiers (8-16 characters)
 
 ### Data Consistency
+
 - **Unique Constraints**: Device IDs must be unique across the system
 - **User Association**: Devices can only be associated with one user account
 - **Data Integrity**: Referential integrity between devices and related data
 
 ### Security Considerations
+
 - **Device Validation**: Strict validation of device IDs and registration
 - **Access Control**: User-based access control for device operations
 - **Data Privacy**: Encrypted transmission of sensitive device data
@@ -190,22 +208,26 @@ Duration lastSeen = currentTime - lastUpdate;
 ### Recent Improvements
 
 #### Device Info Enhancement (Latest)
+
 - **Modern UI**: Redesigned device info cards with modern styling
 - **Interactive Features**: Tap-to-copy coordinates, detailed information dialogs
 - **Status Indicators**: Enhanced online/offline status with visual indicators
 - **Improved Layout**: Grid-based information layout for better readability
 
 #### Device Switching Fix
+
 - **Consistency**: Fixed device ID consistency across screens
 - **State Management**: Improved device state synchronization
 - **Error Handling**: Better error handling for device switching operations
 
 #### Vehicle-Device Linking
+
 - **Enhanced Association**: Improved vehicle-device relationship management
 - **Validation**: Comprehensive validation for device-vehicle associations
 - **UI Improvements**: Better visual representation of linked devices
 
 ### Testing Guidelines
+
 - **Registration Testing**: Test device registration with various ID formats
 - **Real-time Testing**: Verify real-time GPS data updates
 - **Edge Cases**: Test with poor network conditions, invalid device IDs
@@ -213,6 +235,7 @@ Duration lastSeen = currentTime - lastUpdate;
 - **Cross-platform**: Ensure consistent behavior across Android and iOS
 
 ### Integration Points
+
 - **Geofence System**: Devices are monitored for geofence violations
 - **Vehicle Management**: Devices can be associated with vehicles
 - **Notification System**: Device status changes trigger notifications
@@ -221,12 +244,14 @@ Duration lastSeen = currentTime - lastUpdate;
 ## Future Enhancements
 
 ### Planned Features
+
 - **Device Groups**: Group devices for batch operations
 - **Advanced Analytics**: Device usage and performance analytics
 - **Remote Configuration**: Over-the-air device configuration updates
 - **Firmware Management**: Device firmware update management
 
 ### Technical Debt
+
 - **API Standardization**: Standardize device API interfaces
 - **Error Handling**: Comprehensive error handling and recovery
 - **Testing Coverage**: Automated testing for device operations
