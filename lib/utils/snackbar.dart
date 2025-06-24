@@ -3,54 +3,61 @@
 import 'package:flutter/material.dart';
 
 class SnackbarUtils {
-  static SnackBar showError(BuildContext context, String message) {
-    if (!context.mounted)
-      return SnackBar(
-        content: Text(""),
-      ); // Return an empty SnackBar if context is unmounted
-    return SnackBar(
-      content: Text(message),
-      backgroundColor: Colors.red,
-      behavior: SnackBarBehavior.floating,
+  static void showError(BuildContext context, String message) {
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'Dismiss',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
+      ),
     );
   }
 
-  static SnackBar showSuccess(BuildContext context, String message) {
-    if (!context.mounted)
-      return SnackBar(
-        content: Text(""),
-      ); // Return an empty SnackBar if context is unmounted
-    return SnackBar(
-      content: Text(message),
-      backgroundColor: Colors.green,
-      behavior: SnackBarBehavior.floating,
-      duration: const Duration(seconds: 2),
+  static void showSuccess(BuildContext context, String message) {
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
     );
   }
 
-  static SnackBar showWarning(BuildContext context, String message) {
-    if (!context.mounted)
-      return SnackBar(
-        content: Text(""),
-      ); // Return an empty SnackBar if context is unmounted
-    return SnackBar(
-      content: Text(message),
-      backgroundColor: Colors.yellowAccent.shade700,
-      behavior: SnackBarBehavior.floating,
-      duration: const Duration(seconds: 2),
+  static void showWarning(BuildContext context, String message) {
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.yellowAccent.shade700,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
     );
   }
 
-  static SnackBar showInfo(BuildContext context, String message) {
-    if (!context.mounted)
-      return SnackBar(
-        content: Text(""),
-      ); // Return an empty SnackBar if context is unmounted
-    return SnackBar(
-      content: Text(message),
-      backgroundColor: Colors.blue,
-      behavior: SnackBarBehavior.floating,
-      duration: const Duration(seconds: 2),
+  static void showInfo(BuildContext context, String message) {
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.blue,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
     );
   }
 }

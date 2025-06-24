@@ -11,4 +11,5 @@ class AppConstants {
   static const String driveHistoryRoute = '/drive-history';
   static const String editProfileRoute = '/edit-profile';
   static const String loginRoute = '/login';
+static const String changePasswordRoute = '/change-password';
 }

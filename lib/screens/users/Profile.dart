@@ -90,7 +90,7 @@ class _ProfilePageState extends State<ProfilePage> {
       final data = doc.data()!;
       return {
         'name': (data['name'] ?? '').toString().trim(),
-        'email': (data['emailAddress'] ?? '').toString().trim(),
+        'email': (data['email'] ?? '').toString().trim(),
         'phoneNumber':
             (data['phone_number'] ?? data['phoneNumber'] ?? '')
                 .toString()
@@ -166,6 +166,12 @@ class _ProfilePageState extends State<ProfilePage> {
         title: 'Driving History',
         subtitle: 'View past journeys',
         route: AppConstants.driveHistoryRoute,
+      ),
+      const ActionItem(
+        icon: Icons.history_outlined,
+        title: 'Change Password',
+        subtitle: 'Update your account password',
+        route: AppConstants.changePasswordRoute,
       ),
     ];
   }

@@ -389,15 +389,11 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
   }
 
   void _showSuccessSnackbar(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackbarUtils.showSuccess(context, message));
+    SnackbarUtils.showSuccess(context, message);
   }
 
   void _showErrorSnackbar(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackbarUtils.showError(context, message));
+    SnackbarUtils.showError(context, message);
   }
 }
 

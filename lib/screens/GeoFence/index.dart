@@ -458,15 +458,11 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
     try {
       await _geofenceService.deleteGeofence(geofence.id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackbarUtils.showSuccess(context, 'Geofence "$name" deleted'),
-        );
+        SnackbarUtils.showSuccess(context, 'Geofence "$name" deleted');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackbarUtils.showError(context, 'Failed to delete geofence: $e'),
-        );
+        SnackbarUtils.showError(context, 'Failed to delete geofence: $e');
       }
     } finally {
       if (mounted) {
@@ -480,18 +476,14 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
       final updatedGeofence = geofence.copyWith(status: value);
       await _geofenceService.updateGeofence(updatedGeofence);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackbarUtils.showSuccess(
-            context,
-            'Geofence ${value ? 'activated' : 'deactivated'} successfully',
-          ),
+        SnackbarUtils.showSuccess(
+          context,
+          'Geofence ${value ? 'activated' : 'deactivated'} successfully',
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackbarUtils.showError(context, 'Failed to update status: $e'),
-        );
+        SnackbarUtils.showError(context, 'Failed to update status: $e');
       }
     }
   }

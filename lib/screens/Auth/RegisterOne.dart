@@ -16,6 +16,7 @@ class _RegisterOneState extends State<RegisterOne> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
@@ -46,7 +47,6 @@ class _RegisterOneState extends State<RegisterOne> {
       return false; // Default to allowing registration if check fails
     }
   }
-
   Future<bool> _registerUserToFirestore() async {
     setState(() {
       _loading = true;
@@ -54,6 +54,7 @@ class _RegisterOneState extends State<RegisterOne> {
     try {
       final email = _emailController.text.trim();
       final name = _nameController.text.trim();
+      final phone = _phoneController.text.trim();
       final password = _passwordController.text.trim();
 
       if (await _isEmailOrUsernameTaken(email, name)) {
@@ -68,7 +69,7 @@ class _RegisterOneState extends State<RegisterOne> {
         password: password,
         name: name,
         address: '', // We're skipping RegisterTwo
-        phoneNumber: '',
+        phoneNumber: phone,
       );
 
       if (!mounted) return false;
@@ -219,6 +220,22 @@ class _RegisterOneState extends State<RegisterOne> {
                           if (!emailRegex.hasMatch(val)) {
                             return 'Please enter a valid email';
                           }
+                          return null;                        },
+                      ),
+                      const SizedBox(height: 16), // Phone Number
+                      _buildTextField(
+                        controller: _phoneController,
+                        label: 'Phone Number',
+                        keyboardType: TextInputType.phone,
+                        validator: (val) {
+                          if (val == null || val.isEmpty) {
+                            return 'Phone number is required';
+                          }
+                          // Basic phone number validation (allowing various formats)
+                          final phoneRegex = RegExp(r'^[\+]?[0-9\-\(\)\s]{10,}$');
+                          if (!phoneRegex.hasMatch(val.replaceAll(' ', ''))) {
+                            return 'Please enter a valid phone number';
+                          }
                           return null;
                         },
                       ),
@@ -230,15 +247,11 @@ class _RegisterOneState extends State<RegisterOne> {
                         toggleVisibility:
                             () => setState(
                               () => _obscurePassword = !_obscurePassword,
-                            ),
-                        validator: (val) {
+                            ),                        validator: (val) {
                           if (val == null || val.isEmpty) {
                             return 'Password is required';
                           }
-                          if (val.length < 6) {
-                            return 'Password must be at least 6 characters';
-                          }
-                          return null;
+                          return AuthService.validatePassword(val);
                         },
                       ),
                       const SizedBox(height: 16),
@@ -324,11 +337,11 @@ class _RegisterOneState extends State<RegisterOne> {
       ),
     );
   }
-
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();

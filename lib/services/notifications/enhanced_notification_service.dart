@@ -39,14 +39,17 @@ class EnhancedNotificationService {
         provisional: false,
         sound: true,
       );
-
       debugPrint('✅ FCM Permission granted: ${settings.authorizationStatus}');
 
-      // Get FCM token and save to Firestore
-      await _updateFCMToken();
+      // Note: FCM token management is now handled by AuthService
+      // This service focuses on notification handling and display
+      // Get FCM token for logging purposes only
+      final token = await _messaging.getToken();
+      if (token != null) {
+        debugPrint('✅ FCM Token available: ${token.substring(0, 20)}...');
+      }
 
-      // Listen for token refresh
-      _messaging.onTokenRefresh.listen(_saveFCMToken);
+      // Note: Token refresh handling is now managed by AuthService
 
       // Handle foreground messages
       FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
@@ -118,40 +121,6 @@ class EnhancedNotificationService {
       } catch (e) {
         debugPrint('❌ Error parsing notification payload: $e');
       }
-    }
-  }
-
-  /// Update FCM token in Firestore
-  Future<void> _updateFCMToken() async {
-    try {
-      final token = await _messaging.getToken();
-      if (token != null) {
-        await _saveFCMToken(token);
-      }
-    } catch (e) {
-      debugPrint('❌ Error updating FCM token: $e');
-    }
-  }
-
-  /// Save FCM token to user document using array union
-  Future<void> _saveFCMToken(String token) async {
-    try {
-      final currentUser = _auth.currentUser;
-      if (currentUser != null) {
-        // Use arrayUnion to avoid duplicates and support multiple devices
-        await _firestore
-            .collection('users_information')
-            .doc(currentUser.uid)
-            .set({
-              'fcmTokens': FieldValue.arrayUnion([token]),
-              'lastTokenUpdate': FieldValue.serverTimestamp(),
-              'updatedAt': FieldValue.serverTimestamp(),
-            }, SetOptions(merge: true));
-
-        debugPrint('✅ FCM Token saved: ${token.substring(0, 20)}...');
-      }
-    } catch (e) {
-      debugPrint('❌ Error saving FCM token: $e');
     }
   }
 
