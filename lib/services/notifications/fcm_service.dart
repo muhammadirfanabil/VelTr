@@ -1,6 +1,4 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_core/firebase_core.dart';
 
@@ -60,36 +58,21 @@ class FCMService {
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
         >()
-        ?.createNotificationChannel(androidChannel);
-
-    // Ambil dan simpan token FCM
+        ?.createNotificationChannel(
+          androidChannel,
+        ); // Ambil dan simpan token FCM - Note: AuthService now handles token management
     String? token = await _firebaseMessaging.getToken();
     if (token != null) {
       print('FCM Token: $token');
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid != null) {
-        await FirebaseFirestore.instance
-            .collection('users_information')
-            .doc(uid)
-            .update({
-              'fcmToken': token,
-              'token_updated_at': FieldValue.serverTimestamp(),
-            });
-      }
+      // Token management is now handled by AuthService
+      // This is kept for backward compatibility and logging
     }
 
-    // Simpan ulang jika token berubah
+    // Token refresh is now handled by AuthService
+    // This listener is kept for additional processing if needed
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid != null) {
-        await FirebaseFirestore.instance
-            .collection('users_information')
-            .doc(uid)
-            .update({
-              'fcmToken': newToken,
-              'token_updated_at': FieldValue.serverTimestamp(),
-            });
-      }
+      print('FCM Token refreshed: $newToken');
+      // AuthService handles the token storage automatically
     });
 
     // Handle notifikasi saat app di foreground

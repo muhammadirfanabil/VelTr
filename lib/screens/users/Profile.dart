@@ -90,7 +90,7 @@ class _ProfilePageState extends State<ProfilePage> {
       final data = doc.data()!;
       return {
         'name': (data['name'] ?? '').toString().trim(),
-        'email': (data['emailAddress'] ?? '').toString().trim(),
+        'email': (data['email'] ?? '').toString().trim(),
         'phoneNumber':
             (data['phone_number'] ?? data['phoneNumber'] ?? '')
                 .toString()

@@ -16,6 +16,17 @@ Complete guide to the geofence system including creation, editing, monitoring, a
 - Map integration and marker systems
 - Technical implementation details
 
+### 📱 [FCM Token Management](./fcm-token-management.md)
+
+Standardized Firebase Cloud Messaging (FCM) token management system for consistent notification delivery across all authentication flows.
+
+- Centralized token management in AuthService
+- Multi-device support with fcmTokens array
+- Automatic token lifecycle management
+- Migration guide from old system
+- Cloud Functions integration examples
+- Testing guidelines and best practices
+
 ### 🔧 [Device Management](./device-management.md)
 
 Comprehensive device lifecycle management documentation.

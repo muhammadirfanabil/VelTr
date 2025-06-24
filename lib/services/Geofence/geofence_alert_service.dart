@@ -30,11 +30,9 @@ class GeofenceAlertService {
   // Initialize the geofence alert service
   Future<void> initialize() async {
     if (_isInitialized) return;
-
     try {
       await _initializeFirebaseMessaging();
       await _initializeLocalNotifications();
-      await _setupFCMTokenManagement();
       await _setupMessageHandlers();
 
       _isInitialized = true;
@@ -91,34 +89,6 @@ class GeofenceAlertService {
             >();
 
     await androidImplementation?.createNotificationChannel(channel);
-  }
-
-  // Setup FCM token management
-  Future<void> _setupFCMTokenManagement() async {
-    String? token = await _firebaseMessaging.getToken();
-    if (token != null) {
-      await _saveFCMToken(token);
-    }
-
-    // Listen for token refresh
-    _firebaseMessaging.onTokenRefresh.listen(_saveFCMToken);
-  }
-
-  // Save FCM token to Firestore
-  Future<void> _saveFCMToken(String token) async {
-    final user = _auth.currentUser;
-    if (user == null) return;
-
-    try {
-      await _firestore.collection('users_information').doc(user.uid).set({
-        'fcmTokens': FieldValue.arrayUnion([token]),
-        'tokenUpdatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-
-      debugPrint('✅ FCM Token saved: ${token.substring(0, 20)}...');
-    } catch (e) {
-      debugPrint('❌ Failed to save FCM token: $e');
-    }
   }
 
   // Setup message handlers
