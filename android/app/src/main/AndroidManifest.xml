@@ -12,7 +12,7 @@
 <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 
     <application
-        android:label="gps_app"
+        android:label="VelTr"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">        <activity
             android:name=".MainActivity"

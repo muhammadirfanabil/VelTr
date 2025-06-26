@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../services/notifications/enhanced_notification_service.dart';
 
 class UserMenu extends StatelessWidget {
-  final Function(String) onMenuItemSelected;
+  final void Function(String value) onMenuSelection;
 
-  const UserMenu({Key? key, required this.onMenuItemSelected})
-    : super(key: key);
+  const UserMenu({super.key, required this.onMenuSelection});
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +26,7 @@ class UserMenu extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 8,
         color: Colors.white,
-        onSelected: onMenuItemSelected,
+        onSelected: onMenuSelection,
         itemBuilder:
             (context) => [
               const PopupMenuItem(
@@ -46,6 +46,57 @@ class UserMenu extends StatelessWidget {
                     Icon(Icons.person_outline),
                     SizedBox(width: 8),
                     Text('Profile'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'notifications',
+                child: Row(
+                  children: [
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        const Icon(Icons.notifications_outlined),
+                        StreamBuilder<int>(
+                          stream:
+                              EnhancedNotificationService()
+                                  .getUnreadNotificationCount(),
+                          builder: (context, snapshot) {
+                            final unreadCount = snapshot.data ?? 0;
+                            if (unreadCount == 0)
+                              return const SizedBox.shrink();
+                            return Positioned(
+                              right: -4,
+                              top: -4,
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: const BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                                constraints: const BoxConstraints(
+                                  minWidth: 16,
+                                  minHeight: 16,
+                                ),
+                                child: Text(
+                                  unreadCount > 9
+                                      ? '9+'
+                                      : unreadCount.toString(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('Notifications'),
                   ],
                 ),
               ),

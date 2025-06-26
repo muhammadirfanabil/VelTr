@@ -29,7 +29,6 @@ class GeofenceEditScreen extends StatefulWidget {
 
 class _GeofenceEditScreenState extends State<GeofenceEditScreen>
     with SingleTickerProviderStateMixin {
-  // Core state
   late List<LatLng> polygonPoints;
   late TextEditingController nameController;
   bool isSaving = false;
@@ -39,27 +38,20 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
   LatLng? deviceLocation;
   String? deviceName;
 
-  // Map controller
   final MapController _mapController = MapController();
 
-  // Services
   final GeofenceService _geofenceService = GeofenceService();
   final DeviceService _deviceService = DeviceService();
 
-  // Timers
   Timer? _autoUpdateTimer;
-
-  // Firebase listeners
   StreamSubscription<DatabaseEvent>? _deviceGpsListener;
-
-  // Animation
   AnimationController? _animationController;
+
   @override
   void initState() {
     super.initState();
     _initializeData();
     _initializeAnimations();
-    // Load location data for device and current location
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _safeInitialize();
     });
@@ -100,7 +92,6 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _animationController != null) {
         _animationController!.forward();
@@ -126,7 +117,6 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
 
   void _onUndoPressed() {
     if (polygonPoints.isEmpty) return;
-
     setState(() {
       polygonPoints.removeLast();
       hasUnsavedChanges = true;
@@ -143,7 +133,6 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
       SnackbarUtils.showWarning(context, 'Please enter a geofence name');
       return;
     }
-
     if (polygonPoints.length < 3) {
       SnackbarUtils.showWarning(
         context,
@@ -189,8 +178,7 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
 
       if (mounted) {
         SnackbarUtils.showSuccess(context, 'Geofence updated successfully!');
-
-        await Future.delayed(const Duration(milliseconds: 1500));
+        await Future.delayed(const Duration(milliseconds: 1200));
         if (mounted) {
           Navigator.pop(context, true);
         }
@@ -221,7 +209,6 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
             cancelText: 'Cancel',
           ),
     );
-
     if (result == true) {
       setState(() {
         polygonPoints.clear();
@@ -233,7 +220,6 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
 
   Future<bool> _onWillPop() async {
     if (!hasUnsavedChanges) return true;
-
     final result = await showDialog<bool>(
       context: context,
       builder:
@@ -245,7 +231,6 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
             cancelText: 'Stay',
           ),
     );
-
     return result ?? false;
   }
 
@@ -273,11 +258,10 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
     return SafeArea(
       child: Stack(
         children: [
-          // Wrap map in SafeArea and error boundary
           _buildMapWithErrorHandling(),
-          _buildInstructionCard(),
-          _buildActionButtons(), // Add location buttons on the right side (positioned lower due to instruction card)
-          Positioned(right: 16, top: 300, child: _buildLocationButtons()),
+          _buildMinimalistInstructionCard(),
+          _buildMinimalistActionButtons(),
+          Positioned(right: 16, top: 260, child: _buildLocationButtons()),
           if (isSaving) _buildSavingOverlay(),
         ],
       ),
@@ -302,34 +286,43 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
       width: double.infinity,
       height: double.infinity,
       color: AppColors.backgroundSecondary,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(AppIcons.map, size: 64, color: AppColors.textTertiary),
-          const SizedBox(height: 16),
-          Text(
-            'Map temporarily unavailable',
-            style: TextStyle(
-              fontSize: 16,
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w500,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(AppIcons.map, size: 56, color: AppColors.textTertiary),
+            const SizedBox(height: 12),
+            Text(
+              'Map unavailable',
+              style: TextStyle(
+                fontSize: 16,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Please try again or restart the app',
-            style: TextStyle(fontSize: 14, color: AppColors.textTertiary),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                // Force rebuild
-              });
-            },
-            child: const Text('Retry'),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              'Try again or restart the app',
+              style: TextStyle(fontSize: 13, color: AppColors.textTertiary),
+            ),
+            const SizedBox(height: 18),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 28,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                backgroundColor: AppColors.primaryBlue,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => setState(() {}),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -341,26 +334,35 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
       leading: IconButton(
         icon: Icon(AppIcons.back, color: AppColors.primaryBlue, size: 20),
         onPressed: () => Navigator.pop(context),
+        tooltip: 'Back',
       ),
-      title: Text(
+      title: const Text(
         'Edit Geofence',
         style: TextStyle(
           fontWeight: FontWeight.bold,
           color: AppColors.textPrimary,
-          fontSize: 22,
+          fontSize: 20,
         ),
       ),
+      centerTitle: true,
       actions: [
         if (hasUnsavedChanges)
           Padding(
-            padding: const EdgeInsets.only(right: 20),
-            child: Text(
-              'Unsaved',
-              style: TextStyle(
-                color: AppColors.error,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+            padding: const EdgeInsets.only(right: 16),
+            child: Chip(
+              backgroundColor: AppColors.error.withOpacity(0.06),
+              labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+              label: Text(
+                'Unsaved',
+                style: TextStyle(
+                  color: AppColors.error,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.1,
+                ),
               ),
+              side: BorderSide.none,
+              visualDensity: VisualDensity.compact,
             ),
           ),
       ],
@@ -384,14 +386,12 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
           urlTemplate: 'https://tile-{s}.openstreetmap.fr/hot/{z}/{x}/{y}.png',
           subdomains: const ['a', 'b', 'c'],
           userAgentPackageName: 'com.example.gps_app',
-          // Add error handling for tile loading
           errorTileCallback: (tile, error, stackTrace) {
             debugPrint('Tile loading error: $error');
           },
           maxZoom: 18,
           maxNativeZoom: 18,
         ),
-        // Conditionally render layers to reduce complexity
         if (polygonPoints.length >= 2) _buildPolylineLayer(),
         if (polygonPoints.length >= 3) _buildPolygonLayer(),
         if (polygonPoints.isNotEmpty) _buildMarkerLayer(),
@@ -423,9 +423,9 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
       polygons: [
         Polygon(
           points: [...polygonPoints, polygonPoints.first],
-          color: AppColors.primaryBlue.withValues(alpha: 0.3),
+          color: AppColors.primaryBlue.withOpacity(0.17),
           borderColor: AppColors.primaryBlue,
-          borderStrokeWidth: 3,
+          borderStrokeWidth: 2,
         ),
       ],
     );
@@ -442,10 +442,7 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
   }
 
   Widget _buildDeviceLocationMarker() {
-    // Don't show device marker if location is not available
-    if (deviceLocation == null) {
-      return const SizedBox.shrink();
-    }
+    if (deviceLocation == null) return const SizedBox.shrink();
 
     return MapMarkersService.createDeviceLocationMarker(
       deviceLocation!,
@@ -454,88 +451,224 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
     );
   }
 
-  Widget _buildActionButtons() {
+  // --- Modern Minimalist Instruction Card ---
+  Widget _buildMinimalistInstructionCard() {
     final theme = Theme.of(context);
 
     return Positioned(
-      bottom: 20,
+      top: 18,
       left: 16,
       right: 16,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Show points info when available
-          if (polygonPoints.isNotEmpty) ...[
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.infoLight,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
+      child: Material(
+        color: Colors.white.withOpacity(0.93),
+        elevation: 3,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Step-by-step, icon-guided instructions
+              Row(
                 children: [
-                  Icon(AppIcons.myLocation, color: AppColors.info, size: 20),
+                  Icon(
+                    Icons.touch_app_rounded,
+                    color: theme.colorScheme.primary,
+                    size: 18,
+                  ),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  Text(
+                    'Tap the map to add points',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.primary,
+                      fontSize: 14.5,
+                    ),
+                  ),
+                  const Spacer(),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color:
+                          polygonPoints.length >= 3
+                              ? Colors.green.withOpacity(0.09)
+                              : Colors.red.withOpacity(0.09),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          'Geofence Points',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.infoText,
-                            fontSize: 12,
-                          ),
+                        Icon(
+                          polygonPoints.length >= 3
+                              ? Icons.check_circle
+                              : Icons.info_outline_rounded,
+                          color:
+                              polygonPoints.length >= 3
+                                  ? Colors.green
+                                  : Colors.red,
+                          size: 14,
                         ),
+                        const SizedBox(width: 6),
                         Text(
-                          '${polygonPoints.length} points defined${polygonPoints.length >= 3 ? " (Valid geofence)" : " (Minimum 3 required)"}',
-                          style: TextStyle(color: AppColors.info, fontSize: 11),
+                          polygonPoints.length >= 3
+                              ? 'Valid'
+                              : 'At least 3 points',
+                          style: TextStyle(
+                            color:
+                                polygonPoints.length >= 3
+                                    ? Colors.green
+                                    : Colors.red,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 12.5,
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: polygonPoints.isEmpty ? null : _onUndoPressed,
-                    icon: const Icon(Icons.undo, size: 18),
-                    label: const Text('Undo'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.grey.shade500,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(0, 48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
+              const SizedBox(height: 14),
+
+              // Geofence Name
+              TextField(
+                controller: nameController,
+                textCapitalization: TextCapitalization.words,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 15,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Name',
+                  hintText: 'Enter geofence name',
+                  prefixIcon: const Icon(Icons.edit_note_rounded, size: 20),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey[50],
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 11,
+                  ),
+                  labelStyle: TextStyle(
+                    color: theme.colorScheme.primary,
+                    letterSpacing: 0.03,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: polygonPoints.isEmpty ? null : _onResetPressed,
-                    icon: const Icon(Icons.clear_all, size: 18),
-                    label: const Text('Reset'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: theme.colorScheme.error,
-                      foregroundColor: theme.colorScheme.onError,
-                      minimumSize: const Size(0, 48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+              ),
+              const SizedBox(height: 10),
+
+              // Device and User Location Info
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.gps_fixed, color: Colors.orange, size: 16),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          deviceLocation != null
+                              ? 'Device: ${deviceLocation!.latitude.toStringAsFixed(5)}, ${deviceLocation!.longitude.toStringAsFixed(5)}'
+                              : 'Device location unavailable',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.orange.shade700,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 12.5,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(Icons.person_pin, color: Colors.blue, size: 16),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          currentLocation != null
+                              ? 'You: ${currentLocation!.latitude.toStringAsFixed(5)}, ${currentLocation!.longitude.toStringAsFixed(5)}'
+                              : 'Your location unavailable',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.blue.shade700,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 12.5,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- Minimalist Action Buttons ---
+  Widget _buildMinimalistActionButtons() {
+    final theme = Theme.of(context);
+
+    return Positioned(
+      bottom: 24,
+      left: 16,
+      right: 16,
+      child: Column(
+        children: [
+          // Undo/Reset row
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: polygonPoints.isNotEmpty ? _onUndoPressed : null,
+                  icon: const Icon(Icons.undo, size: 18),
+                  label: const Text('Undo'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.blueGrey.shade800,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w500),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-          ],
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: polygonPoints.isNotEmpty ? _onResetPressed : null,
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Reset'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.red.shade700,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+          // Save button
           FilledButton.icon(
             onPressed:
                 (isSaving || polygonPoints.length < 3) ? null : _onSavePressed,
@@ -551,20 +684,25 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
                         ),
                       ),
                     )
-                    : const Icon(Icons.save),
+                    : const Icon(Icons.save_rounded),
             label: Text(isSaving ? 'Saving...' : 'Save Changes'),
             style: FilledButton.styleFrom(
               backgroundColor:
                   polygonPoints.length >= 3
                       ? theme.colorScheme.primary
-                      : Colors.grey[400],
+                      : Colors.grey[300],
               foregroundColor:
                   polygonPoints.length >= 3
                       ? theme.colorScheme.onPrimary
-                      : Colors.white,
-              minimumSize: const Size(double.infinity, 56),
+                      : Colors.grey[600],
+              minimumSize: const Size(double.infinity, 54),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
+              ),
+              textStyle: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                letterSpacing: 0.1,
               ),
             ),
           ),
@@ -577,72 +715,91 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        FloatingActionButton.small(
-          heroTag: "center_map",
-          onPressed: () {
-            if (polygonPoints.isNotEmpty) {
-              // Center on geofence area
-              final bounds = _calculateBounds(polygonPoints);
-              _mapController.fitCamera(
-                CameraFit.bounds(
-                  bounds: bounds,
-                  padding: const EdgeInsets.all(50),
-                ),
-              );
-            }
-          },
-          backgroundColor: Colors.blue[600],
-          foregroundColor: Colors.white,
-          child: const Icon(Icons.center_focus_strong, size: 20),
+        _MinimalFAB(
+          icon: Icons.center_focus_strong_rounded,
+          tooltip: "Center geofence",
+          onPressed:
+              polygonPoints.isNotEmpty
+                  ? () {
+                    final bounds = _calculateBounds(polygonPoints);
+                    _mapController.fitCamera(
+                      CameraFit.bounds(
+                        bounds: bounds,
+                        padding: const EdgeInsets.all(50),
+                      ),
+                    );
+                  }
+                  : null,
+          backgroundColor: Colors.white, // Swapped
+          iconColor: Colors.blue[700], // Swapped
         ),
-        const SizedBox(height: 8),
-        FloatingActionButton.small(
-          heroTag: "device_location",
+        const SizedBox(height: 9),
+        _MinimalFAB(
+          icon: Icons.gps_fixed_rounded,
+          tooltip: "Device location",
           onPressed:
               deviceLocation != null
                   ? () {
                     _mapController.move(deviceLocation!, 16.0);
                   }
                   : null,
-          backgroundColor:
-              deviceLocation != null ? Colors.orange[600] : Colors.grey[400],
-          foregroundColor: Colors.white,
-          child:
-              isLoadingDeviceLocation
-                  ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                  : const Icon(Icons.gps_fixed, size: 20),
+          backgroundColor: Colors.white, // Swapped (for orange icon as well)
+          iconColor: Colors.orange, // Swapped
+          isLoading: isLoadingDeviceLocation,
         ),
-        const SizedBox(height: 8),
-        FloatingActionButton.small(
-          heroTag: "my_location",
+        const SizedBox(height: 9),
+        _MinimalFAB(
+          icon: Icons.person_pin,
+          tooltip: "Your location",
           onPressed:
               currentLocation != null
                   ? () {
                     _mapController.move(currentLocation!, 16.0);
                   }
                   : null,
-          backgroundColor:
-              currentLocation != null ? Colors.blue[600] : Colors.grey[400],
-          foregroundColor: Colors.white,
-          child: const Icon(Icons.my_location, size: 20),
+          backgroundColor: Colors.white, // Swapped
+          iconColor: Colors.blue[700], // Swapped
         ),
       ],
     );
   }
 
-  // Helper method to calculate bounds for a list of points
+  // Minimalist floating action button for map controls
+  Widget _MinimalFAB({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback? onPressed,
+    Color? backgroundColor,
+    Color? iconColor,
+    bool isLoading = false,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: FloatingActionButton(
+        heroTag: tooltip,
+        onPressed: onPressed,
+        backgroundColor: backgroundColor ?? Colors.grey[300],
+        elevation: 1,
+        mini: true,
+        child:
+            isLoading
+                ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+                : Icon(icon, size: 20, color: iconColor ?? Colors.white),
+      ),
+    );
+  }
+
   LatLngBounds _calculateBounds(List<LatLng> points) {
     if (points.isEmpty) {
       return LatLngBounds(const LatLng(0, 0), const LatLng(0, 0));
     }
-
     double minLat = points.first.latitude;
     double maxLat = points.first.latitude;
     double minLng = points.first.longitude;
@@ -672,7 +829,6 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
         debugPrint('Location services are disabled');
         return;
       }
-
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -681,16 +837,13 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
           return;
         }
       }
-
       if (permission == LocationPermission.deniedForever) {
         debugPrint('Location permissions are permanently denied');
         return;
       }
-
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-
       if (mounted) {
         setState(() {
           currentLocation = LatLng(position.latitude, position.longitude);
@@ -784,7 +937,6 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
     }
   }
 
-  /// Parse double value safely from dynamic data
   double? _parseDouble(dynamic value) {
     if (value == null) return null;
     if (value is double) return value;
@@ -797,115 +949,10 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
   }
 
   void _startAutoUpdateTimer() {
-    // Update device location every 10 seconds
     _autoUpdateTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       if (mounted && deviceLocation != null) {
-        // Optional: Check for location updates
+        // Optionally refresh marker
       }
     });
-  }
-
-  Widget _buildInstructionCard() {
-    final theme = Theme.of(context);
-
-    return Positioned(
-      top: 16,
-      left: 16,
-      right: 16,
-      child: Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Instruction header
-              Row(
-                children: [
-                  Icon(
-                    Icons.touch_app,
-                    color: theme.colorScheme.primary,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Tap to add points • Points: ${polygonPoints.length}',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Geofence Name Input
-              TextField(
-                controller: nameController,
-                textCapitalization: TextCapitalization.words,
-                decoration: InputDecoration(
-                  labelText: 'Geofence Name',
-                  hintText: 'Enter geofence name',
-                  prefixIcon: Icon(
-                    Icons.location_on,
-                    color: theme.colorScheme.primary,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: theme.colorScheme.surface,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Device Location Info
-              if (deviceLocation != null) ...[
-                Row(
-                  children: [
-                    Icon(Icons.gps_fixed, color: Colors.orange, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Device location: ${deviceLocation!.latitude.toStringAsFixed(6)}, ${deviceLocation!.longitude.toStringAsFixed(6)}${deviceName != null ? " ($deviceName)" : ""}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: Colors.orange.shade700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-              ],
-
-              // User Location Info
-              if (currentLocation != null) ...[
-                Row(
-                  children: [
-                    Icon(Icons.my_location, color: Colors.blue, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Your location: ${currentLocation!.latitude.toStringAsFixed(6)}, ${currentLocation!.longitude.toStringAsFixed(6)}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: Colors.blue.shade700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }

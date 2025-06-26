@@ -101,6 +101,36 @@ class NotificationDateGroup {
     return getNotificationsByType(NotificationType.general);
   }
 
+  static List<NotificationDateGroup> createGroups(
+    List<UnifiedNotification> notifications,
+  ) {
+    // Group notifications by their date (ignoring time)
+    final Map<DateTime, List<UnifiedNotification>> dateMap = {};
+
+    for (final notification in notifications) {
+      final date = DateTime(
+        notification.timestamp.year,
+        notification.timestamp.month,
+        notification.timestamp.day,
+      );
+      dateMap.putIfAbsent(date, () => []).add(notification);
+    }
+
+    // For each date, create a NotificationDateGroup
+    final groups =
+        dateMap.entries.map((entry) {
+          return NotificationDateGroup.fromNotifications(
+            date: entry.key,
+            notifications: entry.value,
+          );
+        }).toList();
+
+    // Sort groups by date descending (most recent first)
+    groups.sort((a, b) => b.date.compareTo(a.date));
+
+    return groups;
+  }
+
   /// Convert to JSON
   Map<String, dynamic> toJson() {
     return {

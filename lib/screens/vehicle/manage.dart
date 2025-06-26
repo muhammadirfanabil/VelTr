@@ -5,6 +5,11 @@ import '../../services/vehicle/vehicleService.dart';
 import '../../services/device/deviceService.dart';
 import '../../models/Device/device.dart';
 
+import '../../theme/app_icons.dart';
+import '../../widgets/Common/error_card.dart';
+
+import '../../widgets/Common/confirmation_dialog.dart';
+
 class ManageVehicle extends StatefulWidget {
   const ManageVehicle({Key? key}) : super(key: key);
 
@@ -188,7 +193,8 @@ class _ManageVehicleState extends State<ManageVehicle> {
           dropdownItems.add(
             _buildLinkedDeviceDropdownItem(device, currentVehicleId),
           );
-        } // Add unlinked devices with "Attach to Vehicle" label
+        }
+        // Add unlinked devices with "Attach to Vehicle" label
         for (final device in devicesWithoutVehicles) {
           dropdownItems.add(_buildUnlinkedDeviceDropdownItem(device));
         }
@@ -209,34 +215,28 @@ class _ManageVehicleState extends State<ManageVehicle> {
               Icons.device_hub_rounded,
             ),
             items: dropdownItems,
-            isExpanded: true, // Allow text to use full width
+            isExpanded: true,
             dropdownColor: Colors.white,
             iconSize: 24,
             onChanged: (value) {
               try {
                 if (value != null && value.startsWith('attach_')) {
-                  // Handle "Attach to Vehicle" action for unlinked devices
                   final deviceId = value.substring('attach_'.length);
                   _handleAttachToVehicle(deviceId);
                 } else if (value != null && value.isNotEmpty) {
-                  // Simple validation: just check if the value is in our devices list
                   final isValidDevice = devicesWithVehicles.any(
                     (device) => device.id == value,
                   );
 
                   if (isValidDevice) {
-                    print('Device selected: $value');
                     setState(() => _selectedDeviceId = value);
                   } else {
-                    print('Invalid device selection: $value');
                     setState(() => _selectedDeviceId = '');
                   }
                 } else {
-                  // Clear selection
                   setState(() => _selectedDeviceId = '');
                 }
               } catch (e) {
-                print('Error in device selection: $e');
                 setState(() => _selectedDeviceId = '');
               }
             },
@@ -248,7 +248,6 @@ class _ManageVehicleState extends State<ManageVehicle> {
 
   Future<void> _handleUnavailableDevice(String deviceId) async {
     try {
-      // Check if device still exists
       final exists = await _vehicleService.verifyDeviceAvailability(deviceId);
       if (!exists && mounted) {
         setState(() => _selectedDeviceId = '');
@@ -259,7 +258,6 @@ class _ManageVehicleState extends State<ManageVehicle> {
         );
       }
     } catch (e) {
-      debugPrint('Error checking device availability: $e');
       _showSnackBar(
         'Error verifying device: $e',
         Colors.red,
@@ -308,14 +306,11 @@ class _ManageVehicleState extends State<ManageVehicle> {
     );
   }
 
-  /// Build dropdown item for devices that are already linked to vehicles
   DropdownMenuItem<String> _buildLinkedDeviceDropdownItem(
     Device device,
     String? currentVehicleId,
   ) {
-    // Safety check: only build item if device has a vehicleId
     if (device.vehicleId == null || device.vehicleId!.isEmpty) {
-      // Return a disabled item as fallback instead of throwing
       return DropdownMenuItem<String>(
         value: null,
         enabled: false,
@@ -335,7 +330,6 @@ class _ManageVehicleState extends State<ManageVehicle> {
       );
     }
 
-    // A device is available if it's assigned to the current vehicle being edited
     final isAssignedToCurrentVehicle = device.vehicleId == currentVehicleId;
     final isAssignedToOtherVehicle =
         device.vehicleId != null &&
@@ -377,11 +371,8 @@ class _ManageVehicleState extends State<ManageVehicle> {
     );
   }
 
-  /// Build dropdown item for devices that are not linked to any vehicle
   DropdownMenuItem<String> _buildUnlinkedDeviceDropdownItem(Device device) {
-    // Safety check: ensure device truly has no vehicleId
     if (device.vehicleId != null && device.vehicleId!.isNotEmpty) {
-      // Return a disabled item as fallback instead of throwing
       return DropdownMenuItem<String>(
         value: null,
         enabled: false,
@@ -404,7 +395,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
     String displayText = '${device.name} - Attach to Vehicle';
 
     return DropdownMenuItem<String>(
-      value: 'attach_${device.id}', // Use 'attach_' prefix for unlinked devices
+      value: 'attach_${device.id}',
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 48, maxHeight: 56),
         child: Container(
@@ -432,17 +423,14 @@ class _ManageVehicleState extends State<ManageVehicle> {
     );
   }
 
-  /// Handle the "Attach to Vehicle" action
   void _handleAttachToVehicle(String deviceId) async {
     try {
-      // Check if any vehicles exist
       final vehicleStream = _vehicleService.getVehiclesStream();
       final vehicles = await vehicleStream.first;
 
       if (vehicles.isEmpty) {
         _showNoVehiclesDialog();
       } else {
-        // Navigate to device edit page or show vehicle selector
         Navigator.pushNamed(context, '/device/edit', arguments: deviceId);
       }
     } catch (e) {
@@ -454,36 +442,20 @@ class _ManageVehicleState extends State<ManageVehicle> {
     }
   }
 
-  /// Show dialog when no vehicles are available for attachment
   void _showNoVehiclesDialog() {
-    showDialog(
+    ConfirmationDialog.show(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('No Vehicles Available'),
-            content: const Text(
-              'You need to add a vehicle before you can attach this device. '
-              'Would you like to add a vehicle now?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/vehicle');
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Add Vehicle'),
-              ),
-            ],
-          ),
-    );
+      title: 'No Vehicles Available',
+      content:
+          'You need to add a vehicle before you can attach this device. Would you like to add a vehicle now?',
+      confirmText: 'Add Vehicle',
+      cancelText: 'Cancel',
+      confirmColor: Theme.of(context).colorScheme.primary,
+    ).then((confirmed) {
+      if (confirmed == true) {
+        Navigator.pushNamed(context, '/vehicle');
+      }
+    });
   }
 
   InputDecoration _buildInputDecoration(String label, IconData icon) {
@@ -509,9 +481,48 @@ class _ManageVehicleState extends State<ManageVehicle> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      appBar: _buildAppBar(),
+      backgroundColor: theme.colorScheme.background,
+      appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(AppIcons.back, size: 20),
+          onPressed: () => Navigator.pushReplacementNamed(context, '/vehicle'),
+        ),
+        title: Text(
+          'Manage Vehicles',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 22,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+        backgroundColor: theme.colorScheme.surface,
+        elevation: 0,
+        surfaceTintColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: Icon(
+              Icons.add_rounded,
+              color: theme.colorScheme.primary,
+              size: 24,
+            ),
+            onPressed: () => _showAddVehicleDialog(context),
+            tooltip: 'Add Vehicle',
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.refresh_rounded,
+              color: theme.colorScheme.primary,
+              size: 24,
+            ),
+            onPressed: () => setState(() {}),
+            tooltip: 'Refresh',
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: StreamBuilder<List<vehicle>>(
         stream: _vehicleService.getVehiclesStream(),
         builder: (context, snapshot) {
@@ -527,55 +538,28 @@ class _ManageVehicleState extends State<ManageVehicle> {
             return _buildEmptyState();
           }
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: vehicles.length,
-            itemBuilder: (context, index) {
-              final vehicle = vehicles[index];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: VehicleCard(
-                  vehicleModel: vehicle,
-                  onEdit: () => _showEditVehicleDialog(context, vehicle),
-                  onDelete: () => _deleteVehicle(vehicle.id),
-                  deviceService: _deviceService,
-                ),
-              );
-            },
+          return RefreshIndicator(
+            onRefresh: () async => setState(() {}),
+            child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              itemCount: vehicles.length,
+              itemBuilder: (context, index) {
+                final vehicle = vehicles[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: VehicleCard(
+                    vehicleModel: vehicle,
+                    onEdit: () => _showEditVehicleDialog(context, vehicle),
+                    onDelete: () => _deleteVehicle(vehicle.id),
+                    deviceService: _deviceService,
+                  ),
+                );
+              },
+            ),
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddVehicleDialog(context),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Add Vehicle'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
-    );
-  }
-
-  AppBar _buildAppBar() {
-    return AppBar(
-      title: const Text(
-        'Manage Vehicles',
-        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 20),
-      ),
-      backgroundColor: Colors.white,
-      foregroundColor: Colors.black87,
-      elevation: 0,
-      shadowColor: Colors.black12,
-      surfaceTintColor: Colors.transparent,
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.refresh_rounded),
-          onPressed: () => setState(() {}),
-          tooltip: 'Refresh',
-        ),
-        const SizedBox(width: 8),
-      ],
     );
   }
 
@@ -588,7 +572,11 @@ class _ManageVehicleState extends State<ManageVehicle> {
           SizedBox(height: 16),
           Text(
             'Loading vehicles...',
-            style: TextStyle(color: Colors.grey, fontSize: 16),
+            style: TextStyle(
+              color: Colors.grey,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
@@ -597,44 +585,12 @@ class _ManageVehicleState extends State<ManageVehicle> {
 
   Widget _buildErrorState(String error) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.error_outline_rounded,
-            size: 64,
-            color: Colors.red.shade300,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Something went wrong',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Error: $error',
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => setState(() {}),
-            icon: const Icon(Icons.refresh_rounded),
-            label: const Text('Try Again'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: ErrorCard(
+          message: 'Something went wrong\n\nError: $error',
+          onRetry: () => setState(() {}),
+        ),
       ),
     );
   }
@@ -659,40 +615,31 @@ class _ManageVehicleState extends State<ManageVehicle> {
               ),
             ),
             const SizedBox(height: 24),
-            Text(
-              'No vehicles yet',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade800,
-              ),
+            const Text(
+              'No Vehicles Yet',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 12),
             Text(
-              'Add your first vehicle to start tracking\nand managing your fleet',
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 16,
-                height: 1.5,
-              ),
+              'Add your first vehicle to start tracking',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
               onPressed: () => _showAddVehicleDialog(context),
               icon: const Icon(Icons.add_rounded),
-              label: const Text('Add Your First Vehicle'),
+              label: const Text('Add Vehicle'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
+                  horizontal: 24,
+                  vertical: 12,
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                elevation: 2,
               ),
             ),
           ],
@@ -725,9 +672,8 @@ class _ManageVehicleState extends State<ManageVehicle> {
             },
             confirmText: 'Add Vehicle',
             confirmColor: Colors.blue,
-            showDeviceDropdown: true,
             currentDeviceId: null,
-            currentVehicleId: null, // New vehicle has no ID yet
+            currentVehicleId: null,
           ),
     );
   }
@@ -761,10 +707,8 @@ class _ManageVehicleState extends State<ManageVehicle> {
             },
             confirmText: 'Update',
             confirmColor: Colors.orange,
-            showDeviceDropdown: true,
             currentDeviceId: vehicle.deviceId,
-            currentVehicleId:
-                vehicle.id, // Pass the vehicle ID for proper filtering
+            currentVehicleId: vehicle.id,
           ),
     );
   }
@@ -790,9 +734,8 @@ class _ManageVehicleState extends State<ManageVehicle> {
     required VoidCallback onConfirm,
     required String confirmText,
     required Color confirmColor,
-    bool showDeviceDropdown = true,
-    String? currentDeviceId,
-    String? currentVehicleId,
+    required String? currentDeviceId,
+    required String? currentVehicleId,
   }) {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -801,7 +744,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.black,
+              color: iconColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: iconColor, size: 24),
@@ -813,56 +756,39 @@ class _ManageVehicleState extends State<ManageVehicle> {
           ),
         ],
       ),
-      content: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.9,
-          maxHeight: MediaQuery.of(context).size.height * 0.8,
-        ),
-        child: IntrinsicHeight(
-          child: Container(
-            width: double.maxFinite,
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildTextField(
-                    controllers[0],
-                    'Vehicle Name',
-                    'e.g., Toyota Camry 2023',
-                    Icons.directions_car_rounded,
-                    true,
-                    TextCapitalization.words,
-                  ),
-                  const SizedBox(height: 20),
-                  _buildTextField(
-                    controllers[1],
-                    'Vehicle Type',
-                    'e.g., Sedan, SUV, Truck',
-                    Icons.category_rounded,
-                    false,
-                    TextCapitalization.words,
-                  ),
-                  const SizedBox(height: 20),
-                  _buildTextField(
-                    controllers[2],
-                    'License Plate',
-                    'e.g., ABC-1234',
-                    Icons.confirmation_number_rounded,
-                    false,
-                    TextCapitalization.characters,
-                  ),
-                  if (showDeviceDropdown) ...[
-                    const SizedBox(height: 20),
-                    _buildDeviceDropdown(
-                      currentValue: currentDeviceId,
-                      currentVehicleId: currentVehicleId,
-                    ),
-                  ],
-                ],
-              ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildTextField(
+              controllers[0],
+              'Vehicle Name',
+              'e.g., Toyota Camry 2023',
+              Icons.directions_car_rounded,
+              true,
             ),
-          ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controllers[1],
+              'Vehicle Type',
+              'e.g., Sedan, SUV, Truck',
+              Icons.category_rounded,
+              false,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controllers[2],
+              'License Plate',
+              'e.g., ABC-1234',
+              Icons.confirmation_number_rounded,
+              false,
+            ),
+            const SizedBox(height: 16),
+            _buildDeviceDropdown(
+              currentValue: currentDeviceId,
+              currentVehicleId: currentVehicleId,
+            ),
+          ],
         ),
       ),
       actions: [
@@ -875,6 +801,10 @@ class _ManageVehicleState extends State<ManageVehicle> {
           style: ElevatedButton.styleFrom(
             backgroundColor: confirmColor,
             foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           ),
           child: Text(confirmText),
         ),
@@ -888,20 +818,42 @@ class _ManageVehicleState extends State<ManageVehicle> {
     String hint,
     IconData icon,
     bool isRequired,
-    TextCapitalization textCapitalization,
   ) {
     return TextField(
       controller: controller,
-      textCapitalization: textCapitalization,
-      decoration: _buildInputDecoration(
-        isRequired ? '$label *' : label,
-        icon,
-      ).copyWith(hintText: hint),
+      decoration: InputDecoration(
+        labelText: isRequired ? '$label *' : label,
+        hintText: hint,
+        prefixIcon: Icon(icon),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.blue, width: 2),
+        ),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+      ),
     );
   }
 
   Future<void> _deleteVehicle(String id) async {
-    final confirmed = await _showDeleteConfirmation();
+    final confirmed = await ConfirmationDialog.show(
+      context: context,
+      title: 'Delete Vehicle',
+      content:
+          'Are you sure you want to delete this vehicle? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      confirmColor: Colors.red,
+    );
+
     if (confirmed != true) return;
 
     try {
@@ -920,57 +872,6 @@ class _ManageVehicleState extends State<ManageVehicle> {
     }
   }
 
-  Future<bool?> _showDeleteConfirmation() {
-    return showDialog<bool>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.warning_rounded,
-                    color: Colors.red,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Confirm Deletion',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 20),
-                ),
-              ],
-            ),
-            content: const Text(
-              'Are you sure you want to delete this vehicle? This action cannot be undone.',
-              style: TextStyle(fontSize: 16),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Delete'),
-              ),
-            ],
-          ),
-    );
-  }
-
   void _showSnackBar(String message, Color color, IconData icon) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -984,14 +885,21 @@ class _ManageVehicleState extends State<ManageVehicle> {
           ],
         ),
         backgroundColor: color,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'DISMISS',
+          textColor: Colors.white,
+          onPressed: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
+        ),
       ),
     );
   }
 }
 
+// --- FIXED VehicleCard class ---
 class VehicleCard extends StatelessWidget {
   final vehicle vehicleModel;
   final VoidCallback onEdit;
@@ -1008,28 +916,64 @@ class VehicleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shadowColor: Colors.black12,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        decoration: BoxDecoration(
+    final theme = Theme.of(context);
+
+    return Dismissible(
+      key: ValueKey(vehicleModel.id),
+      direction: DismissDirection.endToStart, // swipe left
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        color: Colors.red,
+        child: const Icon(Icons.delete_rounded, color: Colors.white, size: 32),
+      ),
+      confirmDismiss: (_) async {
+        // Show confirmation dialog before delete
+        final confirmed = await ConfirmationDialog.show(
+          context: context,
+          title: 'Delete Vehicle',
+          content:
+              'Are you sure you want to delete ${vehicleModel.name}? This action cannot be undone.',
+          confirmText: 'Delete',
+          cancelText: 'Cancel',
+          confirmColor: Colors.red,
+        );
+        return confirmed == true;
+      },
+      onDismissed: (_) => onDelete(),
+      child: Card(
+        elevation: 1,
+        shadowColor: theme.colorScheme.shadow.withOpacity(0.05),
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            colors: [Colors.white, Colors.grey.shade50],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          side: BorderSide(color: theme.colorScheme.outline.withOpacity(0.1)),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(context),
-              const SizedBox(height: 20),
-              _buildInfoSection(),
-            ],
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              colors: [
+                theme.colorScheme.surface,
+                theme.colorScheme.surface.withOpacity(0.95),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => onEdit(), // Make the entire card tappable to edit
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(context),
+                  const SizedBox(height: 16),
+                  _buildInfoSection(context),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -1059,12 +1003,14 @@ class VehicleCard extends StatelessWidget {
                 children: [
                   if (vehicleModel.vehicleTypes != null)
                     _buildTag(
+                      context,
                       vehicleModel.vehicleTypes!,
                       Colors.blue,
                       Icons.category_rounded,
                     ),
                   if (vehicleModel.plateNumber != null)
                     _buildTag(
+                      context,
                       vehicleModel.plateNumber!,
                       Colors.green,
                       Icons.confirmation_number_rounded,
@@ -1079,16 +1025,9 @@ class VehicleCard extends StatelessWidget {
           children: [
             _buildActionButton(
               Icons.edit_rounded,
-              Colors.blue,
+              Colors.lightBlue.shade900,
               onEdit,
               'Edit Vehicle',
-            ),
-            const SizedBox(width: 8),
-            _buildActionButton(
-              Icons.delete_rounded,
-              Colors.red,
-              () => _showDeleteConfirmation(context),
-              'Delete Vehicle',
             ),
           ],
         ),
@@ -1096,13 +1035,15 @@ class VehicleCard extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoSection() {
+  Widget _buildInfoSection(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: theme.colorScheme.outline.withOpacity(0.1)),
       ),
       child: Column(
         children: [
@@ -1110,21 +1051,25 @@ class VehicleCard extends StatelessWidget {
             StreamBuilder<Device?>(
               stream: deviceService.getDeviceStream(vehicleModel.deviceId!),
               builder: (context, snapshot) {
-                // Only show device info if device exists and data is loaded
                 if (snapshot.hasData && snapshot.data != null) {
                   return Column(
                     children: [
                       _buildInfoRow(
+                        context,
                         Icons.device_hub_rounded,
                         'Device ID',
                         vehicleModel.deviceId!,
-                        Colors.purple,
+                        Colors.deepPurple,
+                      ),
+                      const SizedBox(height: 12),
+                      Divider(
+                        color: theme.colorScheme.outline.withOpacity(0.1),
                       ),
                       const SizedBox(height: 12),
                     ],
                   );
                 }
-                return const SizedBox.shrink(); // Don't show anything if device doesn't exist
+                return const SizedBox.shrink();
               },
             ),
           ],
@@ -1132,19 +1077,21 @@ class VehicleCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _buildInfoRow(
+                  context,
                   Icons.calendar_today_rounded,
                   'Created',
                   _formatDate(vehicleModel.createdAt),
-                  Colors.grey,
+                  Colors.blueGrey,
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: _buildInfoRow(
+                  context,
                   Icons.update_rounded,
                   'Updated',
                   _formatDate(vehicleModel.updatedAt),
-                  Colors.grey,
+                  Colors.blueGrey,
                 ),
               ),
             ],
@@ -1154,25 +1101,31 @@ class VehicleCard extends StatelessWidget {
     );
   }
 
-  Widget _buildTag(String text, Color color, IconData icon) {
+  Widget _buildTag(
+    BuildContext context,
+    String text,
+    Color color,
+    IconData icon,
+  ) {
+    final theme = Theme.of(context);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.3)),
+        color: theme.colorScheme.primary.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: color),
+          Icon(icon, size: 14, color: theme.colorScheme.primary),
           const SizedBox(width: 4),
           Text(
             text,
             style: TextStyle(
-              color: color,
+              color: theme.colorScheme.primary,
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -1186,29 +1139,35 @@ class VehicleCard extends StatelessWidget {
     VoidCallback onPressed,
     String tooltip,
   ) {
-    return Container(
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: IconButton(
-        icon: Icon(icon, color: color, size: 20),
-        onPressed: onPressed,
-        tooltip: tooltip,
-        padding: const EdgeInsets.all(8),
-        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onPressed,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Icon(icon, color: color, size: 20),
+        ),
       ),
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value, Color color) {
+  Widget _buildInfoRow(
+    BuildContext context,
+    IconData icon,
+    String label,
+    String value,
+    Color color,
+  ) {
+    final theme = Theme.of(context);
+
     return Row(
       children: [
         Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(6),
+            color: color.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, size: 16, color: color),
         ),
@@ -1221,76 +1180,23 @@ class VehicleCard extends StatelessWidget {
                 label,
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey.shade600,
+                  color: theme.colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w500,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 value,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+                  color: theme.colorScheme.onSurface,
                 ),
               ),
             ],
           ),
         ),
       ],
-    );
-  }
-
-  void _showDeleteConfirmation(BuildContext context) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.warning_rounded,
-                    color: Colors.red,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Delete Vehicle',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 20),
-                ),
-              ],
-            ),
-            content: Text(
-              'Are you sure you want to delete ${vehicleModel.name}? This action cannot be undone.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  onDelete();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Delete'),
-              ),
-            ],
-          ),
     );
   }
 

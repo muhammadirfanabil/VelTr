@@ -1,92 +1,121 @@
-// Purpose: Center overlay when GPS is unavailable
 import 'package:flutter/material.dart';
 
-class NoGPSOverlay extends StatelessWidget {
+class NoGPSDetailsDialog extends StatelessWidget {
+  final String firestoreId;
   final String? deviceName;
   final String? currentDeviceId;
-  final VoidCallback onSwitchVehicle;
   final VoidCallback onRetry;
 
-  const NoGPSOverlay({
-    Key? key,
-    required this.deviceName,
-    required this.currentDeviceId,
-    required this.onSwitchVehicle,
+  const NoGPSDetailsDialog({
+    super.key,
+    required this.firestoreId,
+    this.deviceName,
+    this.currentDeviceId,
     required this.onRetry,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.all(32),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.95),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+    return AlertDialog(
+      title: const Row(
+        children: [
+          Icon(Icons.info_outline, color: Colors.blue, size: 28),
+          SizedBox(width: 8),
+          Text('Device Information'),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'GPS data is not currently available for this device.',
+            style: TextStyle(fontSize: 16),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(8),
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.gps_off, size: 48, color: Colors.orange),
-            const SizedBox(height: 12),
-            const Text(
-              'GPS Not Available',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Device: ${deviceName ?? currentDeviceId}',
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'You can switch to another vehicle or control this device.',
-              style: TextStyle(fontSize: 14),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisSize: MainAxisSize.min,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ElevatedButton.icon(
-                  onPressed: onSwitchVehicle,
-                  icon: const Icon(Icons.directions_car, size: 18),
-                  label: const Text('Switch Vehicle'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
+                Text(
+                  'Device Details:',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[700],
                   ),
                 ),
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  onPressed: onRetry,
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: const Text('Retry'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
+                const SizedBox(height: 8),
+                Text(
+                  'Firestore ID: $firestoreId',
+                  style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                ),
+                if (deviceName != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Device Name: $deviceName',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontFamily: 'monospace',
                     ),
                   ),
-                ),
+                ],
+                if (currentDeviceId != null &&
+                    currentDeviceId != firestoreId) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'MAC Address: $currentDeviceId',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ],
               ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'You can still:',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          const Text('• View the map interface'),
+          const Text('• Access other app features'),
+          const Text('• Control device relay status'),
+          const Text('• Switch to another vehicle'),
+          const Text('• Return later when GPS is available'),
+          const SizedBox(height: 16),
+          const Text(
+            'To enable GPS tracking:',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          const Text('• Ensure device is powered on'),
+          const Text('• Check GPS module functionality'),
+          const Text('• Verify network connection'),
+          const Text('• Confirm data transmission to server'),
+        ],
       ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+            onRetry();
+          },
+          child: const Text('Retry'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Continue'),
+        ),
+      ],
     );
   }
 }

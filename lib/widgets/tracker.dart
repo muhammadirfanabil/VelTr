@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../theme/app_colors.dart';
 
 class VehicleStatusPanel extends StatefulWidget {
   final String? locationName;
@@ -29,26 +30,23 @@ class VehicleStatusPanel extends StatefulWidget {
 
 class _VehicleStatusPanelState extends State<VehicleStatusPanel>
     with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
-  late Animation<double> _slideAnimation;
-  late Animation<double> _fadeAnimation;
+  late final AnimationController _animationController;
+  late final Animation<double> _slideAnimation;
+  late final Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 350),
       vsync: this,
     );
-
     _slideAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
     );
-
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
-
     _animationController.forward();
   }
 
@@ -57,6 +55,8 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
     _animationController.dispose();
     super.dispose();
   }
+
+  // --- Logic Getters ---
 
   bool get hasValidCoordinates =>
       widget.latitude != null && widget.longitude != null;
@@ -73,25 +73,29 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
 
   bool get isOnline {
     if (widget.lastUpdated == null || widget.lastUpdated!.isEmpty) return false;
-
     try {
       final updatedTime = DateTime.parse(widget.lastUpdated!);
       final now = DateTime.now();
-      final difference = now.difference(updatedTime).inMinutes;
-      return difference <= 2; // Allow 2 minutes for online status
+      return now.difference(updatedTime).inMinutes <= 2;
     } catch (_) {
       return false;
     }
   }
 
+  // --- UI Actions ---
+
   void _copyLocation() {
     if (hasValidCoordinates) {
       Clipboard.setData(ClipboardData(text: coordinatesText));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Coordinates copied to clipboard'),
-          duration: Duration(seconds: 2),
-          backgroundColor: Colors.green,
+        SnackBar(
+          content: const Text('Coordinates copied to clipboard'),
+          backgroundColor: AppColors.success,
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       );
     }
@@ -107,7 +111,7 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
             ),
             title: Row(
               children: [
-                Icon(Icons.location_on, color: Colors.blue.shade600, size: 24),
+                Icon(Icons.location_on, color: AppColors.primaryBlue, size: 22),
                 const SizedBox(width: 8),
                 const Text('Location Details'),
               ],
@@ -116,13 +120,14 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (widget.locationName != null) ...[
+                if (widget.locationName != null &&
+                    widget.locationName!.isNotEmpty) ...[
                   _DetailRow(
                     icon: Icons.place,
                     label: 'Address',
                     value: widget.locationName!,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                 ],
                 if (hasValidCoordinates) ...[
                   _DetailRow(
@@ -130,13 +135,13 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
                     label: 'Latitude',
                     value: widget.latitude!.toStringAsFixed(6),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   _DetailRow(
                     icon: Icons.my_location,
                     label: 'Longitude',
                     value: widget.longitude!.toStringAsFixed(6),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                 ],
                 _DetailRow(
                   icon: Icons.access_time,
@@ -144,7 +149,7 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
                   value: lastActiveText,
                 ),
                 if (widget.satellites != null && widget.satellites! > 0) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   _DetailRow(
                     icon: Icons.satellite_alt,
                     label: 'Satellites',
@@ -162,15 +167,23 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
                   },
                   icon: const Icon(Icons.copy, size: 18),
                   label: const Text('Copy'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.primaryBlue,
+                  ),
                 ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
                 child: const Text('Close'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.textSecondary,
+                ),
               ),
             ],
           ),
     );
   }
+
+  // --- UI ---
 
   @override
   Widget build(BuildContext context) {
@@ -180,90 +193,80 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
       animation: _animationController,
       builder: (context, child) {
         return Transform.translate(
-          offset: Offset(0, 50 * _slideAnimation.value),
+          offset: Offset(0, 40 * _slideAnimation.value),
           child: Opacity(
             opacity: _fadeAnimation.value,
             child: Align(
               alignment: Alignment.bottomCenter,
               child: Container(
                 margin: const EdgeInsets.symmetric(
-                  horizontal: 16,
+                  horizontal: 12,
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(18),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.15),
-                      blurRadius: 20,
+                      color: Colors.black.withOpacity(0.13),
+                      blurRadius: 14,
                       offset: const Offset(0, -4),
                     ),
                   ],
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Header with status badge
+                      // -- Header --
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Location name with tap to see details
-                                GestureDetector(
-                                  onTap: _showLocationDetails,
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.place,
-                                        size: 20,
-                                        color: Colors.blue.shade600,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          widget.locationName ??
-                                              'Loading location...',
-                                          style: theme.textTheme.titleMedium
-                                              ?.copyWith(
-                                                fontWeight: FontWeight.w600,
-                                                color: Colors.black87,
-                                              ),
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      Icon(
-                                        Icons.info_outline,
-                                        size: 16,
-                                        color: Colors.grey.shade500,
-                                      ),
-                                    ],
+                            child: GestureDetector(
+                              onTap: _showLocationDetails,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.place,
+                                    size: 19,
+                                    color: AppColors.primaryBlue,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      widget.locationName?.isNotEmpty == true
+                                          ? widget.locationName!
+                                          : 'Loading location...',
+                                      style: theme.textTheme.titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.textPrimary,
+                                            fontSize: 16,
+                                          ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.info_outline,
+                                    size: 15,
+                                    color: AppColors.textTertiary,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          // Online/Offline status badge
+                          const SizedBox(width: 10),
                           _buildStatusBadge(theme),
                         ],
                       ),
 
-                      const SizedBox(height: 16),
-
-                      // Information grid
+                      const SizedBox(height: 14),
                       _buildInfoGrid(theme),
-
-                      const SizedBox(height: 20),
-
-                      // Action button (Turn On/Off only)
+                      const SizedBox(height: 16),
                       _buildActionButton(theme),
                     ],
                   ),
@@ -277,34 +280,41 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
   }
 
   Widget _buildStatusBadge(ThemeData theme) {
+    final online = isOnline;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
       decoration: BoxDecoration(
-        color: isOnline ? Colors.green.shade50 : Colors.red.shade50,
+        color:
+            online
+                ? AppColors.success.withOpacity(0.11)
+                : AppColors.error.withOpacity(0.09),
         border: Border.all(
-          color: isOnline ? Colors.green.shade200 : Colors.red.shade200,
+          color:
+              online
+                  ? AppColors.success.withOpacity(0.30)
+                  : AppColors.error.withOpacity(0.23),
           width: 1,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 8,
-            height: 8,
+            width: 7,
+            height: 7,
             decoration: BoxDecoration(
-              color: isOnline ? Colors.green.shade500 : Colors.red.shade500,
+              color: online ? AppColors.success : AppColors.error,
               shape: BoxShape.circle,
             ),
           ),
           const SizedBox(width: 6),
           Text(
-            isOnline ? 'Online' : 'Offline',
+            online ? 'Online' : 'Offline',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: isOnline ? Colors.green.shade700 : Colors.red.shade700,
+              color: online ? AppColors.success : AppColors.error,
               fontWeight: FontWeight.w600,
-              fontSize: 12,
+              fontSize: 12.3,
             ),
           ),
         ],
@@ -316,86 +326,66 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
     return Column(
       children: [
         // Coordinates row (tappable to copy)
-        if (hasValidCoordinates)
-          GestureDetector(
-            onTap: _copyLocation,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.my_location,
-                    size: 16,
-                    color: Colors.blue.shade600,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      coordinatesText,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: Colors.black87,
-                        fontFamily: 'monospace',
-                        fontSize: 13,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Icon(Icons.copy, size: 14, color: Colors.grey.shade500),
-                ],
-              ),
-            ),
-          )
-        else
-          Container(
+        GestureDetector(
+          onTap: hasValidCoordinates ? _copyLocation : null,
+          child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade200),
+              color: AppColors.backgroundSecondary,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.border.withOpacity(0.18)),
             ),
             child: Row(
               children: [
                 Icon(
-                  Icons.location_disabled,
-                  size: 16,
-                  color: Colors.grey.shade500,
+                  hasValidCoordinates
+                      ? Icons.my_location
+                      : Icons.location_disabled,
+                  size: 15,
+                  color:
+                      hasValidCoordinates
+                          ? AppColors.primaryBlue
+                          : AppColors.textTertiary,
                 ),
-                const SizedBox(width: 10),
-                Text(
-                  'GPS coordinates not available',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey.shade600,
-                    fontSize: 13,
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    hasValidCoordinates
+                        ? coordinatesText
+                        : 'GPS coordinates not available',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color:
+                          hasValidCoordinates
+                              ? AppColors.textPrimary
+                              : AppColors.textTertiary,
+                      fontFamily: hasValidCoordinates ? 'monospace' : null,
+                      fontSize: 13.3,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (hasValidCoordinates)
+                  Icon(Icons.copy, size: 13, color: AppColors.textTertiary),
               ],
             ),
           ),
-
+        ),
         const SizedBox(height: 12),
-
-        // Last update and satellites info
+        // Last update & satellites
         Row(
           children: [
-            // Last update time
             Expanded(
               child: _buildInfoItem(
-                icon: Icons.access_time,
+                icon: Icons.access_time_rounded,
                 label: 'Last Update',
                 value: _formatLastUpdate(),
                 theme: theme,
               ),
             ),
-
             if (widget.satellites != null && widget.satellites! > 0) ...[
               const SizedBox(width: 16),
               _buildInfoItem(
-                icon: Icons.satellite_alt,
+                icon: Icons.satellite_alt_rounded,
                 label: 'Satellites',
                 value: '${widget.satellites}',
                 theme: theme,
@@ -416,7 +406,7 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: Colors.grey.shade600),
+        Icon(icon, size: 14, color: AppColors.textTertiary),
         const SizedBox(width: 6),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -424,16 +414,16 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
             Text(
               label,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: Colors.grey.shade600,
-                fontSize: 11,
+                color: AppColors.textTertiary,
+                fontSize: 11.2,
               ),
             ),
             Text(
               value,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: Colors.black87,
+                color: AppColors.textPrimary,
                 fontWeight: FontWeight.w500,
-                fontSize: 12,
+                fontSize: 12.5,
               ),
             ),
           ],
@@ -467,29 +457,29 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
   }
 
   Widget _buildActionButton(ThemeData theme) {
+    final isOn = widget.isVehicleOn;
     return SizedBox(
       width: double.infinity,
-      child: ElevatedButton.icon(
+      child: FilledButton.icon(
         onPressed: widget.toggleVehicleStatus,
         icon: Icon(
-          widget.isVehicleOn
-              ? Icons.power_settings_new
-              : Icons.power_settings_new_outlined,
+          isOn ? Icons.power_settings_new : Icons.power_settings_new_outlined,
           size: 20,
         ),
         label: Text(
-          widget.isVehicleOn ? 'Turn Off Device' : 'Turn On Device',
+          isOn ? 'Turn Off Device' : 'Turn On Device',
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
         ),
-        style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          backgroundColor:
-              widget.isVehicleOn ? Colors.red.shade600 : Colors.green.shade600,
+        style: FilledButton.styleFrom(
+          backgroundColor: isOn ? AppColors.error : AppColors.success,
           foregroundColor: Colors.white,
-          elevation: 0,
-          shadowColor: Colors.transparent,
+          padding: const EdgeInsets.symmetric(vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 0,
+          textStyle: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.bold,
           ),
         ),
       ),
@@ -511,35 +501,38 @@ class _DetailRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 18, color: Colors.grey.shade600),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: Colors.grey.shade600,
-                  fontSize: 12,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 1.5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: AppColors.textTertiary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.textTertiary,
+                    fontSize: 11.2,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: Colors.black87,
-                  fontWeight: FontWeight.w500,
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 13.3,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import '../../services/history/history_service.dart';
+import '../../theme/app_colors.dart';
 
 class HistoryListWidget extends StatefulWidget {
   final List<HistoryEntry> historyEntries;
@@ -39,7 +40,6 @@ class _HistoryListWidgetState extends State<HistoryListWidget> {
       if (placemarks.isNotEmpty) {
         Placemark placemark = placemarks[0];
 
-        // Build a readable address
         String address = '';
         if (placemark.street != null && placemark.street!.isNotEmpty) {
           address += placemark.street!;
@@ -54,12 +54,10 @@ class _HistoryListWidgetState extends State<HistoryListWidget> {
           address += placemark.locality!;
         }
 
-        // Fallback to administrative area if no specific location found
         if (address.isEmpty && placemark.administrativeArea != null) {
           address = placemark.administrativeArea!;
         }
 
-        // Final fallback
         if (address.isEmpty) {
           address = 'Unknown location';
         }
@@ -68,10 +66,9 @@ class _HistoryListWidgetState extends State<HistoryListWidget> {
         return address;
       }
     } catch (e) {
-      print('Error getting address for $latitude, $longitude: $e');
+      // ignore geocoding errors
     }
 
-    // Fallback to coordinates if geocoding fails
     final fallback =
         'Lat: ${latitude.toStringAsFixed(6)}, Lng: ${longitude.toStringAsFixed(6)}';
     _addressCache[key] = fallback;
@@ -80,14 +77,23 @@ class _HistoryListWidgetState extends State<HistoryListWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     if (widget.isLoading) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(color: Colors.blue),
-            SizedBox(height: 16),
-            Text('Loading driving history...'),
+            CircularProgressIndicator(color: AppColors.primaryBlue),
+            SizedBox(height: 12),
+            Text(
+              'Loading driving history...',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textSecondary,
+              ),
+            ),
           ],
         ),
       );
@@ -98,21 +104,22 @@ class _HistoryListWidgetState extends State<HistoryListWidget> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 48, color: Colors.red[400]),
-            const SizedBox(height: 16),
+            Icon(Icons.error_outline, size: 46, color: AppColors.error),
+            const SizedBox(height: 14),
             Text(
               'Error loading history',
-              style: TextStyle(
-                fontSize: 18,
+              style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: Colors.red[700],
+                color: AppColors.error,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 7),
             Text(
               widget.error!,
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[600]),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.textSecondary,
+              ),
             ),
           ],
         ),
@@ -120,31 +127,32 @@ class _HistoryListWidgetState extends State<HistoryListWidget> {
     }
 
     if (widget.historyEntries.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.history, size: 48, color: Colors.grey),
-            SizedBox(height: 16),
+            Icon(Icons.history, size: 46, color: AppColors.textTertiary),
+            const SizedBox(height: 14),
             Text(
               'No driving history found',
-              style: TextStyle(
-                fontSize: 18,
+              style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: Colors.grey,
+                color: AppColors.textPrimary,
               ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 7),
             Text(
               'Start driving to see your history here',
-              style: TextStyle(color: Colors.grey),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.textSecondary,
+              ),
             ),
           ],
         ),
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
       itemCount: widget.historyEntries.length,
       separatorBuilder: (context, index) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
@@ -152,12 +160,13 @@ class _HistoryListWidgetState extends State<HistoryListWidget> {
 
         return Card(
           margin: EdgeInsets.zero,
-          elevation: 1,
+          elevation: 0.7,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
+          color: AppColors.surface,
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 14),
             child: FutureBuilder<String>(
               future: _getAddressFromCoordinates(
                 entry.latitude,
@@ -170,31 +179,33 @@ class _HistoryListWidgetState extends State<HistoryListWidget> {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   displayText = 'Loading address...';
                   leadingIcon = const SizedBox(
-                    width: 16,
-                    height: 16,
+                    width: 15,
+                    height: 15,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppColors.primaryBlue,
+                      ),
                     ),
                   );
                 } else if (snapshot.hasError) {
                   displayText =
                       'In ${entry.latitude.toStringAsFixed(6)}, ${entry.longitude.toStringAsFixed(6)}';
                   leadingIcon = Container(
-                    width: 12,
-                    height: 12,
+                    width: 11,
+                    height: 11,
                     decoration: BoxDecoration(
-                      color: Colors.orange[600],
+                      color: AppColors.warning,
                       shape: BoxShape.circle,
                     ),
                   );
                 } else {
                   displayText = 'In ${snapshot.data ?? 'Unknown location'}';
                   leadingIcon = Container(
-                    width: 12,
-                    height: 12,
+                    width: 11,
+                    height: 11,
                     decoration: BoxDecoration(
-                      color: Colors.blue[600],
+                      color: AppColors.primaryBlue,
                       shape: BoxShape.circle,
                     ),
                   );
@@ -203,13 +214,14 @@ class _HistoryListWidgetState extends State<HistoryListWidget> {
                 return Row(
                   children: [
                     leadingIcon,
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 13),
                     Expanded(
                       child: Text(
                         displayText,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14.7,
+                          color: AppColors.textPrimary,
                         ),
                       ),
                     ),

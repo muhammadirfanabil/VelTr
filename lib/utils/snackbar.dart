@@ -60,4 +60,34 @@ class SnackbarUtils {
       ),
     );
   }
+
+  // For MapView
+
+  static void showNoGPSInfo(
+    BuildContext context,
+    String deviceName,
+    VoidCallback onDetailsPressed,
+  ) {
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.gps_off, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Expanded(child: Text('No GPS data available for $deviceName')),
+          ],
+        ),
+        backgroundColor: Colors.orange,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'Details',
+          textColor: Colors.white,
+          onPressed: onDetailsPressed,
+        ),
+      ),
+    );
+  }
 }

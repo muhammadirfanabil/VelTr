@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_colors.dart';
 
 class VehicleEmptyStateWidget extends StatelessWidget {
   final VoidCallback? onAddVehicle;
@@ -7,43 +8,62 @@ class VehicleEmptyStateWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.directions_car_outlined,
-            size: 64,
-            color: Colors.grey[400],
+          Container(
+            width: 68,
+            height: 68,
+            decoration: BoxDecoration(
+              color: AppColors.backgroundSecondary,
+              borderRadius: BorderRadius.circular(17),
+            ),
+            child: Icon(
+              Icons.directions_car_outlined,
+              size: 40,
+              color: AppColors.textTertiary,
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Text(
             'No Vehicles Found',
-            style: TextStyle(
-              fontSize: 20,
+            style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
-              color: Colors.grey[700],
+              color: AppColors.textPrimary,
+              fontSize: 18,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Please add a vehicle first to view driving history.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey[600]),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: AppColors.textSecondary,
+            ),
           ),
           if (onAddVehicle != null) ...[
-            const SizedBox(height: 24),
-            ElevatedButton(
+            const SizedBox(height: 26),
+            FilledButton.icon(
               onPressed: onAddVehicle,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue[600],
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primaryBlue,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
+                  horizontal: 22,
+                  vertical: 13,
                 ),
+                textStyle: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                elevation: 1.5,
               ),
-              child: const Text('Add Vehicle'),
+              icon: const Icon(Icons.add, size: 19),
+              label: const Text('Add Vehicle'),
             ),
           ],
         ],
@@ -57,25 +77,40 @@ class VehicleSelectionPromptWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.touch_app, size: 64, color: Colors.grey[400]),
-          const SizedBox(height: 16),
+          Container(
+            width: 68,
+            height: 68,
+            decoration: BoxDecoration(
+              color: AppColors.backgroundSecondary,
+              borderRadius: BorderRadius.circular(17),
+            ),
+            child: Icon(
+              Icons.touch_app_outlined,
+              size: 36,
+              color: AppColors.textTertiary,
+            ),
+          ),
+          const SizedBox(height: 20),
           Text(
             'Select a Vehicle',
-            style: TextStyle(
-              fontSize: 20,
+            style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
-              color: Colors.grey[700],
+              color: AppColors.textPrimary,
+              fontSize: 18,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Please select a vehicle to view its driving history.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey[600]),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: AppColors.textSecondary,
+            ),
           ),
         ],
       ),

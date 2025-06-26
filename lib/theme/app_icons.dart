@@ -15,7 +15,7 @@ class AppIcons {
   static const IconData notifications = Icons.notifications;
   static const IconData settings = Icons.settings;
   static const IconData menu = Icons.menu;
-  static const IconData back = Icons.arrow_back;
+  static const IconData back = Icons.arrow_back_ios_new;
   static const IconData close = Icons.close;
   static const IconData search = Icons.search;
   static const IconData filter = Icons.filter_list;

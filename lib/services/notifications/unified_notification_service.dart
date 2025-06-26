@@ -19,8 +19,63 @@ class UnifiedNotificationService {
   static const String _userAlertsCollection = 'user_alerts';
   static const String _geofenceAlertsSubcollection = 'geofence_alerts';
 
+  // Add a StreamController to manage the notifications data
+  final StreamController<List<UnifiedNotification>> _notificationsController =
+      StreamController<List<UnifiedNotification>>.broadcast();
+
+  Timer? _periodicTimer;
+  bool _isInitialized = false;
+
   /// Current user ID
   String? get _currentUserId => AuthService.getCurrentUserId();
+
+  /// Initialize the service
+  void _initialize() {
+    if (_isInitialized) return;
+    _isInitialized = true;
+
+    // Start periodic updates
+    _startPeriodicUpdates();
+  }
+
+  /// Start periodic updates
+  void _startPeriodicUpdates() {
+    _periodicTimer?.cancel();
+    _periodicTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      _fetchAndUpdateNotifications();
+    });
+
+    // Initial fetch
+    _fetchAndUpdateNotifications();
+  }
+
+  /// Fetch and update notifications
+  Future<void> _fetchAndUpdateNotifications() async {
+    try {
+      final notifications = await _fetchCombinedNotifications();
+      if (!_notificationsController.isClosed) {
+        _notificationsController.add(notifications);
+      }
+    } catch (e) {
+      debugPrint('Error fetching notifications: $e');
+      if (!_notificationsController.isClosed) {
+        _notificationsController.add([]);
+      }
+    }
+  }
+
+  /// Refresh notifications manually
+  Future<void> refreshNotifications() async {
+    try {
+      // Perform an immediate fetch
+      await _fetchAndUpdateNotifications();
+
+      debugPrint('Notifications refreshed successfully');
+    } catch (e) {
+      debugPrint('Error refreshing notifications: $e');
+      rethrow;
+    }
+  }
 
   /// Get stream of all notifications
   Stream<List<UnifiedNotification>> getNotificationsStream() {
@@ -28,7 +83,8 @@ class UnifiedNotificationService {
       return Stream.value([]);
     }
 
-    return _getCombinedNotificationsStream();
+    _initialize();
+    return _notificationsController.stream;
   }
 
   /// Get notifications grouped by date
@@ -36,25 +92,6 @@ class UnifiedNotificationService {
     return getNotificationsStream().map((notifications) {
       return _groupNotificationsByDate(notifications);
     });
-  }
-
-  /// Get combined notifications from both sources
-  Stream<List<UnifiedNotification>> _getCombinedNotificationsStream() async* {
-    if (_currentUserId == null) {
-      yield [];
-      return;
-    }
-
-    // Use a timer to periodically fetch and combine data
-    await for (final _ in Stream.periodic(const Duration(seconds: 2))) {
-      try {
-        final notifications = await _fetchCombinedNotifications();
-        yield notifications;
-      } catch (e) {
-        debugPrint('Error fetching notifications: $e');
-        yield [];
-      }
-    }
   }
 
   /// Fetch and combine notifications from both sources
@@ -331,6 +368,7 @@ class UnifiedNotificationService {
 
   /// Dispose resources
   void dispose() {
-    // Resources are automatically managed by Firestore
+    _periodicTimer?.cancel();
+    _notificationsController.close();
   }
 }

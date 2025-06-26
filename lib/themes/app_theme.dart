@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
 class AppTheme {
-  // Define your colors (maintained for backward compatibility)
+  // Defined colors (maintained for backward compatibility)
   static const Color primaryBlue = AppColors.primaryBlue;
   static const Color accentRed = AppColors.accentRed;
 

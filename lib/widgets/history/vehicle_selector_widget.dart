@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/vehicle/vehicle.dart';
+import '../../theme/app_colors.dart';
 
 class VehicleSelectorWidget extends StatelessWidget {
   final vehicle? selectedVehicle;
@@ -17,112 +18,117 @@ class VehicleSelectorWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.blue[50],
-              borderRadius: BorderRadius.circular(12),
+    final theme = Theme.of(context);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      elevation: 0.5,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+      color: AppColors.surface,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppColors.primaryBlue.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.two_wheeler,
+                color: AppColors.primaryBlue,
+                size: 23,
+              ),
             ),
-            child: Icon(
-              Icons.directions_car_rounded,
-              color: Colors.blue[600],
-              size: 26,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isLoadingVehicles
-                      ? 'Loading vehicles...'
-                      : selectedVehicle?.name ?? 'No vehicle selected',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black87,
-                  ),
-                ),
-                if (selectedVehicle?.plateNumber?.isNotEmpty == true)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AnimatedDefaultTextStyle(
+                    duration: const Duration(milliseconds: 200),
+                    style: theme.textTheme.titleMedium!.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                      fontSize: 16,
+                    ),
                     child: Text(
-                      selectedVehicle!.plateNumber!,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w500,
-                      ),
+                      isLoadingVehicles
+                          ? 'Loading vehicles...'
+                          : selectedVehicle?.name ?? 'No vehicle selected',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-              ],
-            ),
-          ),
-          if (availableVehicles.length > 1)
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: onTap,
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[600],
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        'Change',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
+                  if (selectedVehicle?.plateNumber?.isNotEmpty == true)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        selectedVehicle!.plateNumber!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12.5,
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      const Icon(
-                        Icons.expand_more,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                    ],
+                    ),
+                ],
+              ),
+            ),
+            if (availableVehicles.length > 1)
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: OutlinedButton.icon(
+                  onPressed: onTap,
+                  icon: Icon(
+                    Icons.swap_horiz_rounded,
+                    color: AppColors.primaryBlue,
+                    size: 18,
+                  ),
+                  label: Text(
+                    'Change',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: AppColors.primaryBlue,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: AppColors.primaryBlue, width: 1.2),
+                    backgroundColor: Colors.transparent,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              )
+            else if (availableVehicles.length == 1)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withOpacity(0.11),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Only Vehicle',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: AppColors.success,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
-            )
-          else if (availableVehicles.length == 1)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.green[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.green[200]!),
-              ),
-              child: Text(
-                'Only Vehicle',
-                style: TextStyle(
-                  color: Colors.green[700],
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

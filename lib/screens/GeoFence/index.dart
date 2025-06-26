@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../models/Geofence/Geofence.dart';
 import '../../services/Geofence/geofenceService.dart';
 import '../../utils/snackbar.dart';
@@ -6,6 +7,7 @@ import '../../widgets/Common/error_card.dart';
 import '../../widgets/Common/loading_screen.dart';
 import '../GeoFence/geofence.dart';
 import 'geofence_edit_screen.dart';
+import '../../widgets/Geofence/geofence_card.dart'; // Updated import
 
 class GeofenceListScreen extends StatefulWidget {
   final String deviceId;
@@ -16,9 +18,28 @@ class GeofenceListScreen extends StatefulWidget {
   State<GeofenceListScreen> createState() => _GeofenceListScreenState();
 }
 
-class _GeofenceListScreenState extends State<GeofenceListScreen> {
+class _GeofenceListScreenState extends State<GeofenceListScreen>
+    with TickerProviderStateMixin {
   bool _isDeleting = false;
+  late AnimationController _listAnimationController;
   final GeofenceService _geofenceService = GeofenceService();
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _listAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _listAnimationController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +50,7 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
       backgroundColor: colorScheme.surface,
       appBar: _buildAppBar(theme, colorScheme),
       body: _buildBody(theme, colorScheme),
+      // Removed floatingActionButton and floatingActionButtonLocation
     );
   }
 
@@ -39,38 +61,58 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
       backgroundColor: colorScheme.surface,
       surfaceTintColor: colorScheme.surfaceTint,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios, size: 20),
-        onPressed: () => Navigator.of(context).pop(),
+        icon: Icon(
+          Icons.arrow_back_ios_new,
+          size: 20,
+          color: colorScheme.primary,
+        ),
+        onPressed: () {
+          HapticFeedback.lightImpact();
+          Navigator.of(context).pop();
+        },
       ),
       title: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
             'Geofences',
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.bold,
               fontSize: 22,
+              color: colorScheme.onSurface,
             ),
           ),
-          Text(
-            'Device: ${widget.deviceId}',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurface.withValues(alpha: 0.6),
-              fontSize: 12,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            child: Text(
+              'Device: ${widget.deviceId}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: Colors.black,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.add),
-          onPressed: _navigateToCreateGeofence,
+          icon: Icon(Icons.add_rounded, color: colorScheme.primary),
+          onPressed: () {
+            HapticFeedback.mediumImpact();
+            _navigateToCreateGeofence();
+          },
           tooltip: 'Add Geofence',
         ),
         IconButton(
-          icon: const Icon(Icons.refresh),
-          onPressed: () => setState(() {}),
+          icon: Icon(Icons.refresh_rounded, color: colorScheme.primary),
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            setState(() {});
+          },
           tooltip: 'Refresh',
         ),
+        const SizedBox(width: 8),
       ],
     );
   }
@@ -81,7 +123,7 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Colors.white, Colors.blue.shade50.withValues(alpha: 0.2)],
+          colors: [colorScheme.surface, colorScheme.surface.withOpacity(0.95)],
         ),
       ),
       child: StreamBuilder<List<Geofence>>(
@@ -108,7 +150,7 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
             return _buildEmptyState(theme, colorScheme);
           }
 
-          return _buildGeofenceList(geofences, theme, colorScheme);
+          return _buildGeofenceList(geofences);
         },
       ),
     );
@@ -121,239 +163,104 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer.withValues(alpha: 0.3),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.fence_rounded,
-                size: 64,
-                color: colorScheme.primary,
-              ),
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 800),
+              curve: Curves.elasticOut,
+              builder: (context, value, child) {
+                // Clamp value to avoid opacity error
+                final safeValue = value.clamp(0.0, 1.0);
+                return Transform.scale(
+                  scale: safeValue,
+                  child: Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer.withOpacity(0.3),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: colorScheme.primary.withOpacity(0.1),
+                          blurRadius: 20,
+                          spreadRadius: 5,
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.location_searching_rounded,
+                      size: 80,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                );
+              },
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
             Text(
-              'No geofences found',
+              'No geofences yet',
               style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.bold,
                 color: colorScheme.onSurface,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Text(
-              'Create your first geofence to monitor\nspecific locations for this device',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurface.withValues(alpha: 0.6),
-                height: 1.4,
+              'Create your first geofence to start\nmonitoring specific locations',
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: colorScheme.onSurface.withOpacity(0.6),
+                height: 1.5,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 32),
-            FilledButton.icon(
-              onPressed: _navigateToCreateGeofence,
-              icon: const Icon(Icons.add),
-              label: const Text('Create Geofence'),
-              style: FilledButton.styleFrom(
-                backgroundColor: colorScheme.primary,
-                foregroundColor: colorScheme.onPrimary,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
+            // Removed "Add Geofence" button here
           ],
         ),
       ),
     );
   }
 
-  Widget _buildGeofenceList(
-    List<Geofence> geofences,
-    ThemeData theme,
-    ColorScheme colorScheme,
-  ) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: geofences.length,
-      itemBuilder: (context, index) {
-        final geofence = geofences[index];
-        return AnimatedContainer(
-          duration: Duration(milliseconds: 300 + (index * 50)),
-          curve: Curves.easeOutCubic,
-          child: _buildGeofenceCard(geofence, index, theme, colorScheme),
-        );
-      },
-    );
-  }
-
-  Widget _buildGeofenceCard(
-    Geofence geofence,
-    int index,
-    ThemeData theme,
-    ColorScheme colorScheme,
-  ) {
-    final bool isActive = geofence.status;
-    final String name = geofence.name;
-    final String address = geofence.address ?? 'No address specified';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Dismissible(
-        key: Key(geofence.id),
-        direction: DismissDirection.endToStart,
-        background: _buildDismissBackground(colorScheme),
-        confirmDismiss: (direction) => _confirmDelete(name, theme, colorScheme),
-        onDismissed: (direction) => _deleteGeofence(geofence, name),
-        child: Material(
-          elevation: 2,
-          shadowColor: colorScheme.shadow.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(16),
-          color: colorScheme.surface,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: () => _navigateToEditGeofence(geofence),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color:
-                      isActive
-                          ? colorScheme.primary.withValues(alpha: 0.1)
-                          : colorScheme.outline.withValues(alpha: 0.1),
-                  width: isActive ? 1.5 : 1,
-                ),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    colorScheme.surface,
-                    isActive
-                        ? Colors.blue.shade50.withValues(alpha: 0.3)
-                        : colorScheme.surfaceContainerLow,
-                  ],
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        _buildGeofenceIcon(isActive, colorScheme),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                name,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.onSurface,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 4),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color:
-                                      isActive
-                                          ? colorScheme.primaryContainer
-                                          : colorScheme.surfaceContainerHigh,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  isActive ? 'Active' : 'Inactive',
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color:
-                                        isActive
-                                            ? Colors.black
-                                            : colorScheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
+  Widget _buildGeofenceList(List<Geofence> geofences) {
+    return FadeTransition(
+      opacity: _listAnimationController,
+      child: CustomScrollView(
+        controller: _scrollController,
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final geofence = geofences[index];
+                return TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  duration: Duration(milliseconds: 400 + (index * 100)),
+                  curve: Curves.easeOutBack,
+                  builder: (context, value, child) {
+                    // Clamp opacity to [0.0, 1.0] to avoid assertion error
+                    final safeValue = value.clamp(0.0, 1.0);
+                    return Transform.translate(
+                      offset: Offset(0, 50 * (1 - safeValue)),
+                      child: Opacity(
+                        opacity: safeValue,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: GeofenceCard(
+                            geofence: geofence,
+                            isDeleting: _isDeleting,
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              _navigateToEditGeofence(geofence);
+                            },
+                            onStatusChanged: (bool value) {
+                              HapticFeedback.selectionClick();
+                              _toggleStatus(geofence, value);
+                            },
                           ),
-                        ),
-                        _buildStatusSwitch(geofence, isActive, colorScheme),
-                      ],
-                    ),
-                    if (address.isNotEmpty &&
-                        address != 'No address specified') ...[
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerLow,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: colorScheme.outline.withValues(alpha: 0.1),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.location_on_rounded,
-                              size: 18,
-                              color: colorScheme.primary,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                address,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                  height: 1.3,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
                         ),
                       ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDismissBackground(ColorScheme colorScheme) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 226, 46, 46),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      alignment: Alignment.centerRight,
-      padding: const EdgeInsets.only(right: 20),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.delete, color: colorScheme.onError, size: 28),
-          const SizedBox(height: 4),
-          Text(
-            'Delete',
-            style: TextStyle(
-              color: colorScheme.onError,
-              fontWeight: FontWeight.w500,
+                    );
+                  },
+                );
+              }, childCount: geofences.length),
             ),
           ),
         ],
@@ -361,104 +268,16 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
     );
   }
 
-  Widget _buildGeofenceIcon(bool isActive, ColorScheme colorScheme) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color:
-            isActive
-                ? colorScheme.primaryContainer
-                : colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color:
-              isActive
-                  ? colorScheme.primary.withValues(alpha: 0.3)
-                  : colorScheme.outline.withValues(alpha: 0.2),
-        ),
-      ),
-      child: Icon(
-        Icons.fence_rounded,
-        color: isActive ? colorScheme.primary : colorScheme.onSurfaceVariant,
-        size: 24,
-      ),
-    );
-  }
-
-  Widget _buildStatusSwitch(
-    Geofence geofence,
-    bool isActive,
-    ColorScheme colorScheme,
-  ) {
-    return Transform.scale(
-      scale: 0.9,
-      child: Switch.adaptive(
-        value: isActive,
-        onChanged:
-            _isDeleting ? null : (value) => _toggleStatus(geofence, value),
-        activeColor: colorScheme.primary,
-        activeTrackColor: colorScheme.primaryContainer,
-        inactiveThumbColor: colorScheme.outline,
-        inactiveTrackColor: colorScheme.surfaceContainerHigh,
-      ),
-    );
-  }
-
-  Future<bool?> _confirmDelete(
-    String name,
-    ThemeData theme,
-    ColorScheme colorScheme,
-  ) async {
-    return showDialog<bool>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            backgroundColor: Colors.white,
-            surfaceTintColor: colorScheme.primary,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            title: Text(
-              'Delete Geofence',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            content: Text(
-              'Are you sure you want to delete "$name"? This action cannot be undone.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text(
-                  'Cancel',
-                  style: TextStyle(color: colorScheme.primary),
-                ),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color.fromARGB(255, 226, 46, 46),
-                  foregroundColor: colorScheme.onError,
-                ),
-                child: const Text('Delete'),
-              ),
-            ],
-          ),
-    );
-  }
-
-  Future<void> _deleteGeofence(Geofence geofence, String name) async {
+  void _deleteGeofence(Geofence geofence, String name) async {
     setState(() => _isDeleting = true);
 
     try {
       await _geofenceService.deleteGeofence(geofence.id);
       if (mounted) {
-        SnackbarUtils.showSuccess(context, 'Geofence "$name" deleted');
+        SnackbarUtils.showSuccess(
+          context,
+          'Geofence "$name" deleted successfully',
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -491,8 +310,22 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
   void _navigateToCreateGeofence() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => GeofenceMapScreen(deviceId: widget.deviceId),
+      PageRouteBuilder(
+        pageBuilder:
+            (context, animation, secondaryAnimation) =>
+                GeofenceMapScreen(deviceId: widget.deviceId),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return SlideTransition(
+            position: animation.drive(
+              Tween(
+                begin: const Offset(1.0, 0.0),
+                end: Offset.zero,
+              ).chain(CurveTween(curve: Curves.easeInOut)),
+            ),
+            child: child,
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 300),
       ),
     );
   }
@@ -500,7 +333,26 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
   void _navigateToEditGeofence(Geofence geofence) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => GeofenceEditScreen(geofence: geofence)),
+      PageRouteBuilder(
+        pageBuilder:
+            (context, animation, secondaryAnimation) =>
+                GeofenceEditScreen(geofence: geofence),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(
+              scale: animation.drive(
+                Tween(
+                  begin: 0.95,
+                  end: 1.0,
+                ).chain(CurveTween(curve: Curves.easeInOut)),
+              ),
+              child: child,
+            ),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 300),
+      ),
     );
   }
 }

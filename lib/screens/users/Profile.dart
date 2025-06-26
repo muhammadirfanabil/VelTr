@@ -157,9 +157,9 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       const ActionItem(
         icon: Icons.radio_button_checked_outlined,
-        title: 'Set Range',
+        title: 'Set Geofence',
         subtitle: 'Configure tracking range',
-        route: AppConstants.setRangeRoute,
+        route: AppConstants.setGeofence,
       ),
       const ActionItem(
         icon: Icons.history_outlined,
@@ -168,7 +168,7 @@ class _ProfilePageState extends State<ProfilePage> {
         route: AppConstants.driveHistoryRoute,
       ),
       const ActionItem(
-        icon: Icons.history_outlined,
+        icon: Icons.security,
         title: 'Change Password',
         subtitle: 'Update your account password',
         route: AppConstants.changePasswordRoute,
@@ -205,7 +205,7 @@ class _ProfilePageState extends State<ProfilePage> {
       surfaceTintColor: Colors.transparent,
       centerTitle: true, // Add this line
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios, size: 20),
+        icon: const Icon(Icons.arrow_back_ios_new, size: 20),
         onPressed:
             () => Navigator.pushReplacementNamed(
               context,

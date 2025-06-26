@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../../theme/app_colors.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -43,13 +44,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   void _checkForChanges() {
-    // Only check for changes if we have loaded the original data
     if (_originalName == null &&
         _originalEmail == null &&
         _originalPhone == null) {
       return;
     }
-
     final hasChanges =
         _nameController.text.trim() != (_originalName ?? '') ||
         _emailController.text.trim() != (_originalEmail ?? '') ||
@@ -73,8 +72,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _showError('No authenticated user found');
         return;
       }
-
-      // Try to load from Firestore first
       final doc =
           await FirebaseFirestore.instance
               .collection('users_information')
@@ -86,12 +83,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _setUserData(
           data['name'] ?? '',
           data['emailAddress'] ?? '',
-          data['phoneNumber'] ??
-              data['phone_number'] ??
-              '', // Check both field names
+          data['phoneNumber'] ?? data['phone_number'] ?? '',
         );
       } else {
-        // Fallback to Firebase Auth data
         _setUserData(
           user.displayName ?? '',
           user.email ?? '',
@@ -111,17 +105,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _originalName = name;
     _originalEmail = email;
     _originalPhone = phone;
-
     _nameController.text = name;
     _emailController.text = email;
     _phoneController.text = phone;
-
-    // Reset hasChanges and trigger a check
     setState(() {
       _hasChanges = false;
     });
-
-    // Schedule a change check for the next frame to ensure UI updates
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkForChanges();
     });
@@ -129,19 +118,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate() || _isLoading) return;
-
     setState(() => _isLoading = true);
 
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        throw Exception('No authenticated user found');
-      }
-
+      if (user == null) throw Exception('No authenticated user found');
       final docRef = FirebaseFirestore.instance
           .collection('users_information')
           .doc(user.uid);
-
       final userData = {
         'name': _nameController.text.trim(),
         'emailAddress': _emailController.text.trim(),
@@ -152,18 +136,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'phone_number':
             _phoneController.text.trim().isEmpty
                 ? null
-                : _phoneController.text.trim(), // Keep both for compatibility
+                : _phoneController.text.trim(),
         'updated_at': FieldValue.serverTimestamp(),
       };
-
-      // Check if document exists
       final docSnapshot = await docRef.get();
-
       if (docSnapshot.exists) {
-        // Update existing document
         await docRef.update(userData);
       } else {
-        // Create new document
         userData.addAll({
           'id': user.uid,
           'vehicleIds': <String>[],
@@ -171,28 +150,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         });
         await docRef.set(userData);
       }
-
-      // Update original values to reflect saved state
       _setUserData(
         _nameController.text.trim(),
         _emailController.text.trim(),
         _phoneController.text.trim(),
       );
-
       _showSuccess('Profile updated successfully!');
-
-      // Navigate back to profile page after a short delay
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) {
-          Navigator.of(context).pushReplacementNamed('/profile');
-        }
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (mounted) Navigator.of(context).pushReplacementNamed('/profile');
       });
     } catch (e) {
       _showError('Failed to update profile: ${e.toString()}');
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -201,8 +171,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red,
+        backgroundColor: AppColors.error,
         behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -212,20 +184,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.green,
+        backgroundColor: AppColors.success,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
 
   Future<bool> _onWillPop() async {
     if (!_hasChanges) return true;
-
     final shouldDiscard = await showDialog<bool>(
       context: context,
       builder:
           (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             title: const Text('Discard changes?'),
             content: const Text(
               'You have unsaved changes. Are you sure you want to go back?',
@@ -237,18 +212,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                style: TextButton.styleFrom(foregroundColor: AppColors.error),
                 child: const Text('Discard'),
               ),
             ],
           ),
     );
-
     return shouldDiscard ?? false;
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return PopScope(
       canPop: !_hasChanges,
       onPopInvoked: (didPop) async {
@@ -260,20 +236,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         }
       },
       child: Scaffold(
-        appBar: _buildAppBar(),
-        body: _isLoading ? _buildLoadingView() : _buildForm(),
+        backgroundColor: AppColors.backgroundPrimary,
+        appBar: _buildAppBar(theme),
+        body: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          child: _isLoading ? _buildLoadingView(theme) : _buildForm(theme),
+        ),
       ),
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
-    final theme = Theme.of(context);
-
+  PreferredSizeWidget _buildAppBar(ThemeData theme) {
     return AppBar(
       elevation: 0,
+      backgroundColor: AppColors.backgroundPrimary,
       surfaceTintColor: Colors.transparent,
       leading: IconButton(
-        icon: const Icon(Icons.close),
+        icon: Icon(Icons.close_rounded, color: AppColors.primaryBlue, size: 24),
+        tooltip: "Cancel",
         onPressed: () async {
           if (!_hasChanges || await _onWillPop()) {
             Navigator.of(context).pop();
@@ -282,33 +262,41 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ),
       title: Text(
         'Edit Profile',
-        style: TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.w600,
-          color: Colors.black,
+        style: theme.textTheme.titleLarge?.copyWith(
+          fontWeight: FontWeight.bold,
+          color: AppColors.textPrimary,
+          fontSize: 21,
         ),
       ),
       centerTitle: true,
     );
   }
 
-  Widget _buildLoadingView() {
-    return const Center(child: CircularProgressIndicator());
+  Widget _buildLoadingView(ThemeData theme) {
+    return const Center(
+      child: CircularProgressIndicator(
+        color: AppColors.primaryBlue,
+        strokeWidth: 2.2,
+      ),
+    );
   }
 
-  Widget _buildForm() {
+  Widget _buildForm(ThemeData theme) {
     return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 30),
+      physics: const BouncingScrollPhysics(),
       child: Form(
         key: _formKey,
         child: Column(
           children: [
-            _buildProfilePictureSection(),
-            const Divider(height: 1),
+            // _buildProfilePictureSection(theme),
+            const Divider(height: 1, color: AppColors.border, thickness: 0.5),
             _buildFormField(
               controller: _nameController,
               label: 'Name',
-              icon: Icons.person_outline,
+              icon: Icons.person_outline_rounded,
               isRequired: true,
+              theme: theme,
             ),
             _buildFormField(
               controller: _emailController,
@@ -316,63 +304,76 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               icon: Icons.email_outlined,
               keyboardType: TextInputType.emailAddress,
               isRequired: true,
+              theme: theme,
             ),
             _buildFormField(
               controller: _phoneController,
               label: 'Phone Number',
               icon: Icons.phone_outlined,
               keyboardType: TextInputType.phone,
+              theme: theme,
             ),
-            const SizedBox(height: 32),
-            _buildSaveButton(),
-            const SizedBox(height: 32),
+            const SizedBox(height: 30),
+            _buildSaveButton(theme),
+            const SizedBox(height: 25),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildProfilePictureSection() {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 32),
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: 50,
-            backgroundColor: theme.colorScheme.primary,
-            child: Text(
-              _nameController.text.isNotEmpty
-                  ? _nameController.text[0].toUpperCase()
-                  : '?',
-              style: TextStyle(
-                fontSize: 40,
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onPrimary,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Photo upload coming soon!')),
-              );
-            },
-            child: Text(
-              'Change Profile Photo',
-              style: TextStyle(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w600,
-                fontSize: 16,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // Widget _buildProfilePictureSection(ThemeData theme) {
+  //   return Container(
+  //     padding: const EdgeInsets.symmetric(vertical: 32),
+  //     alignment: Alignment.center,
+  //     child: Column(
+  //       children: [
+  //         CircleAvatar(
+  //           radius: 48,
+  //           backgroundColor: AppColors.primaryBlue.withOpacity(0.13),
+  //           child: Text(
+  //             _nameController.text.isNotEmpty
+  //                 ? _nameController.text[0].toUpperCase()
+  //                 : '?',
+  //             style: TextStyle(
+  //               fontSize: 42,
+  //               fontWeight: FontWeight.bold,
+  //               color: AppColors.primaryBlue,
+  //               letterSpacing: -2,
+  //             ),
+  //           ),
+  //         ),
+  //         const SizedBox(height: 16),
+  //         TextButton.icon(
+  //           onPressed: () {
+  //             ScaffoldMessenger.of(context).showSnackBar(
+  //               const SnackBar(content: Text('Photo upload coming soon!')),
+  //             );
+  //           },
+  //           icon: Icon(
+  //             Icons.camera_alt_rounded,
+  //             color: AppColors.primaryBlue,
+  //             size: 18,
+  //           ),
+  //           label: Text(
+  //             'Change Profile Photo',
+  //             style: TextStyle(
+  //               color: AppColors.primaryBlue,
+  //               fontWeight: FontWeight.w600,
+  //               fontSize: 15.5,
+  //             ),
+  //           ),
+  //           style: TextButton.styleFrom(
+  //             foregroundColor: AppColors.primaryBlue,
+  //             textStyle: theme.textTheme.labelLarge?.copyWith(
+  //               fontWeight: FontWeight.w600,
+  //             ),
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Widget _buildFormField({
     required TextEditingController controller,
@@ -380,26 +381,40 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     required IconData icon,
     TextInputType keyboardType = TextInputType.text,
     bool isRequired = false,
+    required ThemeData theme,
   }) {
     return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 2),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.grey, width: 0.2)),
+        border: Border(bottom: BorderSide(color: AppColors.border, width: 0.7)),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 0),
         child: TextFormField(
           controller: controller,
           keyboardType: keyboardType,
-          style: const TextStyle(fontSize: 16),
+          style: theme.textTheme.bodyLarge?.copyWith(
+            fontSize: 16.3,
+            color: AppColors.textPrimary,
+          ),
           decoration: InputDecoration(
             labelText: label,
-            labelStyle: TextStyle(color: Colors.grey[600], fontSize: 16),
-            prefixIcon: Icon(icon, color: Colors.grey[600], size: 22),
+            labelStyle: theme.textTheme.bodyMedium?.copyWith(
+              color: AppColors.textSecondary,
+              fontSize: 16,
+            ),
+            prefixIcon: Icon(icon, color: AppColors.textTertiary, size: 21),
             border: InputBorder.none,
             contentPadding: const EdgeInsets.symmetric(vertical: 16),
             floatingLabelBehavior: FloatingLabelBehavior.auto,
           ),
           validator: (value) => _validateField(value, label, isRequired),
+          autofillHints:
+              label == 'Email'
+                  ? [AutofillHints.email]
+                  : label == 'Phone Number'
+                  ? [AutofillHints.telephoneNumber]
+                  : [AutofillHints.name],
         ),
       ),
     );
@@ -409,59 +424,53 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (isRequired && (value == null || value.trim().isEmpty)) {
       return '$label is required';
     }
-
     if (label == 'Email' && value != null && value.isNotEmpty) {
       final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
       if (!emailRegex.hasMatch(value.trim())) {
         return 'Please enter a valid email address';
       }
     }
-
     if (label == 'Phone Number' && value != null && value.isNotEmpty) {
       final phoneRegex = RegExp(r'^\+?[\d\s\-\(\)]+$');
       if (!phoneRegex.hasMatch(value.trim()) || value.trim().length < 10) {
         return 'Please enter a valid phone number';
       }
     }
-
     return null;
   }
 
-  Widget _buildSaveButton() {
-    final theme = Theme.of(context);
-
+  Widget _buildSaveButton(ThemeData theme) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 18),
       child: SizedBox(
         width: double.infinity,
-        height: 50,
-        child: ElevatedButton(
+        height: 48,
+        child: FilledButton(
           onPressed: _isLoading ? null : _saveProfile,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: theme.colorScheme.primary,
-            foregroundColor: theme.colorScheme.onPrimary,
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.primaryBlue,
+            foregroundColor: Colors.white,
             elevation: 0,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(11),
             ),
-            disabledBackgroundColor: Colors.grey[300],
+            disabledBackgroundColor: AppColors.border.withOpacity(0.23),
+            textStyle: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
           ),
           child:
               _isLoading
-                  ? SizedBox(
-                    height: 20,
-                    width: 20,
+                  ? const SizedBox(
+                    height: 22,
+                    width: 22,
                     child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        theme.colorScheme.onPrimary,
-                      ),
+                      strokeWidth: 2.2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   )
-                  : const Text(
-                    'Save Changes',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
+                  : const Text('Save Changes'),
         ),
       ),
     );

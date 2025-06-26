@@ -28,7 +28,7 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
         backgroundColor: Colors.transparent, // Make AppBar transparent
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, size: 20),
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
           onPressed:
               () => Navigator.pushReplacementNamed(
                 context,
@@ -60,7 +60,7 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
                       const SizedBox(height: 8),
                       _buildSettingsSection([
                         _SettingItem(
-                          icon: Icons.directions_car_outlined,
+                          icon: Icons.two_wheeler,
                           title: 'Manage Vehicle',
                           subtitle: 'Add, edit, or remove vehicles',
                           onTap:
@@ -70,7 +70,7 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
                               ),
                         ),
                         _SettingItem(
-                          icon: Icons.location_on_outlined,
+                          icon: Icons.phonelink,
                           title: 'Manage Device',
                           subtitle: 'Manage your devices',
                           onTap: () => Navigator.pushNamed(context, '/device'),
@@ -82,13 +82,13 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
                           onTap:
                               () => Navigator.pushNamed(context, '/geofence'),
                         ),
-                        _SettingItem(
-                          icon: Icons.straighten_outlined,
-                          title: 'Set Range',
-                          subtitle: 'Configure distance limits',
-                          onTap:
-                              () => Navigator.pushNamed(context, '/set-range'),
-                        ),
+                        // _SettingItem(
+                        //   icon: Icons.straighten_outlined,
+                        //   title: 'Set Range',
+                        //   subtitle: 'Configure distance limits',
+                        //   onTap:
+                        //       () => Navigator.pushNamed(context, '/set-range'),
+                        // ),
                         _SettingItem(
                           icon: Icons.history_outlined,
                           title: 'Driving History',

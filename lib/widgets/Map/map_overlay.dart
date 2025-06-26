@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../models/Geofence/Geofence.dart';
 import '../motoricon.dart';
+import '../../theme/app_colors.dart';
 
 class MapOverlayLayer extends StatelessWidget {
   final List<Geofence> geofences;
@@ -24,31 +25,39 @@ class MapOverlayLayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Modern, minimalist theme colors
+    final geofenceColor = AppColors.primaryBlue.withValues(alpha: 0.18);
+    final geofenceBorderColor = AppColors.primaryBlue;
+    final labelBgColor = AppColors.primaryBlue.withValues(alpha: 0.92);
+    final labelTextColor = Colors.white;
+    final pointColor = AppColors.primaryBlue.withValues(alpha: 0.77);
+
     return Stack(
       children: [
-        // Geofence polygons
+        // --- Geofence polygons ---
         if (showGeofences && geofences.isNotEmpty)
           PolygonLayer(
             polygons:
-                geofences.where((geofence) => geofence.points.length >= 3).map((
-                  geofence,
-                ) {
-                  return Polygon(
-                    points:
-                        geofence.points
-                            .map(
-                              (point) =>
-                                  LatLng(point.latitude, point.longitude),
-                            )
-                            .toList(),
-                    color: Colors.blue.withOpacity(0.3),
-                    borderColor: Colors.blue,
-                    borderStrokeWidth: 3,
-                  );
-                }).toList(),
+                geofences
+                    .where((geofence) => geofence.points.length >= 3)
+                    .map(
+                      (geofence) => Polygon(
+                        points:
+                            geofence.points
+                                .map(
+                                  (point) =>
+                                      LatLng(point.latitude, point.longitude),
+                                )
+                                .toList(),
+                        color: geofenceColor,
+                        borderColor: geofenceBorderColor,
+                        borderStrokeWidth: 2.2,
+                      ),
+                    )
+                    .toList(),
           ),
 
-        // Geofence labels
+        // --- Geofence labels ---
         if (showGeofences && geofences.isNotEmpty)
           MarkerLayer(
             markers:
@@ -68,21 +77,21 @@ class MapOverlayLayer extends StatelessWidget {
 
                   return Marker(
                     point: LatLng(centerLat, centerLng),
-                    width: 120,
-                    height: 40,
+                    width: 104,
+                    height: 38,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
+                        horizontal: 10,
+                        vertical: 5,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white, width: 2),
+                        color: labelBgColor,
+                        borderRadius: BorderRadius.circular(9),
+                        border: Border.all(color: Colors.white, width: 1.4),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.3),
-                            blurRadius: 4,
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 6,
                             offset: const Offset(0, 2),
                           ),
                         ],
@@ -90,13 +99,15 @@ class MapOverlayLayer extends StatelessWidget {
                       child: Center(
                         child: Text(
                           geofence.name,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
+                          style: TextStyle(
+                            color: labelTextColor,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12.5,
+                            letterSpacing: -0.1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                           textAlign: TextAlign.center,
-                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
                       ),
                     ),
@@ -104,7 +115,7 @@ class MapOverlayLayer extends StatelessWidget {
                 }).toList(),
           ),
 
-        // Geofence corner points
+        // --- Geofence corner points ---
         if (showGeofences && geofences.isNotEmpty)
           CircleLayer(
             circles:
@@ -114,9 +125,10 @@ class MapOverlayLayer extends StatelessWidget {
                       (geofence) => geofence.points.map(
                         (point) => CircleMarker(
                           point: LatLng(point.latitude, point.longitude),
-                          radius: 4,
-                          color: Colors.blue.withOpacity(0.8),
-                          borderStrokeWidth: 2,
+                          radius: 5.5,
+                          color: pointColor,
+                          useRadiusInMeter: false,
+                          borderStrokeWidth: 1.3,
                           borderColor: Colors.white,
                         ),
                       ),
@@ -124,17 +136,36 @@ class MapOverlayLayer extends StatelessWidget {
                     .toList(),
           ),
 
-        // Vehicle marker
+        // --- Vehicle marker ---
         if (hasGPSData && vehicleLocation != null)
           MarkerLayer(
             markers: [
               Marker(
                 point: vehicleLocation!,
-                width: 80,
-                height: 80,
-                child: GestureDetector(
-                  onTap: onVehicleTap,
-                  child: VehicleMarkerIcon(isOn: isVehicleOn),
+                width: 70,
+                height: 70,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: onVehicleTap,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Center(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primaryBlue.withValues(
+                                alpha: 0.23,
+                              ),
+                              blurRadius: 14,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: VehicleMarkerIcon(isOn: isVehicleOn),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],

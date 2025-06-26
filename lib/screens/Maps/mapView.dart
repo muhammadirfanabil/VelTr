@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 
+// Services and models
 import '../../services/Auth/AuthService.dart';
 import '../../services/vehicle/vehicleService.dart';
 import '../../models/vehicle/vehicle.dart';
@@ -16,10 +17,21 @@ import '../../services/Geofence/geofenceService.dart';
 import '../../services/notifications/enhanced_notification_service.dart';
 import '../../services/maps/mapsService.dart';
 import '../../models/Geofence/Geofence.dart';
+
+// Widgets and utilities
 import '../../widgets/Map/mapWidget.dart';
 import '../../widgets/Common/stickyFooter.dart';
 import '../../widgets/motoricon.dart';
 import '../../widgets/tracker.dart';
+import '../../widgets/Map/vehicle_selector.dart';
+import '../../widgets/Map/nogps_overlay.dart';
+import '../../widgets/Map/deviceinfo_chip.dart';
+import '../../widgets/Map/action_buttons.dart';
+// import '../../widgets/Common/user_menu.dart';
+import '../../widgets/Map/subtlenotif_banner.dart';
+import '../../widgets/Map/centering_buttons.dart';
+import '../../utils/snackbar.dart';
+
 import '../../theme/app_colors.dart';
 
 class GPSMapScreen extends StatefulWidget {
@@ -328,334 +340,31 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder:
-          (context) => Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Handle bar
-                Container(
-                  margin: const EdgeInsets.only(top: 12),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-
-                // Header
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.directions_car, size: 24),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'Select Vehicle',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const Divider(height: 1),
-
-                // Vehicle list
-                if (isLoadingVehicles)
-                  const Padding(
-                    padding: EdgeInsets.all(40),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else if (availableVehicles.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        const Icon(Icons.devices, size: 48, color: Colors.grey),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'No vehicles available',
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Add a device to start tracking',
-                          style: TextStyle(fontSize: 14, color: Colors.grey),
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            Navigator.pushNamed(context, '/device');
-                          },
-                          icon: const Icon(Icons.add),
-                          label: const Text('Add Device'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                else
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxHeight: MediaQuery.of(context).size.height * 0.6,
-                    ),
-                    child: Column(
-                      children: [
-                        // Vehicle list - only show vehicles with devices
-                        ...List.generate(
-                          availableVehicles
-                              .where(
-                                (v) =>
-                                    v.deviceId != null &&
-                                    v.deviceId!.isNotEmpty,
-                              )
-                              .length,
-                          (index) {
-                            final vehiclesWithDevices =
-                                availableVehicles
-                                    .where(
-                                      (v) =>
-                                          v.deviceId != null &&
-                                          v.deviceId!.isNotEmpty,
-                                    )
-                                    .toList();
-                            final vehicle = vehiclesWithDevices[index];
-
-                            return FutureBuilder<bool>(
-                              future: _isVehicleSelected(vehicle),
-                              builder: (context, snapshot) {
-                                final isSelected = snapshot.data ?? false;
-
-                                return ListTile(
-                                  leading: Container(
-                                    width: 40,
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      color:
-                                          isSelected
-                                              ? AppColors.info.withValues(
-                                                alpha: 0.1,
-                                              )
-                                              : AppColors.surface.withValues(
-                                                alpha: 0.1,
-                                              ),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Icon(
-                                      Icons.directions_car,
-                                      color:
-                                          isSelected
-                                              ? Colors.blue
-                                              : Colors.grey,
-                                    ),
-                                  ),
-                                  title: Text(
-                                    vehicle.name,
-                                    style: TextStyle(
-                                      fontWeight:
-                                          isSelected
-                                              ? FontWeight.bold
-                                              : FontWeight.normal,
-                                      color:
-                                          isSelected
-                                              ? Colors.blue
-                                              : Colors.black,
-                                    ),
-                                  ),
-                                  subtitle: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      if (vehicle.plateNumber != null)
-                                        Text(
-                                          vehicle.plateNumber!,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey[600],
-                                          ),
-                                        ),
-                                      if (vehicle.deviceId != null)
-                                        Text(
-                                          'Device: ${vehicle.deviceId}',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey[600],
-                                            fontFamily: 'monospace',
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                  trailing:
-                                      isSelected
-                                          ? const Icon(
-                                            Icons.check_circle,
-                                            color: Colors.blue,
-                                          )
-                                          : const Icon(
-                                            Icons.radio_button_unchecked,
-                                            color: Colors.grey,
-                                          ),
-                                  onTap: () {
-                                    Navigator.pop(context);
-                                    if (!isSelected &&
-                                        vehicle.deviceId != null) {
-                                      _switchToVehicle(
-                                        vehicle.deviceId!,
-                                        vehicle.name,
-                                      );
-                                    }
-                                  },
-                                );
-                              },
-                            );
-                          },
-                        ),
-
-                        // Show unlinked vehicles with "Attach to Device" option
-                        ...List.generate(
-                          availableVehicles
-                              .where(
-                                (v) =>
-                                    v.deviceId == null || v.deviceId!.isEmpty,
-                              )
-                              .length,
-                          (index) {
-                            final unlinkedVehicles =
-                                availableVehicles
-                                    .where(
-                                      (v) =>
-                                          v.deviceId == null ||
-                                          v.deviceId!.isEmpty,
-                                    )
-                                    .toList();
-                            final vehicle = unlinkedVehicles[index];
-
-                            return ListTile(
-                              leading: Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: AppColors.warning.withValues(
-                                    alpha: 0.1,
-                                  ),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: const Icon(
-                                  Icons.link_off,
-                                  color: Colors.orange,
-                                ),
-                              ),
-                              title: Text(
-                                vehicle.name,
-                                style: const TextStyle(color: Colors.black),
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (vehicle.plateNumber != null)
-                                    Text(
-                                      vehicle.plateNumber!,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                  const Text(
-                                    'Attach to Device',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.orange,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              trailing: const Icon(
-                                Icons.arrow_forward_ios,
-                                color: Colors.orange,
-                                size: 16,
-                              ),
-                              onTap: () async {
-                                Navigator.pop(context);
-                                // Check if any devices exist first by getting the stream value
-                                try {
-                                  final deviceStream =
-                                      _deviceService.getDevicesStream();
-                                  final devices = await deviceStream.first;
-                                  if (devices.isEmpty) {
-                                    _showNoDevicesDialog();
-                                  } else {
-                                    Navigator.pushNamed(
-                                      context,
-                                      '/vehicle/edit',
-                                      arguments: vehicle.id,
-                                    );
-                                  }
-                                } catch (e) {
-                                  _showErrorSnackBar(
-                                    'Error checking devices: $e',
-                                  );
-                                }
-                              },
-                            );
-                          },
-                        ),
-                        // Add Device option
-                        const Divider(),
-                        ListTile(
-                          leading: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: AppColors.success.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Icon(Icons.add, color: Colors.green),
-                          ),
-                          title: const Text(
-                            'Add Device',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w500,
-                              color: Colors.green,
-                            ),
-                          ),
-                          subtitle: const Text(
-                            'Set up a new GPS device',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
-                          ),
-                          trailing: const Icon(
-                            Icons.arrow_forward_ios,
-                            color: Colors.green,
-                            size: 16,
-                          ),
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.pushNamed(context, '/device');
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-
-                const SizedBox(height: 20),
-              ],
-            ),
+          (context) => VehicleSelectorBottomSheet(
+            availableVehicles: availableVehicles,
+            isLoadingVehicles: isLoadingVehicles,
+            isVehicleSelected: _isVehicleSelected,
+            onSwitchToVehicle: (deviceId, vehicleName) {
+              _switchToVehicle(deviceId, vehicleName);
+            },
+            onAttachToDevice: (vehicleId) async {
+              // Same device attach logic as before (unchanged)
+              final deviceStream = _deviceService.getDevicesStream();
+              final devices = await deviceStream.first;
+              if (devices.isEmpty) {
+                _showNoDevicesDialog();
+              } else {
+                Navigator.pushNamed(
+                  context,
+                  '/vehicle/edit',
+                  arguments: vehicleId,
+                );
+              }
+            },
+            onAddDevice: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, '/device');
+            },
           ),
     );
   }
@@ -698,18 +407,8 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     debugPrint('Error initializing device: $e');
     if (mounted) {
       setState(() => isLoading = false);
-      _showErrorSnackBar('Failed to initialize device: $e');
+      SnackbarUtils.showError(context, 'Failed to initialize device: $e');
     }
-  }
-
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 8),
-      ),
-    );
   }
 
   void _setupRealtimeListeners() {
@@ -810,145 +509,25 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     if (mounted && !showNoGPSDialog) {
       setState(() => showNoGPSDialog = true);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.gps_off, color: Colors.white, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'No GPS data available for ${deviceName ?? currentDeviceId}',
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.orange,
-          duration: const Duration(seconds: 4),
-          action: SnackBarAction(
-            label: 'Details',
-            textColor: Colors.white,
-            onPressed: _showNoGPSDetailsDialog,
-          ),
-        ),
+      SnackbarUtils.showNoGPSInfo(
+        context,
+        deviceName ?? currentDeviceId!,
+        _showNoGPSDetailsDialog,
       );
     }
   }
 
   void _showNoGPSDetailsDialog() {
-    if (mounted) {
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Row(
-              children: [
-                Icon(Icons.info_outline, color: Colors.blue, size: 28),
-                SizedBox(width: 8),
-                Text('Device Information'),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'GPS data is not currently available for this device.',
-                  style: TextStyle(fontSize: 16),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Device Details:',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey[700],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Firestore ID: ${widget.deviceId}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                      if (deviceName != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          'Device Name: $deviceName',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                      ],
-                      if (currentDeviceId != null &&
-                          currentDeviceId != widget.deviceId) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          'MAC Address: $currentDeviceId',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'You can still:',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 8),
-                const Text('• View the map interface'),
-                const Text('• Access other app features'),
-                const Text('• Control device relay status'),
-                const Text('• Switch to another vehicle'),
-                const Text('• Return later when GPS is available'),
-                const SizedBox(height: 16),
-                const Text(
-                  'To enable GPS tracking:',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 8),
-                const Text('• Ensure device is powered on'),
-                const Text('• Check GPS module functionality'),
-                const Text('• Verify network connection'),
-                const Text('• Confirm data transmission to server'),
-              ],
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  _refreshData();
-                },
-                child: const Text('Retry'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Continue'),
-              ),
-            ],
-          );
-        },
-      );
-    }
+    showDialog(
+      context: context,
+      builder:
+          (context) => NoGPSDetailsDialog(
+            firestoreId: widget.deviceId,
+            deviceName: deviceName,
+            currentDeviceId: currentDeviceId,
+            onRetry: _refreshData,
+          ),
+    );
   }
 
   void _listenToRelayStatus() {
@@ -1142,27 +721,32 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      isDismissible: true, // Enable background tap and back button dismissal
-      enableDrag: true, // Allow dragging to dismiss
+      isDismissible: true,
+      enableDrag: true,
       barrierColor: AppColors.surface.withValues(
         alpha: 0.5,
-      ), // Semi-transparent overlay for visual feedback
+      ), // semi-transparent overlay
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder:
-          (context) => VehicleStatusPanel(
-            key: ValueKey(
-              'vehicle_panel_${currentDeviceId}_${DateTime.now().millisecondsSinceEpoch}',
+          (context) => Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
             ),
-            locationName: hasGPSData ? locationName : 'GPS not available',
-            latitude: latitude,
-            longitude: longitude,
-            waktuWita: waktuWita,
-            lastUpdated: hasGPSData ? lastUpdated : 'No GPS data',
-            isVehicleOn: isVehicleOn,
-            toggleVehicleStatus: toggleVehicleStatus,
-            satellites: satellites,
+            child: VehicleStatusPanel(
+              key: ValueKey(
+                'vehicle_panel_${currentDeviceId}_${DateTime.now().millisecondsSinceEpoch}',
+              ),
+              locationName: hasGPSData ? locationName : 'GPS not available',
+              latitude: latitude,
+              longitude: longitude,
+              waktuWita: waktuWita,
+              lastUpdated: hasGPSData ? lastUpdated : 'No GPS data',
+              isVehicleOn: isVehicleOn,
+              toggleVehicleStatus: toggleVehicleStatus,
+              satellites: satellites,
+            ),
           ),
     );
   }
@@ -1183,297 +767,152 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     _setupRealtimeListeners();
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            hasGPSData ? 'GPS data refreshed' : 'Still no GPS data available',
-          ),
-          backgroundColor: hasGPSData ? Colors.green : Colors.orange,
-          duration: const Duration(seconds: 2),
-        ),
+      SnackbarUtils.showInfo(
+        context,
+        hasGPSData ? 'GPS data refreshed' : 'Still no GPS data available',
       );
     }
   }
 
-  Widget _buildDeviceInfoChip() {
-    final isNoDevicePlaceholder = currentDeviceId == 'no_device_placeholder';
+  // Widget _buildUserMenu() {
+  //   return Container(
+  //     decoration: BoxDecoration(
+  //       color: Colors.white.withValues(alpha: 0.9),
+  //       borderRadius: BorderRadius.circular(20),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Colors.black.withValues(alpha: 0.1),
+  //           blurRadius: 8,
+  //           offset: const Offset(0, 2),
+  //         ),
+  //       ],
+  //     ),
+  //     child: PopupMenuButton<String>(
+  //       icon: const Icon(Icons.person, color: Colors.black),
+  //       offset: const Offset(0, 45),
+  //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+  //       elevation: 8,
+  //       color: Colors.white,
+  //       onSelected: _handleMenuSelection,
+  //       itemBuilder:
+  //           (context) => [
+  //             const PopupMenuItem(
+  //               value: 'home',
+  //               child: Row(
+  //                 children: [
+  //                   Icon(Icons.home_outlined),
+  //                   SizedBox(width: 8),
+  //                   Text('Home'),
+  //                 ],
+  //               ),
+  //             ),
+  //             const PopupMenuItem(
+  //               value: 'profile',
+  //               child: Row(
+  //                 children: [
+  //                   Icon(Icons.person_outline),
+  //                   SizedBox(width: 8),
+  //                   Text('Profile'),
+  //                 ],
+  //               ),
+  //             ),
+  //             PopupMenuItem(
+  //               value: 'notifications',
+  //               child: Row(
+  //                 children: [
+  //                   Stack(
+  //                     clipBehavior: Clip.none,
+  //                     children: [
+  //                       const Icon(Icons.notifications_outlined),
+  //                       StreamBuilder<int>(
+  //                         stream:
+  //                             EnhancedNotificationService()
+  //                                 .getUnreadNotificationCount(),
+  //                         builder: (context, snapshot) {
+  //                           final unreadCount = snapshot.data ?? 0;
+  //                           if (unreadCount == 0)
+  //                             return const SizedBox.shrink();
 
-    if (isNoDevicePlaceholder) {
-      // Show special chip for no device scenario
-      return GestureDetector(
-        onTap: () => Navigator.pushNamed(context, '/device'),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.orange.shade50.withOpacity(0.9),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.orange.shade300),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.add, size: 16, color: Colors.orange.shade700),
-              const SizedBox(width: 4),
-              Text(
-                'Add Device',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                  color: Colors.orange.shade700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+  //                           return Positioned(
+  //                             right: -4,
+  //                             top: -4,
+  //                             child: Container(
+  //                               padding: const EdgeInsets.all(2),
+  //                               decoration: const BoxDecoration(
+  //                                 color: Colors.red,
+  //                                 shape: BoxShape.circle,
+  //                               ),
+  //                               constraints: const BoxConstraints(
+  //                                 minWidth: 16,
+  //                                 minHeight: 16,
+  //                               ),
+  //                               child: Text(
+  //                                 unreadCount > 9
+  //                                     ? '9+'
+  //                                     : unreadCount.toString(),
+  //                                 style: const TextStyle(
+  //                                   color: Colors.white,
+  //                                   fontSize: 10,
+  //                                   fontWeight: FontWeight.bold,
+  //                                 ),
+  //                                 textAlign: TextAlign.center,
+  //                               ),
+  //                             ),
+  //                           );
+  //                         },
+  //                       ),
+  //                     ],
+  //                   ),
+  //                   const SizedBox(width: 8),
+  //                   const Text('Notifications'),
+  //                 ],
+  //               ),
+  //             ),
+  //             const PopupMenuItem(
+  //               value: 'settings',
+  //               child: Row(
+  //                 children: [
+  //                   Icon(Icons.settings_outlined),
+  //                   SizedBox(width: 8),
+  //                   Text('Settings'),
+  //                 ],
+  //               ),
+  //             ),
+  //             const PopupMenuItem(
+  //               value: 'logout',
+  //               child: Row(
+  //                 children: [
+  //                   Icon(Icons.logout_outlined),
+  //                   SizedBox(width: 8),
+  //                   Text('Logout'),
+  //                 ],
+  //               ),
+  //             ),
+  //           ],
+  //     ),
+  //   );
+  // }
 
-    if (deviceName == null) return const SizedBox.shrink();
-
-    return GestureDetector(
-      onTap: _showVehicleSelector,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.9),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.directions_car, size: 16, color: Colors.blue),
-            const SizedBox(width: 4),
-            if (!hasGPSData) ...[
-              const Icon(Icons.gps_off, size: 16, color: Colors.orange),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              deviceName!,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-            ),
-            const SizedBox(width: 4),
-            const Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.grey),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButtons() {
-    return Row(
-      children: [
-        _buildFloatingButton(
-          child:
-              isLoading
-                  ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                  : const Icon(Icons.refresh),
-          onPressed: isLoading ? null : _refreshData,
-        ),
-        const SizedBox(width: 8),
-        // Geofence toggle button
-        _buildFloatingButton(
-          child:
-              isLoadingGeofences
-                  ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                  : Icon(
-                    Icons.layers,
-                    color: showGeofences ? Colors.blue : null,
-                  ),
-          onPressed: isLoadingGeofences ? null : _toggleGeofenceOverlay,
-        ),
-        const SizedBox(width: 8),
-        if (!hasGPSData)
-          _buildFloatingButton(
-            child: const Icon(Icons.info_outline),
-            onPressed: _showNoGPSDetailsDialog,
-          ),
-        const SizedBox(width: 8),
-        _buildUserMenu(),
-      ],
-    );
-  }
-
-  Widget _buildFloatingButton({
-    required Widget child,
-    VoidCallback? onPressed,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: IconButton(icon: child, onPressed: onPressed),
-    );
-  }
-
-  Widget _buildUserMenu() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: PopupMenuButton<String>(
-        icon: const Icon(Icons.person, color: Colors.black),
-        offset: const Offset(0, 45),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 8,
-        color: Colors.white,
-        onSelected: _handleMenuSelection,
-        itemBuilder:
-            (context) => [
-              const PopupMenuItem(
-                value: 'home',
-                child: Row(
-                  children: [
-                    Icon(Icons.home_outlined),
-                    SizedBox(width: 8),
-                    Text('Home'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'profile',
-                child: Row(
-                  children: [
-                    Icon(Icons.person_outline),
-                    SizedBox(width: 8),
-                    Text('Profile'),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'notifications',
-                child: Row(
-                  children: [
-                    Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        const Icon(Icons.notifications_outlined),
-                        StreamBuilder<int>(
-                          stream:
-                              EnhancedNotificationService()
-                                  .getUnreadNotificationCount(),
-                          builder: (context, snapshot) {
-                            final unreadCount = snapshot.data ?? 0;
-                            if (unreadCount == 0)
-                              return const SizedBox.shrink();
-
-                            return Positioned(
-                              right: -4,
-                              top: -4,
-                              child: Container(
-                                padding: const EdgeInsets.all(2),
-                                decoration: const BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                ),
-                                constraints: const BoxConstraints(
-                                  minWidth: 16,
-                                  minHeight: 16,
-                                ),
-                                child: Text(
-                                  unreadCount > 9
-                                      ? '9+'
-                                      : unreadCount.toString(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(width: 8),
-                    const Text('Notifications'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'settings',
-                child: Row(
-                  children: [
-                    Icon(Icons.settings_outlined),
-                    SizedBox(width: 8),
-                    Text('Settings'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    Icon(Icons.logout_outlined),
-                    SizedBox(width: 8),
-                    Text('Logout'),
-                  ],
-                ),
-              ),
-            ],
-      ),
-    );
-  }
-
-  Future<void> _handleMenuSelection(String value) async {
-    switch (value) {
-      case 'home':
-        Navigator.pushReplacementNamed(context, '/home');
-        break;
-      case 'profile':
-        Navigator.pushNamed(context, '/profile');
-        break;
-      case 'notifications':
-        Navigator.pushNamed(context, '/geofence-alerts');
-        break;
-      case 'settings':
-        Navigator.pushNamed(context, '/settings');
-        break;
-      case 'logout':
-        await AuthService.signOut();
-        Navigator.pushReplacementNamed(context, '/login');
-        break;
-    }
-  }
+  // Future<void> _handleMenuSelection(String value) async {
+  //   switch (value) {
+  //     case 'home':
+  //       Navigator.pushReplacementNamed(context, '/home');
+  //       break;
+  //     case 'profile':
+  //       Navigator.pushNamed(context, '/profile');
+  //       break;
+  //     case 'notifications':
+  //       Navigator.pushNamed(context, '/geofence-alerts');
+  //       break;
+  //     case 'settings':
+  //       Navigator.pushNamed(context, '/settings');
+  //       break;
+  //     case 'logout':
+  //       await AuthService.signOut();
+  //       Navigator.pushReplacementNamed(context, '/login');
+  //       break;
+  //   }
+  // }
 
   Widget _buildMapWithOverlay() {
     final mapCenter = vehicleLocation ?? defaultLocation;
@@ -1542,7 +981,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                                       ),
                                     )
                                     .toList(),
-                            color: Colors.blue.withOpacity(0.3),
+                            color: Colors.blue.withValues(alpha: 0.3),
                             borderColor: Colors.blue,
                             borderStrokeWidth: 3,
                           );
@@ -1598,7 +1037,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.blue.withOpacity(0.9),
+                                color: Colors.blue.withValues(alpha: 0.9),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: Colors.white,
@@ -1606,7 +1045,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.3),
+                                    color: Colors.black.withValues(alpha: 0.3),
                                     blurRadius: 4,
                                     offset: const Offset(0, 2),
                                   ),
@@ -1640,7 +1079,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                             (point) => CircleMarker(
                               point: LatLng(point.latitude, point.longitude),
                               radius: 4,
-                              color: Colors.blue.withOpacity(0.8),
+                              color: Colors.blue.withValues(alpha: 0.8),
                               borderStrokeWidth: 2,
                               borderColor: Colors.white,
                             ),
@@ -1705,7 +1144,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
           border: Border.all(color: Colors.blue.shade200),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -1748,7 +1187,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.orange.withOpacity(0.3),
+              color: Colors.orange.withValues(alpha: 0.3),
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),
@@ -1760,7 +1199,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -1787,7 +1226,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                     Text(
                       'Add a GPS device to start tracking',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         fontSize: 14,
                       ),
                     ),
@@ -1810,7 +1249,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),
@@ -1983,16 +1422,11 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
 
     // Show feedback to user
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            newState
-                ? 'Geofence overlay enabled (${deviceGeofences.length} geofences)'
-                : 'Geofence overlay disabled',
-          ),
-          duration: const Duration(seconds: 2),
-          backgroundColor: newState ? Colors.green : Colors.grey,
-        ),
+      SnackbarUtils.showInfo(
+        context,
+        newState
+            ? 'Geofence overlay enabled (${deviceGeofences.length} geofences)'
+            : 'Geofence overlay disabled',
       );
     }
 
@@ -2214,16 +1648,21 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     debugPrint('🔧 [BUILD] Show banner: $showBanner');
     debugPrint('🔧 [BUILD] Top padding: $topPadding');
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: Stack(
         children: [
-          // Show loading indicator while loading
           if (isLoading)
-            const Center(child: CircularProgressIndicator())
-          // Always show map (with overlay if no GPS data)
+            Container(
+              color: Theme.of(context).colorScheme.surface,
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            )
           else
             _buildMapWithOverlay(),
 
-          // Always show top controls (above banner)
           if (!isLoading)
             SafeArea(
               child: Padding(
@@ -2235,28 +1674,69 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [_buildDeviceInfoChip(), _buildActionButtons()],
+                  children: [
+                    DeviceInfoChip(
+                      isNoDevicePlaceholder: isNoDevicePlaceholder,
+                      deviceName: deviceName,
+                      hasGPSData: hasGPSData,
+                      onTap: _showVehicleSelector,
+                    ),
+                    MapActionButtons(
+                      isLoading: isLoading,
+                      onRefresh: isLoading ? null : _refreshData,
+                      isLoadingGeofences: isLoadingGeofences,
+                      onToggleGeofenceOverlay:
+                          isLoadingGeofences ? null : _toggleGeofenceOverlay,
+                      showGeofences: showGeofences,
+                      hasGPSData: hasGPSData,
+                      onShowNoGPSDetails: _showNoGPSDetailsDialog,
+                      // userMenu: _buildUserMenu(),
+                    ),
+                  ],
                 ),
               ),
             ),
 
-          // Notification banner (moved to z-layer 1, behind top controls)
           if (!isLoading)
             Positioned(
               top: 0,
               left: 0,
               right: 0,
-              child: _buildSubtleNotificationBanner(),
-            ), // Always show footer
+              child: SubtleNotificationBanner(
+                currentDeviceId: currentDeviceId,
+                hasGPSData: hasGPSData,
+                isNoDevicePlaceholder: isNoDevicePlaceholder,
+              ),
+            ),
+
           if (!isLoading)
             Align(alignment: Alignment.bottomCenter, child: StickyFooter()),
 
-          // Floating centering buttons (bottom-left corner, near arrow area)
           if (!isLoading)
             Positioned(
-              bottom: 130, // Above the StickyFooter, near arrow area
+              bottom: 130,
               right: 16,
-              child: _buildCenteringButtons(),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(32),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.shadow.withValues(alpha: 0.1),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: CenteringButtons(
+                  isLoadingUserLocation: _isLoadingUserLocation,
+                  onCenterOnUser: _centerOnUser,
+                  userLocationAvailable: _userLocation != null,
+                  onCenterOnDevice: _centerOnDevice,
+                  deviceLocationAvailable: vehicleLocation != null,
+                ),
+              ),
             ),
         ],
       ),
@@ -2320,14 +1800,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
             _isLoadingUserLocation = false;
           });
 
-          // Show success feedback
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Centered on your location'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
-            ),
-          );
+          SnackbarUtils.showSuccess(context, 'Centered on your location');
         }
       } else {
         debugPrint(
@@ -2339,13 +1812,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
             _isLoadingUserLocation = false;
           });
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Your location is not available'),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 2),
-            ),
-          );
+          SnackbarUtils.showWarning(context, 'Your location is not available');
         }
       }
     } catch (e) {
@@ -2356,13 +1823,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
           _isLoadingUserLocation = false;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to get your location'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 2),
-          ),
-        );
+        SnackbarUtils.showError(context, 'Failed to get your location');
       }
     }
   }
@@ -2379,13 +1840,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Centered on device location'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
+        SnackbarUtils.showSuccess(context, 'Centered on device location');
       }
     } else {
       debugPrint(
@@ -2393,110 +1848,8 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Device location not available'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 2),
-          ),
-        );
+        SnackbarUtils.showWarning(context, 'Device location not available');
       }
     }
-  }
-
-  /// Build the floating centering buttons (bottom-right corner)
-  Widget _buildCenteringButtons() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Center to User Location button
-        Tooltip(
-          message: 'Center map on your location',
-          child: Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(28),
-                onTap: _isLoadingUserLocation ? null : _centerOnUser,
-                child: Center(
-                  child:
-                      _isLoadingUserLocation
-                          ? SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.blue,
-                              ),
-                            ),
-                          )
-                          : Icon(
-                            Icons.person_pin_circle,
-                            color:
-                                _userLocation != null
-                                    ? Colors.blue
-                                    : Colors.grey,
-                            size: 28,
-                            semanticLabel: 'Center map on your location',
-                          ),
-                ),
-              ),
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 12),
-
-        // Center to Device Location button
-        Tooltip(
-          message: 'Center map on vehicle location',
-          child: Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(28),
-                onTap: vehicleLocation != null ? _centerOnDevice : null,
-                child: Center(
-                  child: Icon(
-                    Icons.two_wheeler,
-                    color:
-                        vehicleLocation != null ? Colors.orange : Colors.grey,
-                    size: 28,
-                    semanticLabel: 'Center map on vehicle location',
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
   }
 }

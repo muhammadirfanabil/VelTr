@@ -735,7 +735,7 @@ class _GeofenceMapScreenState extends State<GeofenceMapScreen>
         backgroundColor: Colors.white,
         leading: IconButton(
           icon: Icon(
-            Icons.arrow_back_ios,
+            Icons.arrow_back_ios_new,
             color: theme.colorScheme.primary,
             size: 20,
           ),

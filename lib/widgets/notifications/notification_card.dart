@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../models/notifications/unified_notification.dart';
 import '../../utils/time_formatter.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
 
-/// Reusable widget for displaying a single notification card
+import '../../widgets/Common/confirmation_dialog.dart';
+
 class NotificationCard extends StatelessWidget {
   final UnifiedNotification notification;
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
   final bool showDeleteOption;
+  final bool showTimestamp;
 
   const NotificationCard({
     Key? key,
@@ -17,22 +20,45 @@ class NotificationCard extends StatelessWidget {
     this.onTap,
     this.onDelete,
     this.showDeleteOption = true,
+    this.showTimestamp = true,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: showDeleteOption ? _buildDismissibleCard() : _buildCard(),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (showTimestamp)
+          Padding(
+            padding: const EdgeInsets.only(left: 6, bottom: 7),
+            child: Text(
+              _formatTimeHeader(notification.timestamp),
+              style: TextStyle(
+                fontSize: 12.5,
+                color: AppColors.textSecondary.withOpacity(0.64),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        Container(
+          margin: const EdgeInsets.only(bottom: 5),
+          child:
+              showDeleteOption ? _buildDismissibleCard(context) : _buildCard(),
+        ),
+      ],
     );
   }
 
-  Widget _buildDismissibleCard() {
+  String _formatTimeHeader(DateTime time) {
+    return DateFormat('h:mm a').format(time);
+  }
+
+  Widget _buildDismissibleCard(BuildContext context) {
     return Dismissible(
       key: Key(notification.id),
       direction: DismissDirection.endToStart,
       confirmDismiss: (direction) async {
-        return await _showDeleteConfirmation();
+        return await _showDeleteConfirmation(context);
       },
       onDismissed: (direction) {
         onDelete?.call();
@@ -48,14 +74,14 @@ class NotificationCard extends StatelessWidget {
       padding: const EdgeInsets.only(right: 24),
       decoration: BoxDecoration(
         color: AppColors.error,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          Icon(AppIcons.delete, color: Colors.white, size: 28),
-          const SizedBox(height: 4),
-          Text(
+          Icon(AppIcons.delete, color: Colors.white, size: 24),
+          const SizedBox(width: 6),
+          const Text(
             'Delete',
             style: TextStyle(
               color: Colors.white,
@@ -69,29 +95,43 @@ class NotificationCard extends StatelessWidget {
   }
 
   Widget _buildCard() {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(17),
+          decoration: BoxDecoration(
+            color:
+                notification.isRead
+                    ? AppColors.surface
+                    : AppColors.surface.withOpacity(0.96),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.025),
+                blurRadius: 6,
+                offset: const Offset(0, 1),
+              ),
+            ],
+            border: Border.all(
+              color:
+                  notification.isRead
+                      ? AppColors.border.withOpacity(0.75)
+                      : notification.color.withOpacity(0.26),
+              width: notification.isRead ? 0.5 : 1.0,
             ),
-          ],
-          border: Border.all(color: AppColors.border, width: 0.5),
-        ),
-        child: Row(
-          children: [
-            _buildStatusIcon(),
-            const SizedBox(width: 16),
-            Expanded(child: _buildContent()),
-            _buildActionIndicator(),
-          ],
+          ),
+          child: Row(
+            children: [
+              _buildStatusIcon(),
+              const SizedBox(width: 14),
+              Expanded(child: _buildContent()),
+              _buildActionIndicator(),
+            ],
+          ),
         ),
       ),
     );
@@ -99,24 +139,24 @@ class NotificationCard extends StatelessWidget {
 
   Widget _buildStatusIcon() {
     return Container(
-      width: 56,
-      height: 56,
+      width: 46,
+      height: 46,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [notification.color, notification.color.withOpacity(0.8)],
+          colors: [notification.color, notification.color.withOpacity(0.85)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: notification.color.withOpacity(0.3),
-            blurRadius: 8,
+            color: notification.color.withOpacity(0.21),
+            blurRadius: 6,
             offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: Icon(notification.icon, color: Colors.white, size: 24),
+      child: Icon(notification.icon, color: Colors.white, size: 22),
     );
   }
 
@@ -125,26 +165,26 @@ class NotificationCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildStatusBadge(),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         _buildTitle(),
-        const SizedBox(height: 4),
+        const SizedBox(height: 3),
         _buildMessage(),
         if (notification.hasLocation) ...[
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           _buildLocation(),
         ],
-        const SizedBox(height: 6),
-        _buildTimestamp(),
+        const SizedBox(height: 5),
+        _buildDetailedTimestamp(),
       ],
     );
   }
 
   Widget _buildStatusBadge() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
         color: notification.badgeColor,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(5),
       ),
       child: Text(
         notification.badgeText,
@@ -152,7 +192,7 @@ class NotificationCard extends StatelessWidget {
           fontSize: 10,
           fontWeight: FontWeight.w700,
           color: notification.badgeTextColor,
-          letterSpacing: 0.5,
+          letterSpacing: 0.3,
         ),
       ),
     );
@@ -162,8 +202,8 @@ class NotificationCard extends StatelessWidget {
     return Text(
       notification.title,
       style: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
+        fontSize: 15,
+        fontWeight: notification.isRead ? FontWeight.w600 : FontWeight.w700,
         color: AppColors.textPrimary,
         height: 1.2,
       ),
@@ -176,9 +216,9 @@ class NotificationCard extends StatelessWidget {
     return Text(
       notification.message,
       style: TextStyle(
-        fontSize: 14,
+        fontSize: 13.2,
         color: AppColors.textSecondary,
-        fontWeight: FontWeight.w500,
+        fontWeight: notification.isRead ? FontWeight.w400 : FontWeight.w500,
       ),
       maxLines: 3,
       overflow: TextOverflow.ellipsis,
@@ -188,13 +228,13 @@ class NotificationCard extends StatelessWidget {
   Widget _buildLocation() {
     return Row(
       children: [
-        Icon(Icons.location_on_rounded, size: 14, color: Colors.grey[500]),
-        const SizedBox(width: 4),
+        Icon(Icons.location_on_rounded, size: 13, color: Colors.grey[500]),
+        const SizedBox(width: 3),
         Expanded(
           child: Text(
             notification.formattedLocation ?? '',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 12.3,
               color: Colors.grey[600],
               fontWeight: FontWeight.w500,
             ),
@@ -206,15 +246,15 @@ class NotificationCard extends StatelessWidget {
     );
   }
 
-  Widget _buildTimestamp() {
+  Widget _buildDetailedTimestamp() {
     return Row(
       children: [
-        Icon(Icons.access_time_rounded, size: 14, color: Colors.grey[500]),
-        const SizedBox(width: 4),
+        Icon(Icons.access_time_rounded, size: 13, color: Colors.grey[500]),
+        const SizedBox(width: 3),
         Text(
           TimeFormatter.getTimeAgo(notification.timestamp),
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 12.3,
             color: Colors.grey[600],
             fontWeight: FontWeight.w500,
           ),
@@ -225,22 +265,30 @@ class NotificationCard extends StatelessWidget {
 
   Widget _buildActionIndicator() {
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(7),
       decoration: BoxDecoration(
         color: AppColors.backgroundTertiary,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(7),
       ),
       child: Icon(
         Icons.keyboard_arrow_right_rounded,
         color: AppColors.textTertiary,
-        size: 20,
+        size: 18,
       ),
     );
   }
 
-  Future<bool?> _showDeleteConfirmation() async {
-    // This would typically show a dialog, but for now we'll return true
-    // In a real implementation, you'd want to show a proper confirmation dialog
-    return true;
+  Future<bool> _showDeleteConfirmation(BuildContext context) async {
+    final confirmed = await ConfirmationDialog.show(
+      context: context,
+      title: 'Delete Notification',
+      content:
+          'Are you sure you want to delete this notification? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      confirmColor: AppColors.error,
+    );
+
+    return confirmed == true;
   }
 }

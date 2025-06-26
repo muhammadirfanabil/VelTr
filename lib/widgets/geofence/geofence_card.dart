@@ -29,7 +29,7 @@ class GeofenceCard extends StatelessWidget {
 
     return Material(
       elevation: 1,
-      shadowColor: colorScheme.shadow.withOpacity(0.08),
+      shadowColor: colorScheme.shadow.withValues(alpha: 0.08),
       borderRadius: BorderRadius.circular(16),
       color: colorScheme.surface,
       child: InkWell(
@@ -41,8 +41,8 @@ class GeofenceCard extends StatelessWidget {
             border: Border.all(
               color:
                   isActive
-                      ? colorScheme.primary.withOpacity(0.15)
-                      : colorScheme.outline.withOpacity(0.08),
+                      ? colorScheme.primary.withValues(alpha: 0.05)
+                      : colorScheme.outline.withValues(alpha: 0.08),
               width: 1,
             ),
             gradient: LinearGradient(
@@ -52,10 +52,10 @@ class GeofenceCard extends StatelessWidget {
               colors: [
                 colorScheme.surface,
                 isActive
-                    ? activeGradientColor.withOpacity(
-                      0.04,
+                    ? activeGradientColor.withValues(
+                      alpha: 0.04,
                     ) // Reduced opacity to 0.04
-                    : colorScheme.surfaceVariant.withOpacity(0.5),
+                    : colorScheme.surfaceVariant.withValues(alpha: 0.5),
               ],
             ),
           ),
@@ -117,13 +117,13 @@ class GeofenceCard extends StatelessWidget {
       decoration: BoxDecoration(
         color:
             geofence.status
-                ? activeGradientColor.withOpacity(0.15)
-                : colorScheme.surfaceVariant.withOpacity(0.8),
+                ? activeGradientColor.withValues(alpha: 0.15)
+                : colorScheme.surfaceVariant.withValues(alpha: 0.8),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color:
               geofence.status
-                  ? colorScheme.primary.withOpacity(0.2)
+                  ? colorScheme.primary.withValues(alpha: 0.2)
                   : Colors.transparent,
           width: 1.5,
         ),
@@ -133,7 +133,7 @@ class GeofenceCard extends StatelessWidget {
         color:
             geofence.status
                 ? colorScheme.primary
-                : colorScheme.onSurfaceVariant.withOpacity(0.8),
+                : colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
         size: 20,
       ),
     );
@@ -149,13 +149,13 @@ class GeofenceCard extends StatelessWidget {
       decoration: BoxDecoration(
         color:
             geofence.status
-                ? activeGradientColor.withOpacity(0.2)
-                : colorScheme.surfaceVariant.withOpacity(0.8),
+                ? activeGradientColor.withValues(alpha: 0.2)
+                : colorScheme.surfaceVariant.withValues(alpha: 0.8),
         borderRadius: BorderRadius.circular(6),
         border:
             geofence.status
                 ? Border.all(
-                  color: colorScheme.primary.withOpacity(0.3),
+                  color: colorScheme.primary.withValues(alpha: 0.3),
                   width: 1,
                 )
                 : null,
@@ -197,9 +197,9 @@ class GeofenceCard extends StatelessWidget {
         value: geofence.status,
         onChanged: isDeleting ? null : onStatusChanged,
         activeColor: colorScheme.primary,
-        activeTrackColor: colorScheme.primaryContainer.withOpacity(0.5),
+        activeTrackColor: colorScheme.primaryContainer.withValues(alpha: 0.1),
         inactiveThumbColor: colorScheme.outline,
-        inactiveTrackColor: colorScheme.surfaceVariant.withOpacity(0.8),
+        inactiveTrackColor: colorScheme.surfaceVariant.withValues(alpha: 0.8),
       ),
     );
   }
@@ -212,7 +212,7 @@ class GeofenceCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceVariant.withOpacity(0.5),
+        color: colorScheme.surfaceVariant.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -220,7 +220,7 @@ class GeofenceCard extends StatelessWidget {
           Icon(
             Icons.location_on_rounded,
             size: 16,
-            color: colorScheme.primary.withOpacity(0.8),
+            color: colorScheme.primary.withValues(alpha: 0.8),
           ),
           const SizedBox(width: 8),
           Expanded(

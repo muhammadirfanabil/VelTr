@@ -6,6 +6,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../theme/app_colors.dart';
+
 class mapServices {
   final String deviceId;
 
@@ -399,12 +401,12 @@ class mapServices {
       height: 40,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.blue,
+          color: Colors.black,
           shape: BoxShape.circle,
           border: Border.all(color: Colors.white, width: 3),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha: 0.3),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -425,8 +427,8 @@ class mapServices {
     return CircleMarker(
       point: userLocation,
       radius: accuracy ?? 50.0,
-      color: Colors.blue.withOpacity(0.1),
-      borderColor: Colors.blue.withOpacity(0.3),
+      color: Colors.blue.withValues(alpha: 0.1),
+      borderColor: Colors.blue.withValues(alpha: 0.3),
       borderStrokeWidth: 1,
     );
   }
