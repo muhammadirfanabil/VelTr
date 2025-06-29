@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart'; // Add this import
 import '../../theme/app_colors.dart';
+
+import '../widgets/tracker/info_gird.dart';
+import '../widgets/tracker/locationdetail_dialog.dart';
+import '../widgets/tracker/remote.dart';
 
 class VehicleStatusPanel extends StatefulWidget {
   final String? locationName;
@@ -40,6 +45,9 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
 
   bool _isActionInProgress = false;
   bool _wasOnlinePreviously = false;
+
+  // Add DateFormat instance for parsing
+  final DateFormat _dateFormat = DateFormat('yyyy-MM-dd HH:mm:ss');
 
   @override
   void initState() {
@@ -89,7 +97,6 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
   void didUpdateWidget(VehicleStatusPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Update pulse animation based on online status change
     final wasOnline = _wasOnlinePreviously;
     final isCurrentlyOnline = isOnline;
 
@@ -130,19 +137,22 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
   }
 
   bool get isOnline {
-    if (widget.lastUpdated?.isEmpty ?? true || widget.lastUpdated == "-") {
-      return false; // Return false if the value is empty or "-".
+    if (widget.lastUpdated == null ||
+        widget.lastUpdated!.isEmpty ||
+        widget.lastUpdated == '-') {
+      return false;
     }
 
     try {
-      final updatedTime = DateTime.parse(widget.lastUpdated!);
+      final updatedTime = _dateFormat.parse(widget.lastUpdated!);
       final now = DateTime.now();
       final differenceInMinutes = now.difference(updatedTime).inMinutes;
+
       return differenceInMinutes <= 2;
     } catch (e) {
-      debugPrint('Error parsing last updated time: $e');
-      debugPrint('Raw value was: "${widget.lastUpdated}"');
-      return false; // Return false in case of any parsing errors
+      debugPrint('Error parsing timestamp: $e');
+      debugPrint('Timestamp value: ${widget.lastUpdated}');
+      return false;
     }
   }
 
@@ -159,9 +169,9 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
   Color get connectionQualityColor {
     switch (connectionQuality) {
       case 'Excellent':
-        return AppColors.success;
+        return Colors.teal.shade800;
       case 'Good':
-        return AppColors.success.withOpacity(0.8);
+        return AppColors.success.withValues(alpha: 0.8);
       case 'Fair':
         return Colors.orange;
       case 'Poor':
@@ -171,7 +181,6 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
   }
 
   // --- UI Actions ---
-
   Future<void> _copyLocation() async {
     if (!hasValidCoordinates) {
       _showSnackBar('No valid coordinates to copy', isError: true);
@@ -225,8 +234,9 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
       HapticFeedback.heavyImpact();
       widget.toggleVehicleStatus();
 
-      // Simulate processing time for better UX
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(
+        const Duration(milliseconds: 500),
+      ); // Simulate processing time
     } catch (e) {
       debugPrint('Error toggling vehicle status: $e');
       _showSnackBar('Failed to toggle vehicle status', isError: true);
@@ -245,7 +255,7 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
       context: context,
       barrierDismissible: true,
       builder:
-          (context) => _LocationDetailsDialog(
+          (context) => LocationDetailsDialog(
             locationName: widget.locationName,
             latitude: widget.latitude,
             longitude: widget.longitude,
@@ -307,9 +317,25 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
             children: [
               _buildHeader(theme),
               const SizedBox(height: 14),
-              _buildInfoGrid(theme),
+              BuildInfoGrid(
+                theme: theme,
+                lastUpdate: lastActiveText,
+                connectionQuality:
+                    "Good", // Replace with actual connection quality
+                connectionQualityColor:
+                    Colors.green, // Replace with actual color logic
+                hasValidCoordinates:
+                    widget.latitude != null && widget.longitude != null,
+                coordinatesText: coordinatesText,
+                onCopyLocation: _copyLocation,
+              ),
+
               const SizedBox(height: 16),
-              _buildActionButton(theme),
+              BuildActionButton(
+                isVehicleOn: widget.isVehicleOn,
+                isDisabled: _isActionInProgress || widget.isLoading,
+                onPressed: _handleVehicleToggle,
+              ),
             ],
           ),
         ),
@@ -437,410 +463,6 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
           ),
         );
       },
-    );
-  }
-
-  Widget _buildInfoGrid(ThemeData theme) {
-    return Column(
-      children: [
-        _buildCoordinatesCard(theme),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildInfoItem(
-                icon: Icons.access_time_rounded,
-                label: 'Last Update',
-                value: _formatLastUpdate(),
-                theme: theme,
-              ),
-            ),
-            if ((widget.satellites ?? 0) > 0) ...[
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildInfoItem(
-                  icon: Icons.satellite_alt_rounded,
-                  label: 'Signal',
-                  value: connectionQuality,
-                  theme: theme,
-                  valueColor: connectionQualityColor,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCoordinatesCard(ThemeData theme) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: hasValidCoordinates ? _copyLocation : null,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AppColors.backgroundSecondary,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color:
-                  hasValidCoordinates
-                      ? AppColors.primaryBlue.withOpacity(0.15)
-                      : AppColors.border.withOpacity(0.18),
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                hasValidCoordinates
-                    ? Icons.my_location_rounded
-                    : Icons.location_disabled_rounded,
-                size: 16,
-                color:
-                    hasValidCoordinates
-                        ? AppColors.primaryBlue
-                        : AppColors.textTertiary,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      hasValidCoordinates ? 'GPS Coordinates' : 'GPS Signal',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppColors.textTertiary,
-                        fontSize: 11,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      hasValidCoordinates ? coordinatesText : 'Not available',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color:
-                            hasValidCoordinates
-                                ? AppColors.textPrimary
-                                : AppColors.textTertiary,
-                        fontFamily: hasValidCoordinates ? 'monospace' : null,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              if (hasValidCoordinates) ...[
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.content_copy_rounded,
-                  size: 14,
-                  color: AppColors.textTertiary,
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoItem({
-    required IconData icon,
-    required String label,
-    required String value,
-    required ThemeData theme,
-    Color? valueColor,
-  }) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: AppColors.textTertiary),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textTertiary,
-                  fontSize: 11,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: valueColor ?? AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12.5,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  String _formatLastUpdate() {
-    if (widget.lastUpdated?.isEmpty ?? true) {
-      return 'No data';
-    }
-
-    try {
-      final updatedTime = DateTime.parse(widget.lastUpdated!);
-      final now = DateTime.now();
-      final difference = now.difference(updatedTime);
-
-      if (difference.inSeconds < 30) {
-        return 'Just now';
-      } else if (difference.inMinutes < 1) {
-        return '${difference.inSeconds}s ago';
-      } else if (difference.inMinutes < 60) {
-        return '${difference.inMinutes}m ago';
-      } else if (difference.inHours < 24) {
-        return '${difference.inHours}h ago';
-      } else {
-        return '${difference.inDays}d ago';
-      }
-    } catch (e) {
-      debugPrint('Error formatting last update: $e');
-      return 'Invalid time';
-    }
-  }
-
-  Widget _buildActionButton(ThemeData theme) {
-    final isOn = widget.isVehicleOn;
-    final isDisabled = _isActionInProgress || widget.isLoading;
-
-    return SizedBox(
-      width: double.infinity,
-      child: FilledButton.icon(
-        onPressed: isDisabled ? null : _handleVehicleToggle,
-        icon:
-            _isActionInProgress
-                ? SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Colors.white.withOpacity(0.8),
-                    ),
-                  ),
-                )
-                : Icon(
-                  isOn
-                      ? Icons.power_settings_new_rounded
-                      : Icons.power_settings_new_outlined,
-                  size: 20,
-                ),
-        label: Text(
-          _getButtonText(),
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-        ),
-        style: FilledButton.styleFrom(
-          backgroundColor: _getButtonColor(isOn, isDisabled),
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: isDisabled ? 0 : 2,
-          shadowColor:
-              isOn
-                  ? AppColors.success.withOpacity(0.3)
-                  : AppColors.error.withOpacity(0.3),
-        ),
-      ),
-    );
-  }
-
-  String _getButtonText() {
-    if (_isActionInProgress) return 'Processing...';
-    return widget.isVehicleOn ? 'Turn Off Device' : 'Turn On Device';
-  }
-
-  Color _getButtonColor(bool isOn, bool isDisabled) {
-    if (isDisabled) return AppColors.textTertiary.withOpacity(0.3);
-    return isOn ? AppColors.success : AppColors.error;
-  }
-}
-
-class _LocationDetailsDialog extends StatelessWidget {
-  final String? locationName;
-  final double? latitude;
-  final double? longitude;
-  final String lastUpdated;
-  final int? satellites;
-  final String connectionQuality;
-  final Color connectionQualityColor;
-  final VoidCallback? onCopyCoordinates;
-
-  const _LocationDetailsDialog({
-    this.locationName,
-    this.latitude,
-    this.longitude,
-    required this.lastUpdated,
-    this.satellites,
-    required this.connectionQuality,
-    required this.connectionQualityColor,
-    this.onCopyCoordinates,
-  });
-
-  bool get hasValidCoordinates {
-    return latitude != null &&
-        longitude != null &&
-        latitude!.abs() <= 90 &&
-        longitude!.abs() <= 180 &&
-        latitude != 0.0 &&
-        longitude != 0.0;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Row(
-        children: [
-          Icon(
-            Icons.location_on_rounded,
-            color: AppColors.primaryBlue,
-            size: 22,
-          ),
-          const SizedBox(width: 8),
-          const Text('Location Details'),
-        ],
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (locationName?.isNotEmpty == true) ...[
-              _DetailRow(
-                icon: Icons.place_rounded,
-                label: 'Address',
-                value: locationName!,
-              ),
-              const SizedBox(height: 12),
-            ],
-            if (hasValidCoordinates) ...[
-              _DetailRow(
-                icon: Icons.my_location_rounded,
-                label: 'Latitude',
-                value: latitude!.toStringAsFixed(6),
-                isCoordinate: true,
-              ),
-              const SizedBox(height: 8),
-              _DetailRow(
-                icon: Icons.my_location_rounded,
-                label: 'Longitude',
-                value: longitude!.toStringAsFixed(6),
-                isCoordinate: true,
-              ),
-              const SizedBox(height: 12),
-            ],
-            _DetailRow(
-              icon: Icons.access_time_rounded,
-              label: 'Last Update',
-              value: lastUpdated,
-            ),
-            if ((satellites ?? 0) > 0) ...[
-              const SizedBox(height: 8),
-              _DetailRow(
-                icon: Icons.satellite_alt_rounded,
-                label: 'Satellites',
-                value: '$satellites connected',
-              ),
-              const SizedBox(height: 8),
-              _DetailRow(
-                icon: Icons.signal_cellular_alt_rounded,
-                label: 'Signal Quality',
-                value: connectionQuality,
-                valueColor: connectionQualityColor,
-              ),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        if (hasValidCoordinates && onCopyCoordinates != null)
-          TextButton.icon(
-            onPressed: () {
-              Navigator.of(context).pop();
-              onCopyCoordinates!();
-            },
-            icon: const Icon(Icons.content_copy_rounded, size: 18),
-            label: const Text('Copy Coordinates'),
-            style: TextButton.styleFrom(foregroundColor: AppColors.primaryBlue),
-          ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          style: TextButton.styleFrom(foregroundColor: AppColors.textSecondary),
-          child: const Text('Close'),
-        ),
-      ],
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final bool isCoordinate;
-  final Color? valueColor;
-
-  const _DetailRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.isCoordinate = false,
-    this.valueColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 1.5),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 16, color: AppColors.textTertiary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.textTertiary,
-                    fontSize: 11.5,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  value,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: valueColor ?? AppColors.textPrimary,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 13.5,
-                    fontFamily: isCoordinate ? 'monospace' : null,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

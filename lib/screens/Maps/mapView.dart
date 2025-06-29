@@ -14,7 +14,7 @@ import '../../services/vehicle/vehicleService.dart';
 import '../../models/vehicle/vehicle.dart';
 import '../../services/device/deviceService.dart';
 import '../../services/Geofence/geofenceService.dart';
-import '../../services/notifications/enhanced_notification_service.dart';
+// import '../../services/notifications/enhanced_notification_service.dart';
 import '../../services/maps/mapsService.dart';
 import '../../models/Geofence/Geofence.dart';
 
@@ -27,7 +27,7 @@ import '../../widgets/Map/vehicle_selector.dart';
 import '../../widgets/Map/nogps_overlay.dart';
 import '../../widgets/Map/deviceinfo_chip.dart';
 import '../../widgets/Map/action_buttons.dart';
-// import '../../widgets/Common/user_menu.dart';
+import '../../widgets/Map/roundvehicle_marker.dart';
 import '../../widgets/Map/subtlenotif_banner.dart';
 import '../../widgets/Map/centering_buttons.dart';
 import '../../utils/snackbar.dart';
@@ -572,6 +572,16 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
   }
 
   void _updateTimestamp(String timestamp) {
+    // Check if the timestamp is valid before parsing
+    if (timestamp.isEmpty ||
+        timestamp == '-' ||
+        timestamp == 'Invalid timestamp') {
+      setState(() {
+        lastUpdated = 'Invalid timestamp'; // Display a friendly error message
+      });
+      return; // Exit early if timestamp is invalid
+    }
+
     try {
       final dt = DateFormat('yyyy-MM-dd HH:mm:ss').parse(timestamp);
       setState(() {
@@ -580,7 +590,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
     } catch (e) {
       debugPrint('Error parsing timestamp: $e');
       setState(() {
-        lastUpdated = 'Invalid timestamp';
+        lastUpdated = 'Invalid timestamp'; // Show fallback message on error
       });
     }
   }
@@ -735,9 +745,8 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
               bottom: MediaQuery.of(context).viewInsets.bottom,
             ),
             child: VehicleStatusPanel(
-              key: ValueKey(
-                'vehicle_panel_${currentDeviceId}_${DateTime.now().millisecondsSinceEpoch}',
-              ),
+              // Use a stable key that doesn't change on every rebuild
+              key: ValueKey('vehicle_panel_$currentDeviceId'),
               locationName: hasGPSData ? locationName : 'GPS not available',
               latitude: latitude,
               longitude: longitude,

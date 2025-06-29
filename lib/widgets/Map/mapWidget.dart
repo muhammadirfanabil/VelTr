@@ -5,6 +5,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../services/maps/mapsService.dart';
 
+import '../../widgets/Map/roundvehicle_marker.dart';
+
 class MapWidget extends StatefulWidget {
   final MapController? mapController;
   final MapOptions? options;
@@ -191,89 +193,49 @@ class _MapWidgetState extends State<MapWidget> with TickerProviderStateMixin {
     });
   }
 
-  Widget _buildVehicleMarker() {
-    return AnimatedBuilder(
-      animation: _pulseAnimation,
-      builder:
-          (context, child) => Transform.scale(
-            scale: _pulseAnimation.value,
-            child: Container(
-              width: 24.0,
-              height: 24.0,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.blue, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: ClipOval(
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  child: Image.asset(
-                    'assets/icons/motor.png',
-                    width: 16,
-                    height: 16,
-                    fit: BoxFit.contain,
-                    errorBuilder:
-                        (context, error, stackTrace) => const Icon(
-                          Icons.motorcycle,
-                          color: Colors.blue,
-                          size: 12,
-                        ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-    );
-  }
+  // Widget _buildVehicleMarker() {
+  //   return RoundVehicleMarker(pulseAnimation: _pulseAnimation);
+  // }
 
-  List<Marker> _buildMarkers() {
-    if (userLatLng == null || widget.deviceId == null) return [];
+  // List<Marker> _buildMarkers() {
+  //   if (userLatLng == null || widget.deviceId == null) return [];
 
-    final markers = <Marker>[];
+  //   final markers = <Marker>[];
 
-    // Accuracy circle
-    if (gpsAccuracy != null && gpsAccuracy! > 0 && gpsAccuracy! < 100) {
-      markers.add(
-        Marker(
-          point: userLatLng!,
-          width: (gpsAccuracy! * 2).clamp(20.0, 200.0),
-          height: (gpsAccuracy! * 2).clamp(20.0, 200.0),
-          alignment: Alignment.center,
-          child: Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.blue.withValues(alpha: 0.1),
-              border: Border.all(
-                color: Colors.blue.withValues(alpha: 0.3),
-                width: 1,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
+  //   // Accuracy circle
+  //   if (gpsAccuracy != null && gpsAccuracy! > 0 && gpsAccuracy! < 100) {
+  //     markers.add(
+  //       Marker(
+  //         point: userLatLng!,
+  //         width: (gpsAccuracy! * 2).clamp(20.0, 200.0),
+  //         height: (gpsAccuracy! * 2).clamp(20.0, 200.0),
+  //         alignment: Alignment.center,
+  //         child: Container(
+  //           decoration: BoxDecoration(
+  //             shape: BoxShape.circle,
+  //             color: Colors.blue.withOpacity(0.1),
+  //             border: Border.all(color: Colors.blue.withOpacity(0.3), width: 1),
+  //           ),
+  //         ),
+  //       ),
+  //     );
+  //   }
 
-    // Vehicle marker
-    markers.add(
-      Marker(
-        point: userLatLng!,
-        width: 24.0,
-        height: 24.0,
-        alignment: Alignment.center,
-        child: _buildVehicleMarker(),
-      ),
-    );
+  //   // Vehicle marker
+  //   markers.add(
+  //     Marker(
+  //       point: userLatLng!,
+  //       width: 24.0,
+  //       height: 24.0,
+  //       alignment: Alignment.center,
+  //       child: RoundVehicleMarker(
+  //         pulseAnimation: _pulseAnimation,
+  //       ), // Using the new VehicleMarker widget
+  //     ),
+  //   );
 
-    return markers;
-  }
+  //   return markers;
+  // }
 
   Widget _buildLoadingState() => const Center(
     child: Column(
@@ -342,7 +304,7 @@ class _MapWidgetState extends State<MapWidget> with TickerProviderStateMixin {
                 maxZoom: 18,
               ),
             ...widget.children,
-            MarkerLayer(markers: _buildMarkers()),
+            // MarkerLayer(markers: _buildMarkers()),
           ],
         ),
         if (widget.deviceId != null && userLatLng != null && !_isFollowing)

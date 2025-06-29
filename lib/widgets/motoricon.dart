@@ -15,8 +15,8 @@ class VehicleMarkerIcon extends StatelessWidget {
           padding: const EdgeInsets.all(8.0),
           child: SvgPicture.asset(
             'assets/icons/motor.svg',
-            width: 20,
-            height: 20,
+            width: 18,
+            height: 18,
           ),
           // child: Icon(Icons.motorcycle, size: 30, color: Colors.black),
         ),
