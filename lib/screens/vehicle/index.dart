@@ -75,13 +75,13 @@ class _VehicleIndexScreenState extends State<VehicleIndexScreen> {
                           subtitle: 'Manage your devices',
                           onTap: () => Navigator.pushNamed(context, '/device'),
                         ),
-                        _SettingItem(
-                          icon: Icons.location_on_outlined,
-                          title: 'Set Geofence',
-                          subtitle: 'Create safe zones and boundaries',
-                          onTap:
-                              () => Navigator.pushNamed(context, '/geofence'),
-                        ),
+                        // _SettingItem(
+                        //   icon: Icons.location_on_outlined,
+                        //   title: 'Set Geofence',
+                        //   subtitle: 'Create safe zones and boundaries',
+                        //   onTap:
+                        //       () => Navigator.pushNamed(context, '/geofence'),
+                        // ),
                         // _SettingItem(
                         //   icon: Icons.straighten_outlined,
                         //   title: 'Set Range',

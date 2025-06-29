@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/Device/device.dart';
 import '../../services/device/deviceService.dart';
 import '../../widgets/Common/error_card.dart';
+import '../../widgets/Common/confirmation_dialog.dart';
 import '../../constants/app_constants.dart';
 import '../../utils/snackbar.dart';
 import '../GeoFence/index.dart';
@@ -233,55 +234,16 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
   }
 
   Future<bool> _showDeleteConfirmation(Device device) async {
-    final theme = Theme.of(context);
-
     final result = await showDialog<bool>(
       context: context,
       builder:
-          (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
-            title: Row(
-              children: [
-                Icon(
-                  Icons.warning_rounded,
-                  color: Colors.orange[700],
-                  size: 28,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  'Delete Device',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            content: Text(
-              'Are you sure you want to delete "${device.name}"? This action cannot be undone.',
-              style: theme.textTheme.bodyMedium,
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.primaryBlue,
-                ),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.red.shade700,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text('Delete'),
-              ),
-            ],
+          (context) => ConfirmationDialog(
+            title: 'Delete Device',
+            content:
+                'Are you sure you want to delete "${device.name}"? This action cannot be undone.',
+            confirmText: 'Delete',
+            cancelText: 'Cancel',
+            confirmColor: Colors.red,
           ),
     );
     return result ?? false;

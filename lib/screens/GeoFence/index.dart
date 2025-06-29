@@ -7,7 +7,8 @@ import '../../widgets/Common/error_card.dart';
 import '../../widgets/Common/loading_screen.dart';
 import '../GeoFence/geofence.dart';
 import 'geofence_edit_screen.dart';
-import '../../widgets/Geofence/geofence_card.dart'; // Updated import
+import '../../widgets/Geofence/geofence_card.dart';
+import '../../widgets/Common/confirmation_dialog.dart';
 
 class GeofenceListScreen extends StatefulWidget {
   final String deviceId;
@@ -235,7 +236,6 @@ class _GeofenceListScreenState extends State<GeofenceListScreen>
                   duration: Duration(milliseconds: 400 + (index * 100)),
                   curve: Curves.easeOutBack,
                   builder: (context, value, child) {
-                    // Clamp opacity to [0.0, 1.0] to avoid assertion error
                     final safeValue = value.clamp(0.0, 1.0);
                     return Transform.translate(
                       offset: Offset(0, 50 * (1 - safeValue)),
@@ -243,18 +243,7 @@ class _GeofenceListScreenState extends State<GeofenceListScreen>
                         opacity: safeValue,
                         child: Padding(
                           padding: const EdgeInsets.only(bottom: 10),
-                          child: GeofenceCard(
-                            geofence: geofence,
-                            isDeleting: _isDeleting,
-                            onTap: () {
-                              HapticFeedback.lightImpact();
-                              _navigateToEditGeofence(geofence);
-                            },
-                            onStatusChanged: (bool value) {
-                              HapticFeedback.selectionClick();
-                              _toggleStatus(geofence, value);
-                            },
-                          ),
+                          child: _buildDismissibleGeofenceCard(geofence),
                         ),
                       ),
                     );
@@ -265,6 +254,75 @@ class _GeofenceListScreenState extends State<GeofenceListScreen>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildDismissibleGeofenceCard(Geofence geofence) {
+    return Material(
+      color: Colors.transparent,
+      child: Dismissible(
+        key: Key(geofence.id),
+        direction: DismissDirection.endToStart,
+        background: _buildDismissBackground(),
+        confirmDismiss: (_) => _showDeleteConfirmation(geofence),
+        onDismissed: (_) => _deleteGeofence(geofence, geofence.name),
+        child: GeofenceCard(
+          geofence: geofence,
+          isDeleting: _isDeleting,
+          onTap: () {
+            HapticFeedback.lightImpact();
+            _navigateToEditGeofence(geofence);
+          },
+          onStatusChanged: (bool value) {
+            HapticFeedback.selectionClick();
+            _toggleStatus(geofence, value);
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDismissBackground() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.red.shade400, Colors.red.shade700],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: 28),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          const Icon(Icons.delete, color: Colors.white, size: 28),
+          const SizedBox(width: 8),
+          const Text(
+            'Delete',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 15,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool?> _showDeleteConfirmation(Geofence geofence) {
+    return showDialog<bool>(
+      context: context,
+      builder:
+          (context) => ConfirmationDialog(
+            title: 'Delete Geofence',
+            content: 'Are you sure you want to delete "${geofence.name}"?',
+            confirmText: 'Delete',
+            cancelText: 'Cancel',
+            confirmColor: Colors.red,
+          ),
     );
   }
 

@@ -150,21 +150,21 @@ class _ProfilePageState extends State<ProfilePage> {
         route: AppConstants.trackVehicleRoute,
       ),
       const ActionItem(
-        icon: Icons.directions_bike_outlined,
+        icon: Icons.two_wheeler,
         title: 'My Vehicle',
         subtitle: 'Manage vehicle information',
         route: AppConstants.myVehicleRoute,
       ),
-      const ActionItem(
-        icon: Icons.radio_button_checked_outlined,
-        title: 'Set Geofence',
-        subtitle: 'Configure tracking range',
-        route: AppConstants.setGeofence,
-      ),
+      // const ActionItem(
+      //   icon: Icons.radio_button_checked_outlined,
+      //   title: 'Set Geofence',
+      //   subtitle: 'Configure tracking range',
+      //   route: AppConstants.setGeofence,
+      // ),
       const ActionItem(
         icon: Icons.history_outlined,
         title: 'Driving History',
-        subtitle: 'View past journeys',
+        subtitle: 'View past trips and analytics',
         route: AppConstants.driveHistoryRoute,
       ),
       const ActionItem(
