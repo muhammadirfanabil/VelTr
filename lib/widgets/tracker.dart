@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart'; // Add this import
+import 'package:firebase_database/firebase_database.dart'; // Add Firebase import
+import 'dart:async'; // Add for StreamSubscription
 import '../../theme/app_colors.dart';
 
 import '../widgets/tracker/info_gird.dart';
@@ -17,6 +19,7 @@ class VehicleStatusPanel extends StatefulWidget {
   final VoidCallback toggleVehicleStatus;
   final int? satellites;
   final bool isLoading;
+  final String deviceId; // Add deviceId parameter
 
   const VehicleStatusPanel({
     super.key,
@@ -29,6 +32,7 @@ class VehicleStatusPanel extends StatefulWidget {
     required this.toggleVehicleStatus,
     this.satellites,
     this.isLoading = false,
+    required this.deviceId, // Add required deviceId
   });
 
   @override
@@ -46,6 +50,11 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
   bool _isActionInProgress = false;
   bool _wasOnlinePreviously = false;
 
+  // Add Firebase real-time listening properties
+  StreamSubscription<DatabaseEvent>? _relaySubscription;
+  bool _isOnlineFromFirebase = false;
+  bool _firebaseDataReceived = false;
+
   // Add DateFormat instance for parsing
   final DateFormat _dateFormat = DateFormat('yyyy-MM-dd HH:mm:ss');
 
@@ -56,6 +65,73 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
     _animationController.forward();
     _wasOnlinePreviously = isOnline;
     _updatePulseAnimation();
+    
+    // Setup Firebase real-time listener for relay status
+    _setupFirebaseListener();
+  }
+
+  void _setupFirebaseListener() {
+    // Validate device ID before setting up listener
+    if (widget.deviceId.isEmpty) {
+      debugPrint('Warning: Device ID is empty, cannot setup Firebase listener');
+      setState(() {
+        _isOnlineFromFirebase = false;
+        _firebaseDataReceived = true;
+      });
+      return;
+    }
+
+    try {
+      final relayRef = FirebaseDatabase.instance
+          .ref('devices/${widget.deviceId}/relay');
+      
+      debugPrint('Setting up Firebase listener for device: ${widget.deviceId}');
+      
+      _relaySubscription = relayRef.onValue.listen(
+        (DatabaseEvent event) {
+          if (mounted && event.snapshot.exists) {
+            final relayValue = event.snapshot.value;
+            final newOnlineStatus = relayValue == true;
+            
+            setState(() {
+              _isOnlineFromFirebase = newOnlineStatus;
+              _firebaseDataReceived = true;
+              
+              // Update pulse animation if status changed
+              if (_wasOnlinePreviously != newOnlineStatus) {
+                _wasOnlinePreviously = newOnlineStatus;
+                _updatePulseAnimation();
+              }
+            });
+            
+            debugPrint('Firebase relay status updated: $relayValue (Online: $newOnlineStatus)');
+          } else if (mounted) {
+            setState(() {
+              _isOnlineFromFirebase = false;
+              _firebaseDataReceived = true;
+            });
+            debugPrint('Firebase relay data not found or null for device: ${widget.deviceId}');
+          }
+        },
+        onError: (error) {
+          debugPrint('Firebase relay listener error for device ${widget.deviceId}: $error');
+          if (mounted) {
+            setState(() {
+              _isOnlineFromFirebase = false;
+              _firebaseDataReceived = true;
+            });
+          }
+        },
+      );
+    } catch (e) {
+      debugPrint('Error setting up Firebase listener for device ${widget.deviceId}: $e');
+      if (mounted) {
+        setState(() {
+          _isOnlineFromFirebase = false;
+          _firebaseDataReceived = true;
+        });
+      }
+    }
   }
 
   void _setupAnimations() {
@@ -108,6 +184,8 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
 
   @override
   void dispose() {
+    // Clean up the Firebase listener
+    _relaySubscription?.cancel();
     _animationController.dispose();
     _pulseController.dispose();
     super.dispose();
@@ -137,6 +215,12 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
   }
 
   bool get isOnline {
+    // Use Firebase relay data if available, otherwise fall back to timestamp logic
+    if (_firebaseDataReceived) {
+      return _isOnlineFromFirebase;
+    }
+    
+    // Fallback to timestamp-based logic
     if (widget.lastUpdated == null ||
         widget.lastUpdated!.isEmpty ||
         widget.lastUpdated == '-') {
@@ -407,6 +491,12 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
 
   Widget _buildStatusBadge(ThemeData theme) {
     final online = isOnline;
+    
+    // Debug: Print current status source
+    debugPrint('Status Badge - Firebase received: $_firebaseDataReceived, '
+        'Firebase status: $_isOnlineFromFirebase, '
+        'Final online status: $online');
+    
     return AnimatedBuilder(
       animation: _pulseAnimation,
       builder: (context, child) {
