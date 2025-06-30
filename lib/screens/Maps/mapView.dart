@@ -365,6 +365,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
               Navigator.pop(context);
               Navigator.pushNamed(context, '/device');
             },
+            deviceService: _deviceService,
           ),
     );
   }
