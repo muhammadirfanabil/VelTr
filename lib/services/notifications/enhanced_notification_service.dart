@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'dart:convert';
+import '../geofence/geofence_alert_service.dart'; // Import GeofenceAlertService
 
 /// Enhanced notification service with FCM token management and geofence alerts
 class EnhancedNotificationService {
@@ -131,12 +132,15 @@ class EnhancedNotificationService {
     );
     debugPrint('📊 Message data: ${message.data}');
 
-    // Show local notification for foreground messages
-    _showLocalNotification(message);
-
-    // Handle geofence alerts specifically
+    // Handle geofence alerts by delegating to GeofenceAlertService
     if (message.data['type'] == 'geofence_alert') {
-      _handleGeofenceAlert(message.data);
+      debugPrint('🎯 Routing geofence alert to GeofenceAlertService');
+      // Delegate to GeofenceAlertService instead of handling locally
+      final geofenceService = GeofenceAlertService();
+      geofenceService.handleFCMMessage(message); // We'll create this method
+    } else {
+      // Show local notification for non-geofence messages
+      _showLocalNotification(message);
     }
   }
 
@@ -147,20 +151,10 @@ class EnhancedNotificationService {
     );
 
     if (message.data['type'] == 'geofence_alert') {
-      _handleGeofenceAlert(message.data);
+      // Delegate navigation handling to GeofenceAlertService
+      final geofenceService = GeofenceAlertService();
+      geofenceService.handleNotificationTap(message);
     }
-  }
-
-  /// Handle geofence alert data
-  void _handleGeofenceAlert(Map<String, dynamic> data) {
-    final deviceName = data['deviceName'] ?? 'Unknown Device';
-    final geofenceName = data['geofenceName'] ?? 'Unknown Geofence';
-    final action = data['action'] ?? 'unknown';
-
-    debugPrint('🎯 Geofence Alert: $deviceName $action $geofenceName');
-
-    // You can add navigation logic here to open specific screens
-    // For example, navigate to geofence alerts screen or map view
   }
 
   /// Handle notification data
@@ -169,14 +163,15 @@ class EnhancedNotificationService {
 
     switch (type) {
       case 'geofence_alert':
-        _handleGeofenceAlert(data);
+        // Geofence alerts are handled by GeofenceAlertService
+        debugPrint('🎯 Geofence alert data handled by GeofenceAlertService');
         break;
       default:
         debugPrint('🔔 Unknown notification type: $type');
     }
   }
 
-  /// Show local notification for foreground messages
+  /// Show local notification for foreground messages (excludes geofence alerts)
   Future<void> _showLocalNotification(RemoteMessage message) async {
     final notification = message.notification;
     if (notification == null) return;
@@ -184,34 +179,28 @@ class EnhancedNotificationService {
     final data = message.data;
     final isGeofenceAlert = data['type'] == 'geofence_alert';
 
-    // Customize notification based on type
+    // Skip geofence alerts - they're handled by GeofenceAlertService
+    if (isGeofenceAlert) {
+      debugPrint('🎯 Skipping local notification for geofence alert - handled by GeofenceAlertService');
+      return;
+    }
+
+    // Handle other notification types
     String title = notification.title ?? 'GPS App';
     String body = notification.body ?? '';
     String payload = jsonEncode(data);
 
-    if (isGeofenceAlert) {
-      final deviceName = data['deviceName'] ?? 'Vehicle';
-      final geofenceName = data['geofenceName'] ?? 'Area';
-      final action = data['action'] ?? 'moved';
-      final actionText = action == 'enter' ? 'entered' : 'exited';
-
-      title = '🎯 Geofence Alert';
-      body = '$deviceName has $actionText $geofenceName';
-    }
-
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
-          'geofence_alerts',
-          'Geofence Alerts',
-          channelDescription:
-              'Notifications for geofence entry and exit events',
+          'general_notifications',
+          'General Notifications',
+          channelDescription: 'General app notifications',
           importance: Importance.high,
           priority: Priority.high,
           icon: '@mipmap/ic_launcher',
           color: Color(0xFF2196F3),
           playSound: true,
           enableVibration: true,
-          ticker: 'Geofence Alert',
         );
 
     const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
