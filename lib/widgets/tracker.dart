@@ -42,10 +42,8 @@ class VehicleStatusPanel extends StatefulWidget {
 class _VehicleStatusPanelState extends State<VehicleStatusPanel>
     with TickerProviderStateMixin {
   late final AnimationController _animationController;
-  late final AnimationController _pulseController;
   late final Animation<double> _slideAnimation;
   late final Animation<double> _fadeAnimation;
-  late final Animation<double> _pulseAnimation;
 
   bool _isActionInProgress = false;
   bool _wasOnlinePreviously = false;
@@ -64,7 +62,6 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
     _setupAnimations();
     _animationController.forward();
     _wasOnlinePreviously = isOnline;
-    _updatePulseAnimation();
     
     // Setup Firebase real-time listener for relay status
     _setupFirebaseListener();
@@ -97,10 +94,9 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
               _isOnlineFromFirebase = newOnlineStatus;
               _firebaseDataReceived = true;
               
-              // Update pulse animation if status changed
+              // Update previous status for tracking changes
               if (_wasOnlinePreviously != newOnlineStatus) {
                 _wasOnlinePreviously = newOnlineStatus;
-                _updatePulseAnimation();
               }
             });
             
@@ -140,11 +136,6 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
       vsync: this,
     );
 
-    _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    );
-
     _slideAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
     );
@@ -152,21 +143,6 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
-
-    _pulseAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-  }
-
-  void _updatePulseAnimation() {
-    if (isOnline) {
-      if (!_pulseController.isAnimating) {
-        _pulseController.repeat(reverse: true);
-      }
-    } else {
-      _pulseController.stop();
-      _pulseController.reset();
-    }
   }
 
   @override
@@ -178,7 +154,6 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
 
     if (wasOnline != isCurrentlyOnline) {
       _wasOnlinePreviously = isCurrentlyOnline;
-      _updatePulseAnimation();
     }
   }
 
@@ -187,7 +162,6 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
     // Clean up the Firebase listener
     _relaySubscription?.cancel();
     _animationController.dispose();
-    _pulseController.dispose();
     super.dispose();
   }
 
@@ -497,62 +471,60 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
         'Firebase status: $_isOnlineFromFirebase, '
         'Final online status: $online');
     
-    return AnimatedBuilder(
-      animation: _pulseAnimation,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: online ? _pulseAnimation.value : 1.0,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+    return Container(
+      width: 72, // Fixed width to ensure consistent size
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+      decoration: BoxDecoration(
+        color:
+            online
+                ? AppColors.success.withOpacity(0.12)
+                : AppColors.error.withOpacity(0.10),
+        border: Border.all(
+          color:
+              online
+                  ? AppColors.success.withOpacity(0.35)
+                  : AppColors.error.withOpacity(0.25),
+          width: 1,
+        ),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center, // Center the content
+        children: [
+          Container(
+            width: 7,
+            height: 7,
             decoration: BoxDecoration(
-              color:
+              color: online ? AppColors.success : AppColors.error,
+              shape: BoxShape.circle,
+              boxShadow:
                   online
-                      ? AppColors.success.withOpacity(0.12)
-                      : AppColors.error.withOpacity(0.10),
-              border: Border.all(
-                color:
-                    online
-                        ? AppColors.success.withOpacity(0.35)
-                        : AppColors.error.withOpacity(0.25),
-                width: 1,
-              ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: BoxDecoration(
-                    color: online ? AppColors.success : AppColors.error,
-                    shape: BoxShape.circle,
-                    boxShadow:
-                        online
-                            ? [
-                              BoxShadow(
-                                color: AppColors.success.withOpacity(0.4),
-                                blurRadius: 4,
-                                spreadRadius: 1,
-                              ),
-                            ]
-                            : null,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  online ? 'Online' : 'Offline',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: online ? AppColors.success : AppColors.error,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
+                      ? [
+                        BoxShadow(
+                          color: AppColors.success.withOpacity(0.4),
+                          blurRadius: 4,
+                          spreadRadius: 1,
+                        ),
+                      ]
+                      : null,
             ),
           ),
-        );
-      },
+          const SizedBox(width: 6),
+          Flexible( // Use Flexible to prevent overflow
+            child: Text(
+              online ? 'Online' : 'Offline',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: online ? AppColors.success : AppColors.error,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+              textAlign: TextAlign.center, // Center align the text
+              overflow: TextOverflow.ellipsis, // Handle potential overflow
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
