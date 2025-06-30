@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart'; // Add this import
-import '../../theme/app_colors.dart';
-
-import '../widgets/tracker/info_gird.dart';
-import '../widgets/tracker/locationdetail_dialog.dart';
-import '../widgets/tracker/remote.dart';
+import 'package:intl/intl.dart';
+import '../../widgets/tracker/info_grid.dart'; // Import the BuildInfoGrid widget
+import '../../widgets/tracker/locationdetail_dialog.dart'; // Import the LocationDetailsDialog widget
+import '../../widgets/tracker/remote.dart'; // Import the BuildActionButton widget
 
 class VehicleStatusPanel extends StatefulWidget {
   final String? locationName;
@@ -36,36 +34,16 @@ class VehicleStatusPanel extends StatefulWidget {
 }
 
 class _VehicleStatusPanelState extends State<VehicleStatusPanel>
-    with TickerProviderStateMixin {
-  late final AnimationController _animationController;
-  late final AnimationController _pulseController;
-  late final Animation<double> _slideAnimation;
-  late final Animation<double> _fadeAnimation;
-  late final Animation<double> _pulseAnimation;
-
-  bool _isActionInProgress = false;
-  bool _wasOnlinePreviously = false;
-
-  // Add DateFormat instance for parsing
-  final DateFormat _dateFormat = DateFormat('yyyy-MM-dd HH:mm:ss');
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _slideAnimation;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
-    _setupAnimations();
-    _animationController.forward();
-    _wasOnlinePreviously = isOnline;
-    _updatePulseAnimation();
-  }
-
-  void _setupAnimations() {
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 350),
-      vsync: this,
-    );
-
-    _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 400),
       vsync: this,
     );
 
@@ -77,183 +55,57 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
 
-    _pulseAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-  }
-
-  void _updatePulseAnimation() {
-    if (isOnline) {
-      if (!_pulseController.isAnimating) {
-        _pulseController.repeat(reverse: true);
-      }
-    } else {
-      _pulseController.stop();
-      _pulseController.reset();
-    }
-  }
-
-  @override
-  void didUpdateWidget(VehicleStatusPanel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    final wasOnline = _wasOnlinePreviously;
-    final isCurrentlyOnline = isOnline;
-
-    if (wasOnline != isCurrentlyOnline) {
-      _wasOnlinePreviously = isCurrentlyOnline;
-      _updatePulseAnimation();
-    }
+    _animationController.forward();
   }
 
   @override
   void dispose() {
     _animationController.dispose();
-    _pulseController.dispose();
     super.dispose();
   }
 
-  // --- Logic Getters ---
+  bool get hasValidCoordinates =>
+      widget.latitude != null && widget.longitude != null;
 
-  bool get hasValidCoordinates {
-    return widget.latitude != null &&
-        widget.longitude != null &&
-        widget.latitude!.abs() <= 90 &&
-        widget.longitude!.abs() <= 180 &&
-        widget.latitude != 0.0 &&
-        widget.longitude != 0.0;
-  }
+  String get coordinatesText =>
+      hasValidCoordinates
+          ? '${widget.latitude!.toStringAsFixed(5)}, ${widget.longitude!.toStringAsFixed(5)}'
+          : 'Coordinates not available';
 
-  String get coordinatesText {
-    if (!hasValidCoordinates) return 'Coordinates not available';
-    return '${widget.latitude!.toStringAsFixed(5)}, ${widget.longitude!.toStringAsFixed(5)}';
-  }
-
-  String get lastActiveText {
-    if (widget.lastUpdated?.isNotEmpty == true) {
-      return widget.lastUpdated!;
-    }
-    return 'No recent data';
-  }
+  String get lastActiveText =>
+      (widget.lastUpdated?.isNotEmpty ?? false)
+          ? widget.lastUpdated!
+          : 'No recent data';
 
   bool get isOnline {
-    if (widget.lastUpdated == null ||
-        widget.lastUpdated!.isEmpty ||
-        widget.lastUpdated == '-') {
-      return false;
-    }
+    if (widget.lastUpdated == null || widget.lastUpdated!.isEmpty) return false;
 
     try {
-      final updatedTime = _dateFormat.parse(widget.lastUpdated!);
+      final updatedTime = DateTime.parse(widget.lastUpdated!);
       final now = DateTime.now();
-      final differenceInMinutes = now.difference(updatedTime).inMinutes;
-
-      return differenceInMinutes <= 2;
-    } catch (e) {
-      debugPrint('Error parsing timestamp: $e');
-      debugPrint('Timestamp value: ${widget.lastUpdated}');
+      final difference = now.difference(updatedTime).inMinutes;
+      return difference <= 2; // Allow 2 minutes for online status
+    } catch (_) {
       return false;
     }
   }
 
-  String get connectionQuality {
-    if (!isOnline) return 'Poor';
-
-    final satellites = widget.satellites ?? 0;
-    if (satellites >= 8) return 'Excellent';
-    if (satellites >= 6) return 'Good';
-    if (satellites >= 4) return 'Fair';
-    return 'Poor';
-  }
-
-  Color get connectionQualityColor {
-    switch (connectionQuality) {
-      case 'Excellent':
-        return Colors.teal.shade800;
-      case 'Good':
-        return AppColors.success.withValues(alpha: 0.8);
-      case 'Fair':
-        return Colors.orange;
-      case 'Poor':
-      default:
-        return AppColors.error;
-    }
-  }
-
-  // --- UI Actions ---
-  Future<void> _copyLocation() async {
-    if (!hasValidCoordinates) {
-      _showSnackBar('No valid coordinates to copy', isError: true);
-      return;
-    }
-
-    try {
-      await Clipboard.setData(ClipboardData(text: coordinatesText));
-      _showSnackBar('Coordinates copied to clipboard');
-      HapticFeedback.lightImpact();
-    } catch (e) {
-      debugPrint('Failed to copy coordinates: $e');
-      _showSnackBar('Failed to copy coordinates', isError: true);
-    }
-  }
-
-  void _showSnackBar(String message, {bool isError = false}) {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              isError ? Icons.error_outline : Icons.check_circle_outline,
-              color: Colors.white,
-              size: 18,
-            ),
-            const SizedBox(width: 8),
-            Expanded(child: Text(message)),
-          ],
+  void _copyLocation() {
+    if (hasValidCoordinates) {
+      Clipboard.setData(ClipboardData(text: coordinatesText));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Coordinates copied to clipboard'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.green,
         ),
-        backgroundColor: isError ? AppColors.error : AppColors.success,
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-      ),
-    );
-  }
-
-  Future<void> _handleVehicleToggle() async {
-    if (_isActionInProgress || widget.isLoading) return;
-
-    setState(() {
-      _isActionInProgress = true;
-    });
-
-    try {
-      HapticFeedback.heavyImpact();
-      widget.toggleVehicleStatus();
-
-      await Future.delayed(
-        const Duration(milliseconds: 500),
-      ); // Simulate processing time
-    } catch (e) {
-      debugPrint('Error toggling vehicle status: $e');
-      _showSnackBar('Failed to toggle vehicle status', isError: true);
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isActionInProgress = false;
-        });
-      }
+      );
     }
   }
 
   void _showLocationDetails() {
-    HapticFeedback.selectionClick();
     showDialog(
       context: context,
-      barrierDismissible: true,
       builder:
           (context) => LocationDetailsDialog(
             locationName: widget.locationName,
@@ -261,14 +113,12 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
             longitude: widget.longitude,
             lastUpdated: lastActiveText,
             satellites: widget.satellites,
-            connectionQuality: connectionQuality,
-            connectionQualityColor: connectionQualityColor,
-            onCopyCoordinates: hasValidCoordinates ? _copyLocation : null,
+            connectionQuality: isOnline ? 'Good' : 'Poor',
+            connectionQualityColor: isOnline ? Colors.green : Colors.red,
+            onCopyCoordinates: _copyLocation,
           ),
     );
   }
-
-  // --- UI ---
 
   @override
   Widget build(BuildContext context) {
@@ -278,191 +128,141 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
       animation: _animationController,
       builder: (context, child) {
         return Transform.translate(
-          offset: Offset(0, 40 * _slideAnimation.value),
+          offset: Offset(0, 50 * _slideAnimation.value),
           child: Opacity(
             opacity: _fadeAnimation.value,
-            child: _buildPanel(theme),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildPanel(ThemeData theme) {
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: Container(
-        margin: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 20,
-              offset: const Offset(0, -2),
-            ),
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, -1),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildHeader(theme),
-              const SizedBox(height: 14),
-              BuildInfoGrid(
-                theme: theme,
-                lastUpdate: lastActiveText,
-                connectionQuality:
-                    "Good", // Replace with actual connection quality
-                connectionQualityColor:
-                    Colors.green, // Replace with actual color logic
-                hasValidCoordinates:
-                    widget.latitude != null && widget.longitude != null,
-                coordinatesText: coordinatesText,
-                onCopyLocation: _copyLocation,
-              ),
-
-              const SizedBox(height: 16),
-              BuildActionButton(
-                isVehicleOn: widget.isVehicleOn,
-                isDisabled: _isActionInProgress || widget.isLoading,
-                onPressed: _handleVehicleToggle,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(ThemeData theme) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: GestureDetector(
-            onTap: _showLocationDetails,
-            behavior: HitTestBehavior.opaque,
-            child: Row(
-              children: [
-                Icon(
-                  Icons.place_rounded,
-                  size: 20,
-                  color: AppColors.primaryBlue,
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                margin: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
                 ),
-                const SizedBox(width: 8),
-                Expanded(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 20,
+                      offset: const Offset(0, -4),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        _getLocationDisplayText(),
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                          fontSize: 16,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                GestureDetector(
+                                  onTap: _showLocationDetails,
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.place,
+                                        size: 20,
+                                        color: Colors.blue.shade600,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          widget.locationName ??
+                                              'Loading location...',
+                                          style: theme.textTheme.titleMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.black87,
+                                              ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      Icon(
+                                        Icons.info_outline,
+                                        size: 16,
+                                        color: Colors.grey.shade500,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          _buildStatusBadge(theme),
+                        ],
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Tap for details',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppColors.textTertiary,
-                          fontSize: 11,
-                        ),
+                      const SizedBox(height: 16),
+                      BuildInfoGrid(
+                        theme: theme,
+                        lastUpdate: lastActiveText,
+                        connectionQuality: isOnline ? 100 : 50,
+                        connectionQualityColor:
+                            isOnline
+                                ? Colors.green.shade600
+                                : Colors.red.shade600,
+                        hasValidCoordinates: hasValidCoordinates,
+                        coordinatesText: coordinatesText,
+                        onCopyLocation: _copyLocation,
+                      ),
+                      const SizedBox(height: 20),
+                      BuildActionButton(
+                        isVehicleOn: widget.isVehicleOn,
+                        isDisabled: widget.isLoading,
+                        onPressed: widget.toggleVehicleStatus,
                       ),
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.keyboard_arrow_right_rounded,
-                  size: 18,
-                  color: AppColors.textTertiary,
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        _buildStatusBadge(theme),
-      ],
-    );
-  }
-
-  String _getLocationDisplayText() {
-    if (widget.isLoading) return 'Loading location...';
-    if (widget.locationName?.isNotEmpty == true) return widget.locationName!;
-    return 'Location unavailable';
-  }
-
-  Widget _buildStatusBadge(ThemeData theme) {
-    final online = isOnline;
-    return AnimatedBuilder(
-      animation: _pulseAnimation,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: online ? _pulseAnimation.value : 1.0,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-            decoration: BoxDecoration(
-              color:
-                  online
-                      ? AppColors.success.withOpacity(0.12)
-                      : AppColors.error.withOpacity(0.10),
-              border: Border.all(
-                color:
-                    online
-                        ? AppColors.success.withOpacity(0.35)
-                        : AppColors.error.withOpacity(0.25),
-                width: 1,
               ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: BoxDecoration(
-                    color: online ? AppColors.success : AppColors.error,
-                    shape: BoxShape.circle,
-                    boxShadow:
-                        online
-                            ? [
-                              BoxShadow(
-                                color: AppColors.success.withOpacity(0.4),
-                                blurRadius: 4,
-                                spreadRadius: 1,
-                              ),
-                            ]
-                            : null,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  online ? 'Online' : 'Offline',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: online ? AppColors.success : AppColors.error,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildStatusBadge(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: isOnline ? Colors.green.shade50 : Colors.red.shade50,
+        border: Border.all(
+          color: isOnline ? Colors.green.shade200 : Colors.red.shade200,
+          width: 1,
+        ),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: isOnline ? Colors.green.shade500 : Colors.red.shade500,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            isOnline ? 'Online' : 'Offline',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: isOnline ? Colors.green.shade700 : Colors.red.shade700,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
