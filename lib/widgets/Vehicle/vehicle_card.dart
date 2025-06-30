@@ -182,13 +182,48 @@ class VehicleCard extends StatelessWidget {
               stream: deviceService.getDeviceStream(vehicleModel.deviceId!),
               builder: (context, snapshot) {
                 if (snapshot.hasData && snapshot.data != null) {
+                  final device = snapshot.data!;
                   return Column(
                     children: [
                       _buildInfoRow(
                         context,
                         Icons.device_hub_rounded,
-                        'Device ID',
-                        vehicleModel.deviceId!,
+                        'Device Name',
+                        device.name,
+                        Colors.deepPurple,
+                      ),
+                      const SizedBox(height: 12),
+                      Divider(
+                        color: theme.colorScheme.outline.withOpacity(0.1),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  );
+                } else if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Column(
+                    children: [
+                      _buildInfoRow(
+                        context,
+                        Icons.device_hub_rounded,
+                        'Device Name',
+                        'Loading...',
+                        Colors.deepPurple,
+                      ),
+                      const SizedBox(height: 12),
+                      Divider(
+                        color: theme.colorScheme.outline.withOpacity(0.1),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  );
+                } else {
+                  return Column(
+                    children: [
+                      _buildInfoRow(
+                        context,
+                        Icons.device_hub_rounded,
+                        'Device Name',
+                        'Unknown Device',
                         Colors.deepPurple,
                       ),
                       const SizedBox(height: 12),
@@ -199,7 +234,6 @@ class VehicleCard extends StatelessWidget {
                     ],
                   );
                 }
-                return const SizedBox.shrink();
               },
             ),
           ],
