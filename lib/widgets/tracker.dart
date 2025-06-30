@@ -52,6 +52,10 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
   StreamSubscription<DatabaseEvent>? _relaySubscription;
   bool _isOnlineFromFirebase = false;
   bool _firebaseDataReceived = false;
+  
+  // Separate relay status for the button
+  bool _relayStatusFromFirebase = false;
+  bool _relayDataReceived = false;
 
   // Add DateFormat instance for parsing
   final DateFormat _dateFormat = DateFormat('yyyy-MM-dd HH:mm:ss');
@@ -74,6 +78,8 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
       setState(() {
         _isOnlineFromFirebase = false;
         _firebaseDataReceived = true;
+        _relayStatusFromFirebase = false;
+        _relayDataReceived = true;
       });
       return;
     }
@@ -89,10 +95,13 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
           if (mounted && event.snapshot.exists) {
             final relayValue = event.snapshot.value;
             final newOnlineStatus = relayValue == true;
+            final newRelayStatus = relayValue == true;
             
             setState(() {
               _isOnlineFromFirebase = newOnlineStatus;
               _firebaseDataReceived = true;
+              _relayStatusFromFirebase = newRelayStatus;
+              _relayDataReceived = true;
               
               // Update previous status for tracking changes
               if (_wasOnlinePreviously != newOnlineStatus) {
@@ -100,11 +109,13 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
               }
             });
             
-            debugPrint('Firebase relay status updated: $relayValue (Online: $newOnlineStatus)');
+            debugPrint('Firebase relay status updated: $relayValue (Online: $newOnlineStatus, Relay: $newRelayStatus)');
           } else if (mounted) {
             setState(() {
               _isOnlineFromFirebase = false;
               _firebaseDataReceived = true;
+              _relayStatusFromFirebase = false;
+              _relayDataReceived = true;
             });
             debugPrint('Firebase relay data not found or null for device: ${widget.deviceId}');
           }
@@ -115,6 +126,8 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
             setState(() {
               _isOnlineFromFirebase = false;
               _firebaseDataReceived = true;
+              _relayStatusFromFirebase = false;
+              _relayDataReceived = true;
             });
           }
         },
@@ -125,6 +138,8 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
         setState(() {
           _isOnlineFromFirebase = false;
           _firebaseDataReceived = true;
+          _relayStatusFromFirebase = false;
+          _relayDataReceived = true;
         });
       }
     }
@@ -238,6 +253,18 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
     }
   }
 
+  /// Get the actual vehicle/relay status from Firebase
+  /// Falls back to widget value if Firebase data is not available
+  bool _getActualVehicleStatus() {
+    // Use Firebase relay data if available, otherwise fall back to widget data
+    if (_relayDataReceived) {
+      return _relayStatusFromFirebase;
+    }
+    
+    // Fallback to widget value if Firebase data not yet received
+    return widget.isVehicleOn;
+  }
+
   // --- UI Actions ---
   Future<void> _copyLocation() async {
     if (!hasValidCoordinates) {
@@ -290,11 +317,38 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
 
     try {
       HapticFeedback.heavyImpact();
+      
+      // Store the expected new state
+      final expectedNewState = !_getActualVehicleStatus();
+      debugPrint('Toggle initiated - Expected new state: $expectedNewState');
+      
+      // Call the parent toggle function
       widget.toggleVehicleStatus();
 
-      await Future.delayed(
-        const Duration(milliseconds: 500),
-      ); // Simulate processing time
+      // Wait for Firebase to update (with timeout)
+      int attempts = 0;
+      const maxAttempts = 10; // 5 seconds max wait
+      while (attempts < maxAttempts && mounted) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        
+        if (_relayDataReceived && _relayStatusFromFirebase == expectedNewState) {
+          debugPrint('Firebase confirmed toggle - New state: $_relayStatusFromFirebase');
+          break;
+        }
+        
+        attempts++;
+        debugPrint('Waiting for Firebase confirmation... Attempt $attempts/$maxAttempts');
+      }
+      
+      if (attempts >= maxAttempts) {
+        debugPrint('Toggle timeout - Firebase may not have updated');
+        _showSnackBar('Device toggle may not have completed', isError: true);
+      } else {
+        _showSnackBar(
+          expectedNewState ? 'Device turned on' : 'Device turned off',
+          isError: false,
+        );
+      }
     } catch (e) {
       debugPrint('Error toggling vehicle status: $e');
       _showSnackBar('Failed to toggle vehicle status', isError: true);
@@ -390,7 +444,7 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
 
               const SizedBox(height: 16),
               BuildActionButton(
-                isVehicleOn: widget.isVehicleOn,
+                isVehicleOn: _getActualVehicleStatus(),
                 isDisabled: _isActionInProgress || widget.isLoading,
                 onPressed: _handleVehicleToggle,
               ),
@@ -470,6 +524,9 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
     debugPrint('Status Badge - Firebase received: $_firebaseDataReceived, '
         'Firebase status: $_isOnlineFromFirebase, '
         'Final online status: $online');
+    debugPrint('Action Button - Relay received: $_relayDataReceived, '
+        'Relay status: $_relayStatusFromFirebase, '
+        'Final vehicle status: ${_getActualVehicleStatus()}');
     
     return Container(
       width: 72, // Fixed width to ensure consistent size
