@@ -262,8 +262,7 @@ class GeofenceAlertService {
     // Save to local storage or Firestore if needed
     await _saveAlertToFirestore(alert);
 
-    // Notify listeners about the updated alerts
-    _notifyAlertsUpdated();
+    // Notify listeners about the updated alerts (removed redundant call)
   }
 
   // Save alert to Firestore
