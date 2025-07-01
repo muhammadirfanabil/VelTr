@@ -137,7 +137,7 @@ class EnhancedNotificationService {
       debugPrint('🎯 Routing geofence alert to GeofenceAlertService');
       // Delegate to GeofenceAlertService instead of handling locally
       final geofenceService = GeofenceAlertService();
-      geofenceService.handleFCMMessage(message); // We'll create this method
+      await geofenceService.handleFCMMessage(message); // We'll create this method
     } else {
       // Show local notification for non-geofence messages
       _showLocalNotification(message);
