@@ -700,17 +700,29 @@ exports.geofencechangestatus = onValueWritten(
           const logRef = db.collection("geofence_logs").doc();
           batch.set(logRef, logData);
 
-          // Send FCM notification
-          await sendGeofenceNotification({
-            deviceId: firestoreDeviceId,
-            deviceIdentifier: deviceId,
-            deviceName: deviceName,
-            geofenceName: geofence.name,
-            ownerId: ownerId,
-            action: action,
-            location: { latitude, longitude },
-            timestamp: timestamp,
-          });
+          // Check cooldown before sending FCM notification
+          const canSend = await canSendNotification(
+            firestoreDeviceId,
+            geofence.name,
+            2
+          );
+          if (canSend) {
+            // Send FCM notification
+            await sendGeofenceNotification({
+              deviceId: firestoreDeviceId,
+              deviceIdentifier: deviceId,
+              deviceName: deviceName,
+              geofenceName: geofence.name,
+              ownerId: ownerId,
+              action: action,
+              location: { latitude, longitude },
+              timestamp: timestamp,
+            });
+          } else {
+            console.log(
+              `⏰ [COOLDOWN] Skipping notification for ${deviceName} @ ${geofence.name} (${action})`
+            );
+          }
 
           processedResults.push({
             geofenceId: geofenceId,
@@ -929,6 +941,13 @@ async function sendGeofenceNotification(params) {
     console.log(
       `📱 [NOTIFICATION] Sending ${action} notification for "${geofenceName}"`
     );
+    console.log(`🔍 [DEBUG] Notification params:`, {
+      ownerId,
+      deviceId: deviceId.substring(0, 10) + "...",
+      deviceName,
+      geofenceName,
+      action,
+    });
 
     // Get user's FCM tokens
     const userDoc = await db.collection("users_information").doc(ownerId).get();
@@ -940,6 +959,15 @@ async function sendGeofenceNotification(params) {
     const userData = userDoc.data();
     const fcmTokens = userData.fcmTokens || [];
 
+    console.log(
+      `🔍 [FCM_TOKENS] Found ${fcmTokens.length} tokens for user ${ownerId}`
+    );
+    if (fcmTokens.length > 0) {
+      console.log(
+        `🔍 [FCM_TOKENS] First token: ${fcmTokens[0].substring(0, 20)}...`
+      );
+    }
+
     if (fcmTokens.length === 0) {
       console.log(`⚠️ [FCM] No FCM tokens found for user: ${ownerId}`);
       return;
@@ -950,12 +978,12 @@ async function sendGeofenceNotification(params) {
     const title = `Geofence Alert`;
     const body = `${deviceName} has ${actionText} ${geofenceName}`;
 
-    // Prepare FCM payload
+    console.log(
+      `🔔 [FCM] Preparing to send notification: "${title}" - "${body}"`
+    );
+
+    // Prepare FCM payload (data-only message to prevent system notifications)
     const message = {
-      notification: {
-        title: title,
-        body: body,
-      },
       data: {
         type: "geofence_alert",
         deviceId: deviceId,
@@ -965,20 +993,17 @@ async function sendGeofenceNotification(params) {
         latitude: location.latitude.toString(),
         longitude: location.longitude.toString(),
         timestamp: timestamp.toISOString(),
+        // Include title and body in data for app to handle
+        title: title,
+        body: body,
       },
       android: {
         priority: "high",
-        notification: {
-          icon: "ic_notification",
-          sound: "default",
-          channelId: "geofence_alerts",
-        },
       },
       apns: {
         payload: {
           aps: {
-            sound: "default",
-            badge: 1,
+            contentAvailable: true,
           },
         },
       },
@@ -1073,6 +1098,42 @@ async function cleanupInvalidFCMTokens(userId, invalidTokens) {
     }
   } catch (error) {
     console.error("❌ [FCM_CLEANUP] Error cleaning up tokens:", error);
+  }
+}
+
+/**
+ * Check if enough time has passed since the last notification for cooldown
+ * @param {string} deviceId - Device ID
+ * @param {string} geofenceId - Geofence ID
+ * @param {number} cooldownMinutes - Cooldown period in minutes (default 2)
+ * @return {boolean} True if enough time has passed
+ */
+async function canSendNotification(deviceId, geofenceId, cooldownMinutes = 2) {
+  try {
+    const cooldownMs = cooldownMinutes * 60 * 1000; // Convert to milliseconds
+    const cutoffTime = new Date(Date.now() - cooldownMs);
+
+    const recentNotification = await db
+      .collection("notifications")
+      .where("deviceId", "==", deviceId)
+      .where("geofenceName", "==", geofenceId)
+      .where("timestamp", ">=", cutoffTime)
+      .limit(1)
+      .get();
+
+    const canSend = recentNotification.empty;
+
+    if (!canSend) {
+      console.log(
+        `🚫 [COOLDOWN] Notification blocked for ${deviceId}@${geofenceId} ` +
+          `(cooldown: ${cooldownMinutes}min)`
+      );
+    }
+
+    return canSend;
+  } catch (error) {
+    console.error("Error checking notification cooldown:", error);
+    return true; // Default to allowing notification if check fails
   }
 }
 
@@ -1226,6 +1287,120 @@ exports.getgeofencestats = onCall(
     } catch (error) {
       console.error("❌ Error getting geofence stats:", error);
       throw new Error(`Failed to get stats: ${error.message}`);
+    }
+  }
+);
+
+// ===========================
+// DEBUG FUNCTION: Test FCM Notification manually
+// ===========================
+exports.testfcmnotification = onCall(
+  {
+    region: "asia-southeast1",
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new Error("Authentication required");
+    }
+
+    try {
+      const userId = request.auth.uid;
+
+      console.log(`🧪 [TEST_FCM] Testing notification for user: ${userId}`);
+
+      // Get user's FCM tokens
+      const userDoc = await db
+        .collection("users_information")
+        .doc(userId)
+        .get();
+      if (!userDoc.exists) {
+        throw new Error("User not found");
+      }
+
+      const userData = userDoc.data();
+      const fcmTokens = userData.fcmTokens || [];
+
+      if (fcmTokens.length === 0) {
+        throw new Error("No FCM tokens found for user");
+      }
+
+      console.log(`🔍 [TEST_FCM] Found ${fcmTokens.length} FCM tokens`);
+
+      // Test notification payload
+      const testMessage = {
+        data: {
+          type: "geofence_alert",
+          deviceId: "test_device",
+          deviceName: "Test Vehicle",
+          geofenceName: "Test Geofence",
+          action: "enter",
+          latitude: "-6.2088",
+          longitude: "106.8456",
+          timestamp: new Date().toISOString(),
+          title: "🧪 Test Geofence Alert",
+          body: "This is a manual test notification to verify FCM delivery",
+        },
+        android: {
+          priority: "high",
+        },
+        apns: {
+          payload: {
+            aps: {
+              contentAvailable: true,
+            },
+          },
+        },
+      };
+
+      // Send to first token
+      const testToken = fcmTokens[0];
+      console.log(
+        `📤 [TEST_FCM] Sending to token: ${testToken.substring(0, 20)}...`
+      );
+
+      await messaging.send({
+        ...testMessage,
+        token: testToken,
+      });
+
+      // Store test notification in database
+      const notificationData = {
+        ownerId: userId,
+        deviceId: "test_device",
+        deviceIdentifier: "test_device",
+        deviceName: "Test Vehicle",
+        geofenceName: "Test Geofence",
+        action: "enter",
+        message: "This is a manual test notification to verify FCM delivery",
+        location: {
+          latitude: -6.2088,
+          longitude: 106.8456,
+        },
+        timestamp: FieldValue.serverTimestamp(),
+        createdAt: new Date(),
+        read: false,
+        sentToTokens: 1,
+        totalTokens: fcmTokens.length,
+      };
+
+      const notificationRef = await db
+        .collection("notifications")
+        .add(notificationData);
+
+      console.log(
+        `✅ [TEST_FCM] Test notification sent and stored: ${notificationRef.id}`
+      );
+
+      return {
+        success: true,
+        message: "Test notification sent successfully",
+        notificationId: notificationRef.id,
+        sentToTokens: 1,
+        totalTokens: fcmTokens.length,
+      };
+    } catch (error) {
+      console.error("❌ [TEST_FCM] Error sending test notification:", error);
+      throw new Error(`Test notification failed: ${error.message}`);
     }
   }
 );

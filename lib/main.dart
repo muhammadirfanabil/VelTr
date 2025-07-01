@@ -45,12 +45,13 @@ void main() async {
   // Set background message handler
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-  // Initialize enhanced notification service
+  // Initialize enhanced notification service FIRST (this will handle ALL FCM messages)
   final notificationService = EnhancedNotificationService();
   await notificationService.initialize();
-  // Initialize geofence alert service
+  
+  // Initialize geofence alert service WITHOUT FCM handlers (to prevent duplicates)
   final geofenceAlertService = GeofenceAlertService();
-  await geofenceAlertService.initialize();
+  await geofenceAlertService.initializeWithoutFCM(); // We'll create this method
 
   // Initialize history service
   HistoryService.initialize();
