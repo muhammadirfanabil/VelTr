@@ -41,7 +41,7 @@ class BuildActionButton extends StatelessWidget {
         style: FilledButton.styleFrom(
           backgroundColor:
               isDisabled
-                  ? AppColors.textTertiary.withOpacity(0.3)
+                  ? AppColors.textTertiary.withValues(alpha: 0.3)
                   : (isVehicleOn ? AppColors.success : AppColors.error),
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 16),

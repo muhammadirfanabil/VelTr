@@ -68,8 +68,8 @@ class BuildInfoGrid extends StatelessWidget {
             border: Border.all(
               color:
                   hasValidCoordinates
-                      ? AppColors.primaryBlue.withOpacity(0.15)
-                      : AppColors.border.withOpacity(0.18),
+                      ? AppColors.primaryBlue.withValues(alpha: 0.15)
+                      : AppColors.border.withValues(alpha: 0.18),
             ),
           ),
           child: Row(
