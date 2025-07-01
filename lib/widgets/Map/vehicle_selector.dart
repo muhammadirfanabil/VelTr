@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/vehicle/vehicle.dart';
+import '../../services/device/deviceService.dart';
 
 class VehicleSelectorBottomSheet extends StatelessWidget {
   final List<vehicle> availableVehicles;
@@ -8,6 +9,7 @@ class VehicleSelectorBottomSheet extends StatelessWidget {
   final void Function(String deviceId, String vehicleName) onSwitchToVehicle;
   final void Function(String vehicleId) onAttachToDevice;
   final VoidCallback onAddDevice;
+  final DeviceService deviceService;
 
   const VehicleSelectorBottomSheet({
     super.key,
@@ -17,6 +19,7 @@ class VehicleSelectorBottomSheet extends StatelessWidget {
     required this.onSwitchToVehicle,
     required this.onAttachToDevice,
     required this.onAddDevice,
+    required this.deviceService,
   });
 
   @override
@@ -51,6 +54,16 @@ class VehicleSelectorBottomSheet extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// Helper method to get device name by ID
+  Future<String> _getDeviceName(String deviceId) async {
+    try {
+      final device = await deviceService.getDeviceById(deviceId);
+      return device?.name ?? 'Unknown Device';
+    } catch (e) {
+      return 'Unknown Device';
+    }
   }
 
   Widget _buildDragHandle(ColorScheme colorScheme) {
@@ -415,13 +428,21 @@ class VehicleSelectorBottomSheet extends StatelessWidget {
                         ),
                       const SizedBox(height: 4),
                       if (vehicle.deviceId != null)
-                        Text(
-                          'Device: ${vehicle.deviceId}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurface.withValues(alpha: 0.6),
-                            fontFamily: 'monospace',
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                        FutureBuilder<String>(
+                          future: _getDeviceName(vehicle.deviceId!),
+                          builder: (context, snapshot) {
+                            final deviceName = snapshot.data ?? 'Loading...';
+                            return Text(
+                              'Device: $deviceName',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.6,
+                                ),
+                                fontFamily: 'monospace',
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            );
+                          },
                         ),
                     ],
                   ),

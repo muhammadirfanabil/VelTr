@@ -365,6 +365,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
               Navigator.pop(context);
               Navigator.pushNamed(context, '/device');
             },
+            deviceService: _deviceService,
           ),
     );
   }
@@ -747,6 +748,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
             child: VehicleStatusPanel(
               // Use a stable key that doesn't change on every rebuild
               key: ValueKey('vehicle_panel_$currentDeviceId'),
+              deviceId: currentDeviceId ?? '', // Add deviceId parameter
               locationName: hasGPSData ? locationName : 'GPS not available',
               latitude: latitude,
               longitude: longitude,

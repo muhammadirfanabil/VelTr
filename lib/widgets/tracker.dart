@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
-import '../../widgets/tracker/info_grid.dart'; // Import the BuildInfoGrid widget
-import '../../widgets/tracker/locationdetail_dialog.dart'; // Import the LocationDetailsDialog widget
-import '../../widgets/tracker/remote.dart'; // Import the BuildActionButton widget
+import 'package:intl/intl.dart'; // Add this import
+import 'package:firebase_database/firebase_database.dart'; // Add Firebase import
+import 'dart:async'; // Add for StreamSubscription
+import '../../theme/app_colors.dart';
+
+import '../widgets/tracker/info_gird.dart';
+import '../widgets/tracker/locationdetail_dialog.dart';
+import '../widgets/tracker/remote.dart';
 
 class VehicleStatusPanel extends StatefulWidget {
   final String? locationName;
@@ -15,6 +19,7 @@ class VehicleStatusPanel extends StatefulWidget {
   final VoidCallback toggleVehicleStatus;
   final int? satellites;
   final bool isLoading;
+  final String deviceId; // Add deviceId parameter
 
   const VehicleStatusPanel({
     super.key,
@@ -27,6 +32,7 @@ class VehicleStatusPanel extends StatefulWidget {
     required this.toggleVehicleStatus,
     this.satellites,
     this.isLoading = false,
+    required this.deviceId, // Add required deviceId
   });
 
   @override
@@ -34,16 +40,123 @@ class VehicleStatusPanel extends StatefulWidget {
 }
 
 class _VehicleStatusPanelState extends State<VehicleStatusPanel>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
-  late Animation<double> _slideAnimation;
-  late Animation<double> _fadeAnimation;
+    with TickerProviderStateMixin {
+  late final AnimationController _animationController;
+  late final Animation<double> _slideAnimation;
+  late final Animation<double> _fadeAnimation;
+
+  bool _isActionInProgress = false;
+  bool _wasOnlinePreviously = false;
+
+  // Add Firebase real-time listening properties
+  StreamSubscription<DatabaseEvent>? _relaySubscription;
+  bool _isOnlineFromFirebase = false;
+  bool _firebaseDataReceived = false;
+
+  // Separate relay status for the button
+  bool _relayStatusFromFirebase = false;
+  bool _relayDataReceived = false;
+
+  // Add DateFormat instance for parsing
+  final DateFormat _dateFormat = DateFormat('yyyy-MM-dd HH:mm:ss');
 
   @override
   void initState() {
     super.initState();
+    _setupAnimations();
+    _animationController.forward();
+    _wasOnlinePreviously = isOnline;
+
+    // Setup Firebase real-time listener for relay status
+    _setupFirebaseListener();
+  }
+
+  void _setupFirebaseListener() {
+    // Validate device ID before setting up listener
+    if (widget.deviceId.isEmpty) {
+      debugPrint('Warning: Device ID is empty, cannot setup Firebase listener');
+      setState(() {
+        _isOnlineFromFirebase = false;
+        _firebaseDataReceived = true;
+        _relayStatusFromFirebase = false;
+        _relayDataReceived = true;
+      });
+      return;
+    }
+
+    try {
+      final relayRef = FirebaseDatabase.instance.ref(
+        'devices/${widget.deviceId}/relay',
+      );
+
+      debugPrint('Setting up Firebase listener for device: ${widget.deviceId}');
+
+      _relaySubscription = relayRef.onValue.listen(
+        (DatabaseEvent event) {
+          if (mounted && event.snapshot.exists) {
+            final relayValue = event.snapshot.value;
+            final newOnlineStatus = relayValue == true;
+            final newRelayStatus = relayValue == true;
+
+            setState(() {
+              _isOnlineFromFirebase = newOnlineStatus;
+              _firebaseDataReceived = true;
+              _relayStatusFromFirebase = newRelayStatus;
+              _relayDataReceived = true;
+
+              // Update previous status for tracking changes
+              if (_wasOnlinePreviously != newOnlineStatus) {
+                _wasOnlinePreviously = newOnlineStatus;
+              }
+            });
+
+            debugPrint(
+              'Firebase relay status updated: $relayValue (Online: $newOnlineStatus, Relay: $newRelayStatus)',
+            );
+          } else if (mounted) {
+            setState(() {
+              _isOnlineFromFirebase = false;
+              _firebaseDataReceived = true;
+              _relayStatusFromFirebase = false;
+              _relayDataReceived = true;
+            });
+            debugPrint(
+              'Firebase relay data not found or null for device: ${widget.deviceId}',
+            );
+          }
+        },
+        onError: (error) {
+          debugPrint(
+            'Firebase relay listener error for device ${widget.deviceId}: $error',
+          );
+          if (mounted) {
+            setState(() {
+              _isOnlineFromFirebase = false;
+              _firebaseDataReceived = true;
+              _relayStatusFromFirebase = false;
+              _relayDataReceived = true;
+            });
+          }
+        },
+      );
+    } catch (e) {
+      debugPrint(
+        'Error setting up Firebase listener for device ${widget.deviceId}: $e',
+      );
+      if (mounted) {
+        setState(() {
+          _isOnlineFromFirebase = false;
+          _firebaseDataReceived = true;
+          _relayStatusFromFirebase = false;
+          _relayDataReceived = true;
+        });
+      }
+    }
+  }
+
+  void _setupAnimations() {
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 350),
       vsync: this,
     );
 
@@ -54,12 +167,24 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
+  }
 
-    _animationController.forward();
+  @override
+  void didUpdateWidget(VehicleStatusPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final wasOnline = _wasOnlinePreviously;
+    final isCurrentlyOnline = isOnline;
+
+    if (wasOnline != isCurrentlyOnline) {
+      _wasOnlinePreviously = isCurrentlyOnline;
+    }
   }
 
   @override
   void dispose() {
+    // Clean up the Firebase listener
+    _relaySubscription?.cancel();
     _animationController.dispose();
     super.dispose();
   }
@@ -78,7 +203,17 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
           : 'No recent data';
 
   bool get isOnline {
-    if (widget.lastUpdated == null || widget.lastUpdated!.isEmpty) return false;
+    // Use Firebase relay data if available, otherwise fall back to timestamp logic
+    if (_firebaseDataReceived) {
+      return _isOnlineFromFirebase;
+    }
+
+    // Fallback to timestamp-based logic
+    if (widget.lastUpdated == null ||
+        widget.lastUpdated!.isEmpty ||
+        widget.lastUpdated == '-') {
+      return false;
+    }
 
     try {
       final updatedTime = DateTime.parse(widget.lastUpdated!);
@@ -90,16 +225,140 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
     }
   }
 
-  void _copyLocation() {
-    if (hasValidCoordinates) {
-      Clipboard.setData(ClipboardData(text: coordinatesText));
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Coordinates copied to clipboard'),
-          duration: Duration(seconds: 2),
-          backgroundColor: Colors.green,
+  String get connectionQuality {
+    if (!isOnline) return 'Poor';
+
+    final satellites = widget.satellites ?? 0;
+    if (satellites >= 8) return 'Excellent';
+    if (satellites >= 6) return 'Good';
+    if (satellites >= 4) return 'Fair';
+    return 'Poor';
+  }
+
+  Color get connectionQualityColor {
+    switch (connectionQuality) {
+      case 'Excellent':
+        return Colors.teal.shade800;
+      case 'Good':
+        return AppColors.success.withValues(alpha: 0.8);
+      case 'Fair':
+        return Colors.orange;
+      case 'Poor':
+      default:
+        return AppColors.error;
+    }
+  }
+
+  /// Get the actual vehicle/relay status from Firebase
+  /// Falls back to widget value if Firebase data is not available
+  bool _getActualVehicleStatus() {
+    // Use Firebase relay data if available, otherwise fall back to widget data
+    if (_relayDataReceived) {
+      return _relayStatusFromFirebase;
+    }
+
+    // Fallback to widget value if Firebase data not yet received
+    return widget.isVehicleOn;
+  }
+
+  // --- UI Actions ---
+  Future<void> _copyLocation() async {
+    if (!hasValidCoordinates) {
+      _showSnackBar('No valid coordinates to copy', isError: true);
+      return;
+    }
+
+    try {
+      await Clipboard.setData(ClipboardData(text: coordinatesText));
+      _showSnackBar('Coordinates copied to clipboard');
+      HapticFeedback.lightImpact();
+    } catch (e) {
+      debugPrint('Failed to copy coordinates: $e');
+      _showSnackBar('Failed to copy coordinates', isError: true);
+    }
+  }
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              isError ? Icons.error_outline : Icons.check_circle_outline,
+              color: Colors.white,
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
         ),
-      );
+        backgroundColor: isError ? AppColors.error : AppColors.success,
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+      ),
+    );
+  }
+
+  Future<void> _handleVehicleToggle() async {
+    if (_isActionInProgress || widget.isLoading) return;
+
+    setState(() {
+      _isActionInProgress = true;
+    });
+
+    try {
+      HapticFeedback.heavyImpact();
+
+      // Store the expected new state
+      final expectedNewState = !_getActualVehicleStatus();
+      debugPrint('Toggle initiated - Expected new state: $expectedNewState');
+
+      // Call the parent toggle function
+      widget.toggleVehicleStatus();
+
+      // Wait for Firebase to update (with timeout)
+      int attempts = 0;
+      const maxAttempts = 10; // 5 seconds max wait
+      while (attempts < maxAttempts && mounted) {
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        if (_relayDataReceived &&
+            _relayStatusFromFirebase == expectedNewState) {
+          debugPrint(
+            'Firebase confirmed toggle - New state: $_relayStatusFromFirebase',
+          );
+          break;
+        }
+
+        attempts++;
+        debugPrint(
+          'Waiting for Firebase confirmation... Attempt $attempts/$maxAttempts',
+        );
+      }
+
+      if (attempts >= maxAttempts) {
+        debugPrint('Toggle timeout - Firebase may not have updated');
+        _showSnackBar('Device toggle may not have completed', isError: true);
+      } else {
+        _showSnackBar(
+          expectedNewState ? 'Device turned on' : 'Device turned off',
+          isError: false,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error toggling vehicle status: $e');
+      _showSnackBar('Failed to toggle vehicle status', isError: true);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isActionInProgress = false;
+        });
+      }
     }
   }
 
@@ -131,93 +390,105 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
           offset: Offset(0, 50 * _slideAnimation.value),
           child: Opacity(
             opacity: _fadeAnimation.value,
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: Container(
-                margin: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+            child: _buildPanel(theme),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPanel(ThemeData theme) {
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Container(
+        margin: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 20,
+              offset: const Offset(0, -2),
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, -1),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildHeader(theme),
+              const SizedBox(height: 14),
+              BuildInfoGrid(
+                theme: theme,
+                lastUpdate: lastActiveText,
+                connectionQuality:
+                    "Good", // Replace with actual connection quality
+                connectionQualityColor:
+                    Colors.green, // Replace with actual color logic
+                hasValidCoordinates:
+                    widget.latitude != null && widget.longitude != null,
+                coordinatesText: coordinatesText,
+                onCopyLocation: _copyLocation,
+              ),
+
+              const SizedBox(height: 16),
+              BuildActionButton(
+                isVehicleOn: _getActualVehicleStatus(),
+                isDisabled: _isActionInProgress || widget.isLoading,
+                onPressed: _handleVehicleToggle,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(ThemeData theme) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: GestureDetector(
+            onTap: _showLocationDetails,
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.place_rounded,
+                  size: 20,
+                  color: AppColors.primaryBlue,
                 ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.15),
-                      blurRadius: 20,
-                      offset: const Offset(0, -4),
-                    ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
+                const SizedBox(width: 8),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                GestureDetector(
-                                  onTap: _showLocationDetails,
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.place,
-                                        size: 20,
-                                        color: Colors.blue.shade600,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          widget.locationName ??
-                                              'Loading location...',
-                                          style: theme.textTheme.titleMedium
-                                              ?.copyWith(
-                                                fontWeight: FontWeight.w600,
-                                                color: Colors.black87,
-                                              ),
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      Icon(
-                                        Icons.info_outline,
-                                        size: 16,
-                                        color: Colors.grey.shade500,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          _buildStatusBadge(theme),
-                        ],
+                      Text(
+                        _getLocationDisplayText(),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                          fontSize: 16,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 16),
-                      BuildInfoGrid(
-                        theme: theme,
-                        lastUpdate: lastActiveText,
-                        connectionQuality: isOnline ? 100 : 50,
-                        connectionQualityColor:
-                            isOnline
-                                ? Colors.green.shade600
-                                : Colors.red.shade600,
-                        hasValidCoordinates: hasValidCoordinates,
-                        coordinatesText: coordinatesText,
-                        onCopyLocation: _copyLocation,
-                      ),
-                      const SizedBox(height: 20),
-                      BuildActionButton(
-                        isVehicleOn: widget.isVehicleOn,
-                        isDisabled: widget.isLoading,
-                        onPressed: widget.toggleVehicleStatus,
+                      const SizedBox(height: 2),
+                      Text(
+                        'Tap for details',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppColors.textTertiary,
+                          fontSize: 11,
+                        ),
                       ),
                     ],
                   ),
@@ -231,34 +502,71 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
   }
 
   Widget _buildStatusBadge(ThemeData theme) {
+    final online = isOnline;
+
+    // Debug: Print current status source
+    debugPrint(
+      'Status Badge - Firebase received: $_firebaseDataReceived, '
+      'Firebase status: $_isOnlineFromFirebase, '
+      'Final online status: $online',
+    );
+    debugPrint(
+      'Action Button - Relay received: $_relayDataReceived, '
+      'Relay status: $_relayStatusFromFirebase, '
+      'Final vehicle status: ${_getActualVehicleStatus()}',
+    );
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      width: 72, // Fixed width to ensure consistent size
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
       decoration: BoxDecoration(
-        color: isOnline ? Colors.green.shade50 : Colors.red.shade50,
+        color:
+            online
+                ? AppColors.success.withOpacity(0.12)
+                : AppColors.error.withOpacity(0.10),
         border: Border.all(
-          color: isOnline ? Colors.green.shade200 : Colors.red.shade200,
+          color:
+              online
+                  ? AppColors.success.withOpacity(0.35)
+                  : AppColors.error.withOpacity(0.25),
           width: 1,
         ),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center, // Center the content
         children: [
           Container(
-            width: 8,
-            height: 8,
+            width: 7,
+            height: 7,
             decoration: BoxDecoration(
-              color: isOnline ? Colors.green.shade500 : Colors.red.shade500,
+              color: online ? AppColors.success : AppColors.error,
               shape: BoxShape.circle,
+              boxShadow:
+                  online
+                      ? [
+                        BoxShadow(
+                          color: AppColors.success.withOpacity(0.4),
+                          blurRadius: 4,
+                          spreadRadius: 1,
+                        ),
+                      ]
+                      : null,
             ),
           ),
           const SizedBox(width: 6),
-          Text(
-            isOnline ? 'Online' : 'Offline',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: isOnline ? Colors.green.shade700 : Colors.red.shade700,
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
+          Flexible(
+            // Use Flexible to prevent overflow
+            child: Text(
+              online ? 'Online' : 'Offline',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: online ? AppColors.success : AppColors.error,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+              textAlign: TextAlign.center, // Center align the text
+              overflow: TextOverflow.ellipsis, // Handle potential overflow
             ),
           ),
         ],

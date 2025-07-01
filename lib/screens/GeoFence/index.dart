@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/Geofence/Geofence.dart';
 import '../../services/Geofence/geofenceService.dart';
+import '../../services/device/deviceService.dart';
 import '../../utils/snackbar.dart';
 import '../../widgets/Common/error_card.dart';
 import '../../widgets/Common/loading_screen.dart';
@@ -24,7 +25,18 @@ class _GeofenceListScreenState extends State<GeofenceListScreen>
   bool _isDeleting = false;
   late AnimationController _listAnimationController;
   final GeofenceService _geofenceService = GeofenceService();
+  final DeviceService _deviceService = DeviceService();
   final ScrollController _scrollController = ScrollController();
+
+  /// Helper method to get device name by ID
+  Future<String> _getDeviceName(String deviceId) async {
+    try {
+      final device = await _deviceService.getDeviceById(deviceId);
+      return device?.name ?? 'Unknown Device';
+    } catch (e) {
+      return 'Unknown Device';
+    }
+  }
 
   @override
   void initState() {
@@ -85,13 +97,19 @@ class _GeofenceListScreenState extends State<GeofenceListScreen>
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            child: Text(
-              'Device: ${widget.deviceId}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: Colors.black,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
+            child: FutureBuilder<String>(
+              future: _getDeviceName(widget.deviceId),
+              builder: (context, snapshot) {
+                final deviceName = snapshot.data ?? 'Loading...';
+                return Text(
+                  'Device: $deviceName',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: Colors.black,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                );
+              },
             ),
           ),
         ],
