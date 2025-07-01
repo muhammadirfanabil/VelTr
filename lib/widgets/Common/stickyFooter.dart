@@ -79,7 +79,7 @@ class _StickyFooterState extends State<StickyFooter>
             context: context,
             icon: Icons.notifications_outlined,
             activeIcon: Icons.notifications,
-            label: 'Alerts',
+            label: 'Notifications',
             route: '/notifications',
             isActive: _isRouteActive(currentRouteName, '/notifications'),
           ),

@@ -27,6 +27,8 @@ class _GeofenceListScreenState extends State<GeofenceListScreen>
   final GeofenceService _geofenceService = GeofenceService();
   final DeviceService _deviceService = DeviceService();
   final ScrollController _scrollController = ScrollController();
+  final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
+      GlobalKey<RefreshIndicatorState>();
 
   /// Helper method to get device name by ID
   Future<String> _getDeviceName(String deviceId) async {
@@ -63,7 +65,6 @@ class _GeofenceListScreenState extends State<GeofenceListScreen>
       backgroundColor: colorScheme.surface,
       appBar: _buildAppBar(theme, colorScheme),
       body: _buildBody(theme, colorScheme),
-      // Removed floatingActionButton and floatingActionButtonLocation
     );
   }
 
@@ -127,7 +128,7 @@ class _GeofenceListScreenState extends State<GeofenceListScreen>
           icon: Icon(Icons.refresh_rounded, color: colorScheme.primary),
           onPressed: () {
             HapticFeedback.lightImpact();
-            setState(() {});
+            _triggerRefresh();
           },
           tooltip: 'Refresh',
         ),
@@ -145,95 +146,145 @@ class _GeofenceListScreenState extends State<GeofenceListScreen>
           colors: [colorScheme.surface, colorScheme.surface.withOpacity(0.95)],
         ),
       ),
-      child: StreamBuilder<List<Geofence>>(
-        stream: _geofenceService.getGeofencesStream(widget.deviceId),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: ErrorCard(
-                  message: 'Failed to load geofences: ${snapshot.error}',
-                  onRetry: () => setState(() {}),
-                ),
-              ),
-            );
-          }
+      child: RefreshIndicator(
+        key: _refreshIndicatorKey,
+        onRefresh: _handleRefresh,
+        color: colorScheme.primary,
+        backgroundColor: Colors.white,
+        strokeWidth: 2.5,
+        displacement: 40,
+        child: StreamBuilder<List<Geofence>>(
+          stream: _geofenceService.getGeofencesStream(widget.deviceId),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return _buildScrollableErrorCard(snapshot.error);
+            }
 
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const LoadingScreen(message: 'Loading geofences...');
-          }
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return _buildScrollableLoadingScreen();
+            }
 
-          final geofences = snapshot.data ?? [];
-          if (geofences.isEmpty) {
-            return _buildEmptyState(theme, colorScheme);
-          }
+            final geofences = snapshot.data ?? [];
+            if (geofences.isEmpty) {
+              return _buildScrollableEmptyState(theme, colorScheme);
+            }
 
-          return _buildGeofenceList(geofences);
-        },
+            return _buildGeofenceList(geofences);
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildEmptyState(ThemeData theme, ColorScheme colorScheme) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.0, end: 1.0),
-              duration: const Duration(milliseconds: 800),
-              curve: Curves.elasticOut,
-              builder: (context, value, child) {
-                // Clamp value to avoid opacity error
-                final safeValue = value.clamp(0.0, 1.0);
-                return Transform.scale(
-                  scale: safeValue,
-                  child: Container(
-                    padding: const EdgeInsets.all(32),
-                    decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer.withOpacity(0.3),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: colorScheme.primary.withOpacity(0.1),
-                          blurRadius: 20,
-                          spreadRadius: 5,
+  // Make error card scrollable for pull-to-refresh
+  Widget _buildScrollableErrorCard(dynamic error) {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverFillRemaining(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: ErrorCard(
+                message: 'Failed to load geofences: $error',
+                onRetry: _triggerRefresh,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Make loading screen scrollable for pull-to-refresh
+  Widget _buildScrollableLoadingScreen() {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverFillRemaining(
+          child: const LoadingScreen(message: 'Loading geofences...'),
+        ),
+      ],
+    );
+  }
+
+  // Make empty state scrollable for pull-to-refresh
+  Widget _buildScrollableEmptyState(ThemeData theme, ColorScheme colorScheme) {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverFillRemaining(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    duration: const Duration(milliseconds: 800),
+                    curve: Curves.elasticOut,
+                    builder: (context, value, child) {
+                      // Clamp value to avoid opacity error
+                      final safeValue = value.clamp(0.0, 1.0);
+                      return Transform.scale(
+                        scale: safeValue,
+                        child: Container(
+                          padding: const EdgeInsets.all(32),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primaryContainer.withOpacity(
+                              0.3,
+                            ),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: colorScheme.primary.withOpacity(0.1),
+                                blurRadius: 20,
+                                spreadRadius: 5,
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            Icons.location_searching_rounded,
+                            size: 80,
+                            color: colorScheme.primary,
+                          ),
                         ),
-                      ],
-                    ),
-                    child: Icon(
-                      Icons.location_searching_rounded,
-                      size: 80,
-                      color: colorScheme.primary,
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 32),
+                  Text(
+                    'No geofences yet',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onSurface,
                     ),
                   ),
-                );
-              },
-            ),
-            const SizedBox(height: 32),
-            Text(
-              'No geofences yet',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: colorScheme.onSurface,
+                  const SizedBox(height: 12),
+                  Text(
+                    'Create your first geofence to start\nmonitoring specific locations',
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: colorScheme.onSurface.withOpacity(0.6),
+                      height: 1.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Pull down to refresh',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.primary.withOpacity(0.7),
+                      fontStyle: FontStyle.italic,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              'Create your first geofence to start\nmonitoring specific locations',
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: colorScheme.onSurface.withOpacity(0.6),
-                height: 1.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            // Removed "Add Geofence" button here
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -242,7 +293,7 @@ class _GeofenceListScreenState extends State<GeofenceListScreen>
       opacity: _listAnimationController,
       child: CustomScrollView(
         controller: _scrollController,
-        physics: const BouncingScrollPhysics(),
+        physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
@@ -328,6 +379,30 @@ class _GeofenceListScreenState extends State<GeofenceListScreen>
         ],
       ),
     );
+  }
+
+  // Handle pull-to-refresh
+  Future<void> _handleRefresh() async {
+    try {
+      // Force refresh the geofences stream
+      _triggerRefresh;
+
+      // Add a small delay for better UX
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      if (mounted) {
+        SnackbarUtils.showSuccess(context, 'Geofences refreshed');
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackbarUtils.showError(context, 'Failed to refresh geofences: $e');
+      }
+    }
+  }
+
+  // Trigger refresh programmatically (for refresh button)
+  void _triggerRefresh() {
+    _refreshIndicatorKey.currentState?.show();
   }
 
   Future<bool?> _showDeleteConfirmation(Geofence geofence) {

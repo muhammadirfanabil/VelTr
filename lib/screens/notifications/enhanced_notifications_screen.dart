@@ -122,7 +122,7 @@ class _EnhancedNotificationsScreenState
         ),
       ),
       title: Text(
-        'Alerts',
+        'Notifications',
         style: theme.textTheme.titleLarge?.copyWith(
           color: isDark ? AppColors.textPrimary : AppColors.textPrimary,
           fontWeight: FontWeight.bold,
@@ -319,7 +319,7 @@ class _EnhancedNotificationsScreenState
                   ),
                   const SizedBox(height: 25),
                   Text(
-                    'No Alerts Yet',
+                    'No Notifications Yet',
                     style: theme.textTheme.titleLarge?.copyWith(
                       color: AppColors.textPrimary,
                       fontWeight: FontWeight.bold,
@@ -541,7 +541,7 @@ class _EnhancedNotificationsScreenState
   Future<void> _showClearAllConfirmation(BuildContext context) async {
     final confirmed = await ConfirmationDialog.show(
       context: context,
-      title: 'Clear All Alerts',
+      title: 'Clear All Notifications',
       content:
           'This will permanently delete all your notifications. This action can\'t be undone.',
       confirmText: 'Clear All',

@@ -3,6 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
 
+import '../../widgets/Common/confirmation_dialog.dart';
+import '../../utils/snackbar.dart';
+
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
 
@@ -168,56 +171,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.error,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
+    SnackbarUtils.showError(context, message);
   }
 
   void _showSuccess(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.success,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
+    SnackbarUtils.showSuccess(context, message);
   }
 
   Future<bool> _onWillPop() async {
     if (!_hasChanges) return true;
-    final shouldDiscard = await showDialog<bool>(
+
+    final shouldDiscard = await ConfirmationDialog.show(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: const Text('Discard changes?'),
-            content: const Text(
-              'You have unsaved changes. Are you sure you want to go back?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                style: TextButton.styleFrom(foregroundColor: AppColors.error),
-                child: const Text('Discard'),
-              ),
-            ],
-          ),
+      title: 'Discard changes?',
+      content: 'You have unsaved changes. Are you sure you want to go back?',
+      confirmText: 'Discard',
+      cancelText: 'Cancel',
+      confirmColor: AppColors.error,
     );
+
     return shouldDiscard ?? false;
   }
 
@@ -298,14 +271,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               isRequired: true,
               theme: theme,
             ),
-            _buildFormField(
-              controller: _emailController,
-              label: 'Email',
-              icon: Icons.email_outlined,
-              keyboardType: TextInputType.emailAddress,
-              isRequired: true,
-              theme: theme,
-            ),
+            // _buildFormField(
+            //   controller: _emailController,
+            //   label: 'Email',
+            //   icon: Icons.email_outlined,
+            //   keyboardType: TextInputType.emailAddress,
+            //   isRequired: true,
+            //   theme: theme,
+            // ),
             _buildFormField(
               controller: _phoneController,
               label: 'Phone Number',

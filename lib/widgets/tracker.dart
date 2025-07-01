@@ -5,7 +5,7 @@ import 'package:firebase_database/firebase_database.dart'; // Add Firebase impor
 import 'dart:async'; // Add for StreamSubscription
 import '../../theme/app_colors.dart';
 
-import '../widgets/tracker/info_gird.dart';
+import '../widgets/tracker/info_grid.dart';
 import '../widgets/tracker/locationdetail_dialog.dart';
 import '../widgets/tracker/remote.dart';
 
@@ -189,18 +189,28 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
     super.dispose();
   }
 
-  bool get hasValidCoordinates =>
-      widget.latitude != null && widget.longitude != null;
+  // --- Logic Getters ---
 
-  String get coordinatesText =>
-      hasValidCoordinates
-          ? '${widget.latitude!.toStringAsFixed(5)}, ${widget.longitude!.toStringAsFixed(5)}'
-          : 'Coordinates not available';
+  bool get hasValidCoordinates {
+    return widget.latitude != null &&
+        widget.longitude != null &&
+        widget.latitude!.abs() <= 90 &&
+        widget.longitude!.abs() <= 180 &&
+        widget.latitude != 0.0 &&
+        widget.longitude != 0.0;
+  }
 
-  String get lastActiveText =>
-      (widget.lastUpdated?.isNotEmpty ?? false)
-          ? widget.lastUpdated!
-          : 'No recent data';
+  String get coordinatesText {
+    if (!hasValidCoordinates) return 'Coordinates not available';
+    return '${widget.latitude!.toStringAsFixed(5)}, ${widget.longitude!.toStringAsFixed(5)}';
+  }
+
+  String get lastActiveText {
+    if (widget.lastUpdated?.isNotEmpty == true) {
+      return widget.lastUpdated!;
+    }
+    return 'No recent data';
+  }
 
   bool get isOnline {
     // Use Firebase relay data if available, otherwise fall back to timestamp logic
@@ -216,11 +226,14 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
     }
 
     try {
-      final updatedTime = DateTime.parse(widget.lastUpdated!);
+      final updatedTime = _dateFormat.parse(widget.lastUpdated!);
       final now = DateTime.now();
-      final difference = now.difference(updatedTime).inMinutes;
-      return difference <= 2; // Allow 2 minutes for online status
-    } catch (_) {
+      final differenceInMinutes = now.difference(updatedTime).inMinutes;
+
+      return differenceInMinutes <= 2;
+    } catch (e) {
+      debugPrint('Error parsing timestamp: $e');
+      debugPrint('Timestamp value: ${widget.lastUpdated}');
       return false;
     }
   }
@@ -363,8 +376,10 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
   }
 
   void _showLocationDetails() {
+    HapticFeedback.selectionClick();
     showDialog(
       context: context,
+      barrierDismissible: true,
       builder:
           (context) => LocationDetailsDialog(
             locationName: widget.locationName,
@@ -372,12 +387,14 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
             longitude: widget.longitude,
             lastUpdated: lastActiveText,
             satellites: widget.satellites,
-            connectionQuality: isOnline ? 'Good' : 'Poor',
-            connectionQualityColor: isOnline ? Colors.green : Colors.red,
-            onCopyCoordinates: _copyLocation,
+            connectionQuality: connectionQuality,
+            connectionQualityColor: connectionQualityColor,
+            onCopyCoordinates: hasValidCoordinates ? _copyLocation : null,
           ),
     );
   }
+
+  // --- UI ---
 
   @override
   Widget build(BuildContext context) {
@@ -387,7 +404,7 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
       animation: _animationController,
       builder: (context, child) {
         return Transform.translate(
-          offset: Offset(0, 50 * _slideAnimation.value),
+          offset: Offset(0, 40 * _slideAnimation.value),
           child: Opacity(
             opacity: _fadeAnimation.value,
             child: _buildPanel(theme),
@@ -430,9 +447,9 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
                 theme: theme,
                 lastUpdate: lastActiveText,
                 connectionQuality:
-                    "Good", // Replace with actual connection quality
+                    connectionQuality, // This is now fixed with a dynamic value
                 connectionQualityColor:
-                    Colors.green, // Replace with actual color logic
+                    connectionQualityColor, // so is this one
                 hasValidCoordinates:
                     widget.latitude != null && widget.longitude != null,
                 coordinatesText: coordinatesText,
@@ -493,12 +510,25 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
                     ],
                   ),
                 ),
-              ),
+                Icon(
+                  Icons.keyboard_arrow_right_rounded,
+                  size: 18,
+                  color: AppColors.textTertiary,
+                ),
+              ],
             ),
           ),
-        );
-      },
+        ),
+        const SizedBox(width: 10),
+        _buildStatusBadge(theme),
+      ],
     );
+  }
+
+  String _getLocationDisplayText() {
+    if (widget.isLoading) return 'Loading location...';
+    if (widget.locationName?.isNotEmpty == true) return widget.locationName!;
+    return 'Location unavailable';
   }
 
   Widget _buildStatusBadge(ThemeData theme) {
@@ -563,7 +593,7 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
               style: theme.textTheme.bodySmall?.copyWith(
                 color: online ? AppColors.success : AppColors.error,
                 fontWeight: FontWeight.w600,
-                fontSize: 12,
+                fontSize: 10,
               ),
               textAlign: TextAlign.center, // Center align the text
               overflow: TextOverflow.ellipsis, // Handle potential overflow

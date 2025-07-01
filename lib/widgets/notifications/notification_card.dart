@@ -73,7 +73,11 @@ class NotificationCard extends StatelessWidget {
       alignment: Alignment.centerRight,
       padding: const EdgeInsets.only(right: 24),
       decoration: BoxDecoration(
-        color: AppColors.error,
+        gradient: LinearGradient(
+          colors: [Colors.red.shade400, Colors.red.shade700],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
