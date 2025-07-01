@@ -6,6 +6,7 @@ import '../../services/device/deviceService.dart';
 import '../../models/Device/device.dart';
 
 import '../../theme/app_icons.dart';
+import '../../theme/app_colors.dart';
 import '../../widgets/Common/error_card.dart';
 import '../../widgets/Vehicle/vehicle_card.dart';
 import '../../widgets/Common/confirmation_dialog.dart';
@@ -503,14 +504,22 @@ class _ManageVehicleState extends State<ManageVehicle> {
         elevation: 0,
         surfaceTintColor: Colors.white,
         actions: [
-          IconButton(
-            icon: Icon(
-              Icons.add_rounded,
-              color: theme.colorScheme.primary,
-              size: 24,
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.primaryBlue.withValues(
+                alpha: 0.05,
+              ), // Subtle background
+              borderRadius: BorderRadius.circular(10),
             ),
-            onPressed: () => _showAddVehicleDialog(context),
-            tooltip: 'Add Vehicle',
+            child: IconButton(
+              icon: Icon(
+                Icons.add_rounded,
+                color: theme.colorScheme.primary,
+                size: 24,
+              ),
+              onPressed: () => _showAddVehicleDialog(context),
+              tooltip: 'Add Vehicle',
+            ),
           ),
           IconButton(
             icon: Icon(

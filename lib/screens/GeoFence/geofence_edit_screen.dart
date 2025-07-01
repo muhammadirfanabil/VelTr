@@ -341,7 +341,7 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
         style: TextStyle(
           fontWeight: FontWeight.bold,
           color: AppColors.textPrimary,
-          fontSize: 20,
+          fontSize: 22,
         ),
       ),
       centerTitle: true,

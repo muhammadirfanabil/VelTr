@@ -25,10 +25,14 @@ class DeviceCard extends StatelessWidget {
   Widget build(BuildContext context) => _buildCard();
   Widget _buildCard() {
     return Card(
-      elevation: 4,
-      shadowColor: AppColors.textTertiary.withOpacity(0.3),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 3,
+      shadowColor: AppColors.textTertiary.withValues(alpha: 0.3),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade500.withValues(alpha: 0.3)),
+      ),
       color: AppColors.surface,
+
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),

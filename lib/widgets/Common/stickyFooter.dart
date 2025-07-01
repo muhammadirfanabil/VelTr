@@ -297,7 +297,7 @@ class BouncyStickyFooter extends StatelessWidget {
       child: AnimatedScale(
         scale: isActive ? 1.1 : 1.0,
         duration: const Duration(milliseconds: 200),
-        curve: Curves.bounceOut,
+        curve: Curves.easeInOut,
         child: InkWell(
           onTap: () {
             if (!isActive) {

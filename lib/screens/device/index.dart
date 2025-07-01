@@ -61,9 +61,9 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
         Container(
           decoration: BoxDecoration(
             color: AppColors.primaryBlue.withValues(
-              alpha: 0.1,
+              alpha: 0.05,
             ), // Subtle background
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: IconButton(
             icon: Icon(AppIcons.add, color: AppColors.primaryBlue),

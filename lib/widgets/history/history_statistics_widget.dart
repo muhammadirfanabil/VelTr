@@ -42,7 +42,7 @@ class HistoryStatisticsWidget extends StatelessWidget {
                   child: _buildStatItem(
                     icon: Icons.straighten_rounded,
                     label: 'Distance',
-                    value: '${totalDistance.toStringAsFixed(1)} km',
+                    value: '${totalDistance.toStringAsFixed(1)} m',
                     color: AppColors.primaryBlue,
                     theme: theme,
                   ),

@@ -48,7 +48,7 @@ void main() async {
   // Initialize enhanced notification service FIRST (this will handle ALL FCM messages)
   final notificationService = EnhancedNotificationService();
   await notificationService.initialize();
-  
+
   // Initialize geofence alert service WITHOUT FCM handlers (to prevent duplicates)
   final geofenceAlertService = GeofenceAlertService();
   await geofenceAlertService.initializeWithoutFCM(); // We'll create this method
@@ -274,10 +274,12 @@ class MyApp extends StatelessWidget {
 
   Map<String, WidgetBuilder> _buildRoutes() {
     return {
-      '/login': (context) => const LoginScreen(),      '/change-password': (context) {
+      '/login': (context) => const LoginScreen(),
+      '/change-password': (context) {
         final args =
             ModalRoute.of(context)?.settings.arguments as Map<String, String>?;
-        final email = args?['email'] ?? FirebaseAuth.instance.currentUser?.email ?? '';
+        final email =
+            args?['email'] ?? FirebaseAuth.instance.currentUser?.email ?? '';
         return ChangePasswordScreen(email: email);
       },
       '/registerone': (context) => const RegisterOne(),

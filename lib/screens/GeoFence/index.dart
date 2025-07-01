@@ -10,6 +10,7 @@ import '../GeoFence/geofence.dart';
 import 'geofence_edit_screen.dart';
 import '../../widgets/Geofence/geofence_card.dart';
 import '../../widgets/Common/confirmation_dialog.dart';
+import '../../theme/app_colors.dart';
 
 class GeofenceListScreen extends StatefulWidget {
   final String deviceId;
@@ -116,13 +117,19 @@ class _GeofenceListScreenState extends State<GeofenceListScreen>
         ],
       ),
       actions: [
-        IconButton(
-          icon: Icon(Icons.add_rounded, color: colorScheme.primary),
-          onPressed: () {
-            HapticFeedback.mediumImpact();
-            _navigateToCreateGeofence();
-          },
-          tooltip: 'Add Geofence',
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.primaryBlue.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: IconButton(
+            icon: Icon(Icons.add_rounded, color: colorScheme.primary),
+            onPressed: () {
+              HapticFeedback.mediumImpact();
+              _navigateToCreateGeofence();
+            },
+            tooltip: 'Add Geofence',
+          ),
         ),
         IconButton(
           icon: Icon(Icons.refresh_rounded, color: colorScheme.primary),
@@ -176,7 +183,6 @@ class _GeofenceListScreenState extends State<GeofenceListScreen>
     );
   }
 
-  // Make error card scrollable for pull-to-refresh
   Widget _buildScrollableErrorCard(dynamic error) {
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -196,7 +202,6 @@ class _GeofenceListScreenState extends State<GeofenceListScreen>
     );
   }
 
-  // Make loading screen scrollable for pull-to-refresh
   Widget _buildScrollableLoadingScreen() {
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -208,7 +213,6 @@ class _GeofenceListScreenState extends State<GeofenceListScreen>
     );
   }
 
-  // Make empty state scrollable for pull-to-refresh
   Widget _buildScrollableEmptyState(ThemeData theme, ColorScheme colorScheme) {
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -225,7 +229,6 @@ class _GeofenceListScreenState extends State<GeofenceListScreen>
                     duration: const Duration(milliseconds: 800),
                     curve: Curves.elasticOut,
                     builder: (context, value, child) {
-                      // Clamp value to avoid opacity error
                       final safeValue = value.clamp(0.0, 1.0);
                       return Transform.scale(
                         scale: safeValue,
@@ -300,23 +303,13 @@ class _GeofenceListScreenState extends State<GeofenceListScreen>
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate((context, index) {
                 final geofence = geofences[index];
-                return TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  duration: Duration(milliseconds: 400 + (index * 100)),
-                  curve: Curves.easeOutBack,
-                  builder: (context, value, child) {
-                    final safeValue = value.clamp(0.0, 1.0);
-                    return Transform.translate(
-                      offset: Offset(0, 50 * (1 - safeValue)),
-                      child: Opacity(
-                        opacity: safeValue,
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: _buildDismissibleGeofenceCard(geofence),
-                        ),
-                      ),
-                    );
-                  },
+                return Column(
+                  children: [
+                    _buildDismissibleGeofenceCard(
+                      geofence,
+                    ), // The Geofence card
+                    const SizedBox(height: 15), // Add space between cards
+                  ],
                 );
               }, childCount: geofences.length),
             ),
@@ -381,26 +374,16 @@ class _GeofenceListScreenState extends State<GeofenceListScreen>
     );
   }
 
-  // Handle pull-to-refresh
   Future<void> _handleRefresh() async {
     try {
-      // Force refresh the geofences stream
-      _triggerRefresh;
-
-      // Add a small delay for better UX
       await Future.delayed(const Duration(milliseconds: 500));
-
-      if (mounted) {
-        SnackbarUtils.showSuccess(context, 'Geofences refreshed');
-      }
+      _triggerRefresh();
+      SnackbarUtils.showSuccess(context, 'Geofences refreshed');
     } catch (e) {
-      if (mounted) {
-        SnackbarUtils.showError(context, 'Failed to refresh geofences: $e');
-      }
+      SnackbarUtils.showError(context, 'Failed to refresh geofences: $e');
     }
   }
 
-  // Trigger refresh programmatically (for refresh button)
   void _triggerRefresh() {
     _refreshIndicatorKey.currentState?.show();
   }
@@ -424,20 +407,14 @@ class _GeofenceListScreenState extends State<GeofenceListScreen>
 
     try {
       await _geofenceService.deleteGeofence(geofence.id);
-      if (mounted) {
-        SnackbarUtils.showSuccess(
-          context,
-          'Geofence "$name" deleted successfully',
-        );
-      }
+      SnackbarUtils.showSuccess(
+        context,
+        'Geofence "$name" deleted successfully',
+      );
     } catch (e) {
-      if (mounted) {
-        SnackbarUtils.showError(context, 'Failed to delete geofence: $e');
-      }
+      SnackbarUtils.showError(context, 'Failed to delete geofence: $e');
     } finally {
-      if (mounted) {
-        setState(() => _isDeleting = false);
-      }
+      setState(() => _isDeleting = false);
     }
   }
 
@@ -445,16 +422,12 @@ class _GeofenceListScreenState extends State<GeofenceListScreen>
     try {
       final updatedGeofence = geofence.copyWith(status: value);
       await _geofenceService.updateGeofence(updatedGeofence);
-      if (mounted) {
-        SnackbarUtils.showSuccess(
-          context,
-          'Geofence ${value ? 'activated' : 'deactivated'} successfully',
-        );
-      }
+      SnackbarUtils.showSuccess(
+        context,
+        'Geofence ${value ? 'activated' : 'deactivated'} successfully',
+      );
     } catch (e) {
-      if (mounted) {
-        SnackbarUtils.showError(context, 'Failed to update status: $e');
-      }
+      SnackbarUtils.showError(context, 'Failed to update status: $e');
     }
   }
 
