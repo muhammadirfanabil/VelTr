@@ -22,9 +22,11 @@ class GeofenceAlertService {
   final DeviceService _deviceService = DeviceService();
 
   // Storage for alert deduplication tracking
-  final Map<String, Map<String, String>> _lastAlertAction = {}; // deviceId -> {geofenceName: lastAction}
-  final Map<String, Map<String, DateTime>> _lastAlertTime = {}; // deviceId -> {geofenceName: lastTime}
-  
+  final Map<String, Map<String, String>> _lastAlertAction =
+      {}; // deviceId -> {geofenceName: lastAction}
+  final Map<String, Map<String, DateTime>> _lastAlertTime =
+      {}; // deviceId -> {geofenceName: lastTime}
+
   // Flag to prevent FCM initialization (set to true when using centralized FCM handling)
   static bool _preventFCMInitialization = false;
 
@@ -49,13 +51,15 @@ class GeofenceAlertService {
   // Initialize the geofence alert service
   Future<void> initialize() async {
     if (_isInitialized) return;
-    
+
     // If FCM initialization is prevented, use the FCM-free version
     if (_preventFCMInitialization) {
-      debugPrint('⚠️ GeofenceAlertService: FCM initialization prevented, using FCM-free version');
+      debugPrint(
+        '⚠️ GeofenceAlertService: FCM initialization prevented, using FCM-free version',
+      );
       return await initializeWithoutFCM();
     }
-    
+
     try {
       await _initializeFirebaseMessaging();
       await _initializeLocalNotifications();
@@ -75,12 +79,14 @@ class GeofenceAlertService {
     try {
       // Set the flag to prevent any future FCM initialization
       _preventFCMInitialization = true;
-      
+
       // Only initialize local notifications, skip FCM setup
       await _initializeLocalNotifications();
 
       _isInitialized = true;
-      debugPrint('✅ GeofenceAlertService: Initialized without FCM handlers (preventing duplicates)');
+      debugPrint(
+        '✅ GeofenceAlertService: Initialized without FCM handlers (preventing duplicates)',
+      );
     } catch (e) {
       debugPrint('❌ GeofenceAlertService: Initialization failed: $e');
     }
@@ -183,15 +189,12 @@ class GeofenceAlertService {
 
   // Show local notification
   Future<void> _showLocalNotification(RemoteMessage message) async {
-    final notification = message.notification;
     final data = message.data;
 
-    if (notification == null) return;
+    // Extract title and body from data (since we're now using data-only messages)
+    final String title = data['title'] ?? '🚗 Geofence Alert';
+    final String body = data['body'] ?? 'Device activity detected';
 
-    final String deviceName = data['deviceName'] ?? 'Unknown Device';
-    final String geofenceName = data['geofenceName'] ?? 'Unknown Geofence';
-    final String action = data['action'] ?? 'unknown';
-    final String actionText = action == 'enter' ? 'entered' : 'exited';
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
           'geofence_alerts',
@@ -212,8 +215,8 @@ class GeofenceAlertService {
 
     await _localNotifications.show(
       message.hashCode,
-      '🚗 Geofence Alert',
-      '$deviceName has $actionText $geofenceName',
+      title,
+      body,
       notificationDetails,
       payload: message.data.toString(),
     );
@@ -222,17 +225,19 @@ class GeofenceAlertService {
   // Add alert to recent alerts list with deduplication
   Future<void> _addToRecentAlerts(RemoteMessage message) async {
     final data = message.data;
-    
+
     final deviceId = data['deviceId'] ?? '';
     final geofenceName = data['geofenceName'] ?? 'Unknown Geofence';
     final action = data['action'] ?? 'unknown';
-    
+
     // Check for duplicate - skip if same device+geofence had same action recently
     if (_isDuplicateAlert(deviceId, geofenceName, action)) {
-      debugPrint('🔄 Skipping duplicate alert: $deviceId @ $geofenceName ($action)');
+      debugPrint(
+        '🔄 Skipping duplicate alert: $deviceId @ $geofenceName ($action)',
+      );
       return; // Re-enabled deduplication
     }
-    
+
     // Update the last action for this device+geofence
     _updateLastAlertAction(deviceId, geofenceName, action);
 
@@ -295,37 +300,44 @@ class GeofenceAlertService {
   bool _isDuplicateAlert(String deviceId, String geofenceName, String action) {
     final deviceAlerts = _lastAlertAction[deviceId];
     final deviceTimes = _lastAlertTime[deviceId];
-    
+
     if (deviceAlerts == null || deviceTimes == null) return false;
-    
+
     final lastAction = deviceAlerts[geofenceName];
     final lastTime = deviceTimes[geofenceName];
-    
+
     // Only consider it a duplicate if:
     // 1. Same action as last time AND
     // 2. Within 60 seconds of the last alert
     if (lastAction == action && lastTime != null) {
       final timeDifference = DateTime.now().difference(lastTime).inSeconds;
       if (timeDifference < 60) {
-        debugPrint('⏰ Duplicate detected: Same action within ${timeDifference}s');
+        debugPrint(
+          '⏰ Duplicate detected: Same action within ${timeDifference}s',
+        );
         return true;
       }
     }
-    
+
     return false;
   }
 
   // Update the last alert action and time for device+geofence combination
-  void _updateLastAlertAction(String deviceId, String geofenceName, String action) {
+  void _updateLastAlertAction(
+    String deviceId,
+    String geofenceName,
+    String action,
+  ) {
     _lastAlertAction[deviceId] ??= {};
     _lastAlertTime[deviceId] ??= {};
-    
+
     _lastAlertAction[deviceId]![geofenceName] = action;
     _lastAlertTime[deviceId]![geofenceName] = DateTime.now();
   }
 
   // Stream controller for reactive UI updates
-  final StreamController<List<GeofenceAlert>> _alertsStreamController = StreamController<List<GeofenceAlert>>.broadcast();
+  final StreamController<List<GeofenceAlert>> _alertsStreamController =
+      StreamController<List<GeofenceAlert>>.broadcast();
 
   // Get recent alerts as a stream for reactive UI updates
   Stream<List<GeofenceAlert>> getRecentAlertsStream() {
@@ -439,13 +451,13 @@ class GeofenceAlertService {
   void dispose() {
     // Close the stream controller
     _alertsStreamController.close();
-    
+
     // Clean up location listeners
     for (final subscription in _locationListeners.values) {
       subscription.cancel();
     }
     _locationListeners.clear();
-    
+
     debugPrint('🧹 GeofenceAlertService disposed');
   }
 
@@ -522,7 +534,9 @@ class GeofenceAlertService {
       _lastTransitionTime.remove(deviceId);
       _lastAlertId.remove(deviceId);
       _lastLocationUpdate.remove(deviceId);
-      _lastAlertAction.remove(deviceId); // Also clean up alert deduplication state
+      _lastAlertAction.remove(
+        deviceId,
+      ); // Also clean up alert deduplication state
       _lastAlertTime.remove(deviceId); // Also clean up time tracking
       debugPrint('✅ GeofenceAlert: Stopped monitoring device $deviceId');
     }
@@ -843,8 +857,10 @@ class GeofenceAlertService {
 
   // Public method to handle FCM messages (called by EnhancedNotificationService)
   Future<void> handleFCMMessage(RemoteMessage message) async {
-    debugPrint('🎯 GeofenceAlertService: Handling FCM message ${message.messageId}');
-    
+    debugPrint(
+      '🎯 GeofenceAlertService: Handling FCM message ${message.messageId}',
+    );
+
     final data = message.data;
     if (data['type'] == 'geofence_alert') {
       // Show local notification
@@ -854,10 +870,12 @@ class GeofenceAlertService {
     }
   }
 
-  // Public method to handle notification taps (called by EnhancedNotificationService)  
+  // Public method to handle notification taps (called by EnhancedNotificationService)
   void handleNotificationTap(RemoteMessage message) {
-    debugPrint('🎯 GeofenceAlertService: Handling notification tap ${message.messageId}');
-    
+    debugPrint(
+      '🎯 GeofenceAlertService: Handling notification tap ${message.messageId}',
+    );
+
     final data = message.data;
     if (data['type'] == 'geofence_alert') {
       // Navigate to specific geofence or map view
@@ -869,7 +887,7 @@ class GeofenceAlertService {
   // Debug method to test alert addition manually
   Future<void> debugAddTestAlert() async {
     debugPrint('🧪 Adding test alert for debugging...');
-    
+
     // Directly create a test alert
     final alert = GeofenceAlert(
       id: 'test_${DateTime.now().millisecondsSinceEpoch}',
@@ -882,15 +900,17 @@ class GeofenceAlertService {
       longitude: 106.8456,
       isRead: false,
     );
-    
+
     _recentAlerts.insert(0, alert);
-    debugPrint('🧪 Test alert added. Current alerts count: ${_recentAlerts.length}');
-    
+    debugPrint(
+      '🧪 Test alert added. Current alerts count: ${_recentAlerts.length}',
+    );
+
     // Keep only last 50 alerts
     if (_recentAlerts.length > 50) {
       _recentAlerts = _recentAlerts.take(50).toList();
     }
-    
+
     // Notify UI listeners
     _notifyAlertsUpdated();
   }
