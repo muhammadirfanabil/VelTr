@@ -345,9 +345,12 @@ class _GeofenceAlertsScreenState extends State<GeofenceAlertsScreen>
       width: 50,
       height: 50,
       decoration: BoxDecoration(
-        color: alert.actionColor.withOpacity(0.1),
+        color: alert.actionColor.withValues(alpha: 0.1),
         shape: BoxShape.circle,
-        border: Border.all(color: alert.actionColor.withOpacity(0.3), width: 2),
+        border: Border.all(
+          color: alert.actionColor.withValues(alpha: 0.3),
+          width: 2,
+        ),
       ),
       child: Icon(alert.actionIcon, color: alert.actionColor, size: 24),
     );

@@ -216,7 +216,7 @@ class _GeofenceStatusIndicatorState extends State<GeofenceStatusIndicator>
       decoration: BoxDecoration(
         color: AppColors.successLight,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.success.withOpacity(0.3)),
+        border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -498,7 +498,7 @@ class _GeofenceAwareVehicleMarkerState extends State<GeofenceAwareVehicleMarker>
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: Colors.green.withOpacity(0.6),
+                      color: Colors.green.withValues(alpha: 0.6),
                       width: 2,
                     ),
                   ),
@@ -516,7 +516,7 @@ class _GeofenceAwareVehicleMarkerState extends State<GeofenceAwareVehicleMarker>
               border: Border.all(color: Colors.white, width: 3),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.black.withValues(alpha: 0.3),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),

@@ -85,7 +85,7 @@ class HistoryStatisticsWidget extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(11),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.11),
+            color: color.withValues(alpha: 0.11),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: color, size: 20),

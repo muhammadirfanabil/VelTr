@@ -33,7 +33,7 @@ class VehicleSelectorWidget extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: AppColors.primaryBlue.withOpacity(0.10),
+                color: AppColors.primaryBlue.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
@@ -116,7 +116,7 @@ class VehicleSelectorWidget extends StatelessWidget {
                   vertical: 7,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.success.withOpacity(0.11),
+                  color: AppColors.success.withValues(alpha: 0.11),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(

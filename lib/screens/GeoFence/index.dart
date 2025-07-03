@@ -150,7 +150,10 @@ class _GeofenceListScreenState extends State<GeofenceListScreen>
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [colorScheme.surface, colorScheme.surface.withOpacity(0.95)],
+          colors: [
+            colorScheme.surface,
+            colorScheme.surface.withValues(alpha: 0.95),
+          ],
         ),
       ),
       child: RefreshIndicator(
@@ -235,13 +238,15 @@ class _GeofenceListScreenState extends State<GeofenceListScreen>
                         child: Container(
                           padding: const EdgeInsets.all(32),
                           decoration: BoxDecoration(
-                            color: colorScheme.primaryContainer.withOpacity(
-                              0.3,
+                            color: colorScheme.primaryContainer.withValues(
+                              alpha: 0.3,
                             ),
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: colorScheme.primary.withOpacity(0.1),
+                                color: colorScheme.primary.withValues(
+                                  alpha: 0.1,
+                                ),
                                 blurRadius: 20,
                                 spreadRadius: 5,
                               ),
@@ -268,7 +273,7 @@ class _GeofenceListScreenState extends State<GeofenceListScreen>
                   Text(
                     'Create your first geofence to start\nmonitoring specific locations',
                     style: theme.textTheme.bodyLarge?.copyWith(
-                      color: colorScheme.onSurface.withOpacity(0.6),
+                      color: colorScheme.onSurface.withValues(alpha: 0.6),
                       height: 1.5,
                     ),
                     textAlign: TextAlign.center,
@@ -277,7 +282,7 @@ class _GeofenceListScreenState extends State<GeofenceListScreen>
                   Text(
                     'Pull down to refresh',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.primary.withOpacity(0.7),
+                      color: colorScheme.primary.withValues(alpha: 0.7),
                       fontStyle: FontStyle.italic,
                     ),
                     textAlign: TextAlign.center,

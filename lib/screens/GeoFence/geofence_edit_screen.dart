@@ -350,7 +350,7 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: Chip(
-              backgroundColor: AppColors.error.withOpacity(0.06),
+              backgroundColor: AppColors.error.withValues(alpha: 0.06),
               labelPadding: const EdgeInsets.symmetric(horizontal: 8),
               label: Text(
                 'Unsaved',
@@ -423,7 +423,7 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
       polygons: [
         Polygon(
           points: [...polygonPoints, polygonPoints.first],
-          color: AppColors.primaryBlue.withOpacity(0.17),
+          color: AppColors.primaryBlue.withValues(alpha: 0.17),
           borderColor: AppColors.primaryBlue,
           borderStrokeWidth: 2,
         ),
@@ -460,7 +460,7 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
       left: 16,
       right: 16,
       child: Material(
-        color: Colors.white.withOpacity(0.93),
+        color: Colors.white.withValues(alpha: 0.93),
         elevation: 3,
         borderRadius: BorderRadius.circular(14),
         child: Padding(
@@ -495,8 +495,8 @@ class _GeofenceEditScreenState extends State<GeofenceEditScreen>
                     decoration: BoxDecoration(
                       color:
                           polygonPoints.length >= 3
-                              ? Colors.green.withOpacity(0.09)
-                              : Colors.red.withOpacity(0.09),
+                              ? Colors.green.withValues(alpha: 0.09)
+                              : Colors.red.withValues(alpha: 0.09),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(

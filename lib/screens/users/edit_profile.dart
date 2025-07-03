@@ -303,7 +303,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   //       children: [
   //         CircleAvatar(
   //           radius: 48,
-  //           backgroundColor: AppColors.primaryBlue.withOpacity(0.13),
+  //           backgroundColor: AppColors.primaryBlue.withValues(alpha: 0.13),
   //           child: Text(
   //             _nameController.text.isNotEmpty
   //                 ? _nameController.text[0].toUpperCase()
@@ -427,7 +427,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(11),
             ),
-            disabledBackgroundColor: AppColors.border.withOpacity(0.23),
+            disabledBackgroundColor: AppColors.border.withValues(alpha: 0.23),
             textStyle: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
               fontSize: 16,

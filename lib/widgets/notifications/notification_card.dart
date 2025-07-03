@@ -35,7 +35,7 @@ class NotificationCard extends StatelessWidget {
               _formatTimeHeader(notification.timestamp),
               style: TextStyle(
                 fontSize: 12.5,
-                color: AppColors.textSecondary.withOpacity(0.64),
+                color: AppColors.textSecondary.withValues(alpha: 0.64),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -111,11 +111,11 @@ class NotificationCard extends StatelessWidget {
             color:
                 notification.isRead
                     ? AppColors.surface
-                    : AppColors.surface.withOpacity(0.96),
+                    : AppColors.surface.withValues(alpha: 0.96),
             borderRadius: BorderRadius.circular(14),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.025),
+                color: Colors.black.withValues(alpha: 0.025),
                 blurRadius: 6,
                 offset: const Offset(0, 1),
               ),
@@ -123,8 +123,8 @@ class NotificationCard extends StatelessWidget {
             border: Border.all(
               color:
                   notification.isRead
-                      ? AppColors.border.withOpacity(0.75)
-                      : notification.color.withOpacity(0.26),
+                      ? AppColors.border.withValues(alpha: 0.75)
+                      : notification.color.withValues(alpha: 0.26),
               width: notification.isRead ? 0.5 : 1.0,
             ),
           ),
@@ -147,14 +147,17 @@ class NotificationCard extends StatelessWidget {
       height: 46,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [notification.color, notification.color.withOpacity(0.85)],
+          colors: [
+            notification.color,
+            notification.color.withValues(alpha: 0.85),
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: notification.color.withOpacity(0.21),
+            color: notification.color.withValues(alpha: 0.21),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -275,7 +278,7 @@ class NotificationCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(7),
       ),
       child: Icon(
-        Icons.keyboard_arrow_right_rounded,
+        Icons.keyboard_arrow_left,
         color: AppColors.textTertiary,
         size: 18,
       ),
