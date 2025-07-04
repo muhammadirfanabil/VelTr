@@ -107,7 +107,7 @@ class VehicleSelectionModal extends StatelessWidget {
         return Material(
           color:
               isSelected
-                  ? AppColors.primaryBlue.withOpacity(0.07)
+                  ? AppColors.primaryBlue.withValues(alpha: 0.07)
                   : AppColors.surface,
           borderRadius: BorderRadius.circular(11),
           child: InkWell(
@@ -124,7 +124,7 @@ class VehicleSelectionModal extends StatelessWidget {
                   color:
                       isSelected
                           ? AppColors.primaryBlue
-                          : AppColors.border.withOpacity(0.18),
+                          : AppColors.border.withValues(alpha: 0.18),
                   width: isSelected ? 1.5 : 1,
                 ),
               ),

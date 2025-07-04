@@ -44,7 +44,7 @@ class IndexScreen extends StatelessWidget {
             ),
             elevation: 8,
             color: Colors.white,
-            shadowColor: Colors.black.withOpacity(0.2),
+            shadowColor: Colors.black.withValues(alpha: 0.2),
             onSelected: (value) async {
               if (value == 'profile') {
                 Navigator.pushNamed(context, '/profile');

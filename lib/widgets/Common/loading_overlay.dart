@@ -10,7 +10,7 @@ class LoadingOverlay extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Container(
-      color: Colors.black.withOpacity(0.5),
+      color: Colors.black.withValues(alpha: 0.5),
       child: Center(
         child: Card(
           child: Padding(

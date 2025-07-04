@@ -135,7 +135,7 @@ class UserLocationService {
           border: Border.all(color: Colors.white, width: 3),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha: 0.3),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -157,8 +157,8 @@ class UserLocationService {
     return CircleMarker(
       point: location,
       radius: accuracy ?? 50.0,
-      color: Colors.blue.withOpacity(0.1),
-      borderColor: Colors.blue.withOpacity(0.3),
+      color: Colors.blue.withValues(alpha: 0.1),
+      borderColor: Colors.blue.withValues(alpha: 0.3),
       borderStrokeWidth: 1,
     );
   }

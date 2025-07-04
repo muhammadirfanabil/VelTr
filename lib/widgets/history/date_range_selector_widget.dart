@@ -50,7 +50,7 @@ class DateRangeSelectorWidget extends StatelessWidget {
                       color:
                           isSelected
                               ? Colors.white
-                              : AppColors.textPrimary.withOpacity(0.72),
+                              : AppColors.textPrimary.withValues(alpha: 0.72),
                     ),
                   ),
                   selected: isSelected,
@@ -61,7 +61,7 @@ class DateRangeSelectorWidget extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   elevation: isSelected ? 1.5 : 0,
-                  shadowColor: AppColors.primaryBlue.withOpacity(0.04),
+                  shadowColor: AppColors.primaryBlue.withValues(alpha: 0.04),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 18,
                     vertical: 8,

@@ -172,7 +172,7 @@ class VehicleCardSelector extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: theme.primaryColor.withOpacity(0.1),
+                    color: theme.primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
@@ -303,7 +303,7 @@ class VehicleInfoChip extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Material(
-      color: backgroundColor ?? theme.primaryColor.withOpacity(0.1),
+      color: backgroundColor ?? theme.primaryColor.withValues(alpha: 0.1),
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,
@@ -335,14 +335,16 @@ class VehicleInfoChip extends StatelessWidget {
                 Text(
                   '•',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: textColor ?? theme.primaryColor.withOpacity(0.7),
+                    color:
+                        textColor ?? theme.primaryColor.withValues(alpha: 0.7),
                   ),
                 ),
                 const SizedBox(width: 4),
                 Text(
                   vehicleData.plateNumber!,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: textColor ?? theme.primaryColor.withOpacity(0.7),
+                    color:
+                        textColor ?? theme.primaryColor.withValues(alpha: 0.7),
                   ),
                 ),
               ],

@@ -32,7 +32,7 @@ class BuildInfoGrid extends StatelessWidget {
               child: _buildInfoItem(
                 icon: Icons.access_time_rounded,
                 label: 'Last Update',
-                value: lastUpdate,
+                value: _formatLastUpdate(lastUpdate),
                 theme: theme,
               ),
             ),
@@ -41,7 +41,7 @@ class BuildInfoGrid extends StatelessWidget {
               Expanded(
                 child: _buildInfoItem(
                   icon: Icons.satellite_alt_rounded,
-                  label: 'Signal',
+                  label: 'GPS',
                   value: connectionQuality,
                   theme: theme,
                   valueColor: connectionQualityColor,
@@ -68,8 +68,8 @@ class BuildInfoGrid extends StatelessWidget {
             border: Border.all(
               color:
                   hasValidCoordinates
-                      ? AppColors.primaryBlue.withOpacity(0.15)
-                      : AppColors.border.withOpacity(0.18),
+                      ? AppColors.primaryBlue.withValues(alpha: 0.15)
+                      : AppColors.border.withValues(alpha: 0.18),
             ),
           ),
           child: Row(
@@ -166,5 +166,26 @@ class BuildInfoGrid extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  // Formats the last update time
+  String _formatLastUpdate(String lastUpdate) {
+    try {
+      final updatedTime = DateTime.parse(lastUpdate);
+      final now = DateTime.now();
+      final difference = now.difference(updatedTime);
+
+      if (difference.inMinutes < 1) {
+        return 'Just now';
+      } else if (difference.inMinutes < 60) {
+        return '${difference.inMinutes}m ago';
+      } else if (difference.inHours < 24) {
+        return '${difference.inHours}h ago';
+      } else {
+        return '${difference.inDays}d ago';
+      }
+    } catch (_) {
+      return 'Invalid date';
+    }
   }
 }

@@ -30,11 +30,13 @@ class VehicleCard extends StatelessWidget {
       confirmDismiss: (_) => _showDeleteConfirmation(context),
       onDismissed: (_) => onDelete(),
       child: Card(
-        elevation: 1,
-        shadowColor: theme.colorScheme.shadow.withOpacity(0.05),
+        elevation: 3,
+        shadowColor: theme.colorScheme.shadow.withValues(alpha: 0.3),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: theme.colorScheme.outline.withOpacity(0.1)),
+          side: BorderSide(
+            color: theme.colorScheme.outline.withValues(alpha: 0.1),
+          ),
         ),
         child: Container(
           decoration: BoxDecoration(
@@ -42,7 +44,7 @@ class VehicleCard extends StatelessWidget {
             gradient: LinearGradient(
               colors: [
                 theme.colorScheme.surface,
-                theme.colorScheme.surface.withOpacity(0.95),
+                theme.colorScheme.surface.withValues(alpha: 0.95),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -57,7 +59,7 @@ class VehicleCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildHeader(context),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 10),
                   _buildInfoSection(context),
                 ],
               ),
@@ -111,14 +113,14 @@ class VehicleCard extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context) {
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text(
                 vehicleModel.name,
                 style: const TextStyle(
                   fontSize: 20,
@@ -126,134 +128,166 @@ class VehicleCard extends StatelessWidget {
                   color: Colors.black87,
                 ),
               ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: [
-                  if (vehicleModel.vehicleTypes != null)
-                    _buildTag(
-                      context,
-                      vehicleModel.vehicleTypes!,
-                      Colors.blue,
-                      Icons.category_rounded,
-                    ),
-                  if (vehicleModel.plateNumber != null)
-                    _buildTag(
-                      context,
-                      vehicleModel.plateNumber!,
-                      Colors.green,
-                      Icons.confirmation_number_rounded,
-                    ),
-                ],
+            ),
+            IconButton(
+              icon: Icon(Icons.edit_outlined, color: Colors.teal, size: 22),
+              onPressed: onEdit,
+              tooltip: 'Edit Vehicle',
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.teal.withValues(alpha: 0.1),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.all(8),
               ),
-            ],
-          ),
-        ),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildActionButton(
-              Icons.edit_rounded,
-              Colors.lightBlue.shade900,
-              onEdit,
-              'Edit Vehicle',
             ),
           ],
         ),
+        const SizedBox(height: 10),
+        // Device information with full width
+        _buildDeviceStatus(),
       ],
+    );
+  }
+
+  Widget _buildDeviceStatus() {
+    if (vehicleModel.deviceId != null) {
+      return StreamBuilder<Device?>(
+        stream: deviceService.getDeviceStream(vehicleModel.deviceId!),
+        builder: (context, snapshot) {
+          if (snapshot.hasData && snapshot.data != null) {
+            final device = snapshot.data!;
+            return _buildDeviceStatusContainer(
+              icon: Icons.device_hub_rounded,
+              text: 'Attached to Device : ${device.name}',
+              color: Colors.green,
+            );
+          } else if (snapshot.connectionState == ConnectionState.waiting) {
+            return _buildDeviceStatusContainer(
+              icon: Icons.device_hub_rounded,
+              text: 'Loading device...',
+              color: Colors.grey,
+            );
+          } else {
+            return _buildDeviceStatusContainer(
+              icon: Icons.link_off_rounded,
+              text: "This vehicle isn't attached to any device yet.",
+              color: Colors.red,
+            );
+          }
+        },
+      );
+    } else {
+      return _buildDeviceStatusContainer(
+        icon: Icons.link_off_rounded,
+        text: "This vehicle isn't attached to any device yet.",
+        color: Colors.red,
+      );
+    }
+  }
+
+  Widget _buildDeviceStatusContainer({
+    required IconData icon,
+    required String text,
+    required Color color,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: color,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildInfoSection(BuildContext context) {
     final theme = Theme.of(context);
+    final bool hasVehicleDetails =
+        vehicleModel.plateNumber != null || vehicleModel.vehicleTypes != null;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.colorScheme.outline.withOpacity(0.1)),
+        border: Border.all(
+          color: theme.colorScheme.outline.withValues(alpha: 0.12),
+        ),
       ),
       child: Column(
         children: [
-          if (vehicleModel.deviceId != null) ...[
-            StreamBuilder<Device?>(
-              stream: deviceService.getDeviceStream(vehicleModel.deviceId!),
-              builder: (context, snapshot) {
-                if (snapshot.hasData && snapshot.data != null) {
-                  final device = snapshot.data!;
-                  return Column(
-                    children: [
-                      _buildInfoRow(
-                        context,
-                        Icons.device_hub_rounded,
-                        'Device Name',
-                        device.name,
-                        Colors.deepPurple,
-                      ),
-                      const SizedBox(height: 12),
-                      Divider(
-                        color: theme.colorScheme.outline.withOpacity(0.1),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                  );
-                } else if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Column(
-                    children: [
-                      _buildInfoRow(
-                        context,
-                        Icons.device_hub_rounded,
-                        'Device Name',
-                        'Loading...',
-                        Colors.deepPurple,
-                      ),
-                      const SizedBox(height: 12),
-                      Divider(
-                        color: theme.colorScheme.outline.withOpacity(0.1),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                  );
-                } else {
-                  return Column(
-                    children: [
-                      _buildInfoRow(
-                        context,
-                        Icons.device_hub_rounded,
-                        'Device Name',
-                        'Unknown Device',
-                        Colors.deepPurple,
-                      ),
-                      const SizedBox(height: 12),
-                      Divider(
-                        color: theme.colorScheme.outline.withOpacity(0.1),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                  );
-                }
-              },
+          // License plate and vehicle type section
+          if (hasVehicleDetails) ...[
+            Row(
+              children: [
+                if (vehicleModel.plateNumber != null) ...[
+                  Expanded(
+                    child: _buildInfoRow(
+                      context,
+                      Icons.confirmation_number_rounded,
+                      'License Plate',
+                      vehicleModel.plateNumber!,
+                      Colors.black,
+                    ),
+                  ),
+                  if (vehicleModel.vehicleTypes != null)
+                    const SizedBox(width: 20),
+                ],
+                if (vehicleModel.vehicleTypes != null)
+                  Expanded(
+                    child: _buildInfoRow(
+                      context,
+                      Icons.category_rounded,
+                      'Vehicle Type',
+                      vehicleModel.vehicleTypes!,
+                      theme.colorScheme.primary,
+                    ),
+                  ),
+              ],
             ),
+            const SizedBox(height: 16),
+            Divider(
+              height: 1,
+              color: theme.colorScheme.outline.withValues(alpha: 0.12),
+            ),
+            const SizedBox(height: 16),
           ],
+          // Created and updated dates section
           Row(
             children: [
               Expanded(
                 child: _buildInfoRow(
                   context,
                   Icons.calendar_today_rounded,
-                  'Created',
+                  'Created at',
                   _formatDate(vehicleModel.createdAt),
                   Colors.blueGrey,
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 20),
               Expanded(
                 child: _buildInfoRow(
                   context,
                   Icons.update_rounded,
-                  'Updated',
+                  'Updated at',
                   _formatDate(vehicleModel.updatedAt),
                   Colors.blueGrey,
                 ),
@@ -261,57 +295,6 @@ class VehicleCard extends StatelessWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildTag(
-    BuildContext context,
-    String text,
-    Color color,
-    IconData icon,
-  ) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primary.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: theme.colorScheme.primary),
-          const SizedBox(width: 4),
-          Text(
-            text,
-            style: TextStyle(
-              color: theme.colorScheme.primary,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton(
-    IconData icon,
-    Color color,
-    VoidCallback onPressed,
-    String tooltip,
-  ) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onPressed,
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Icon(icon, color: color, size: 20),
-        ),
       ),
     );
   }
@@ -326,15 +309,16 @@ class VehicleCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, size: 16, color: color),
-        ),
+        // Container(
+        //   padding: const EdgeInsets.all(7),
+        //   decoration: BoxDecoration(
+        //     color: color.withValues(alpha: 0.1),
+        //     borderRadius: BorderRadius.circular(8),
+        //   ),
+        //   child: Icon(icon, size: 16, color: color),
+        // ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -344,11 +328,13 @@ class VehicleCard extends StatelessWidget {
                 label,
                 style: TextStyle(
                   fontSize: 12,
-                  color: theme.colorScheme.onSurfaceVariant,
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: 0.8,
+                  ),
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 3),
               Text(
                 value,
                 style: TextStyle(
@@ -356,6 +342,8 @@ class VehicleCard extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                   color: theme.colorScheme.onSurface,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),

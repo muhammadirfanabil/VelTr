@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:intl/intl.dart';
 import '../../services/history/history_service.dart';
 import '../../theme/app_colors.dart';
 
@@ -73,6 +74,24 @@ class _HistoryListWidgetState extends State<HistoryListWidget> {
         'Lat: ${latitude.toStringAsFixed(6)}, Lng: ${longitude.toStringAsFixed(6)}';
     _addressCache[key] = fallback;
     return fallback;
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final entryDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
+
+    final timeFormat = DateFormat('HH:mm');
+    final dateFormat = DateFormat('MMM dd, yyyy');
+
+    if (entryDate == today) {
+      return 'Today at ${timeFormat.format(dateTime)}';
+    } else if (entryDate == yesterday) {
+      return 'Yesterday at ${timeFormat.format(dateTime)}';
+    } else {
+      return '${dateFormat.format(dateTime)} at ${timeFormat.format(dateTime)}';
+    }
   }
 
   @override
@@ -152,7 +171,7 @@ class _HistoryListWidgetState extends State<HistoryListWidget> {
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       itemCount: widget.historyEntries.length,
       separatorBuilder: (context, index) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
@@ -167,67 +186,93 @@ class _HistoryListWidgetState extends State<HistoryListWidget> {
           color: AppColors.surface,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 14),
-            child: FutureBuilder<String>(
-              future: _getAddressFromCoordinates(
-                entry.latitude,
-                entry.longitude,
-              ),
-              builder: (context, snapshot) {
-                String displayText;
-                Widget leadingIcon;
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FutureBuilder<String>(
+                  future: _getAddressFromCoordinates(
+                    entry.latitude,
+                    entry.longitude,
+                  ),
+                  builder: (context, snapshot) {
+                    String displayText;
+                    Widget leadingIcon;
 
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  displayText = 'Loading address...';
-                  leadingIcon = const SizedBox(
-                    width: 15,
-                    height: 15,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        AppColors.primaryBlue,
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      displayText = 'Loading address...';
+                      leadingIcon = const SizedBox(
+                        width: 15,
+                        height: 15,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppColors.primaryBlue,
+                          ),
+                        ),
+                      );
+                    } else if (snapshot.hasError) {
+                      displayText =
+                          'In ${entry.latitude.toStringAsFixed(6)}, ${entry.longitude.toStringAsFixed(6)}';
+                      leadingIcon = Container(
+                        width: 11,
+                        height: 11,
+                        decoration: const BoxDecoration(
+                          color: AppColors.warning,
+                          shape: BoxShape.circle,
+                        ),
+                      );
+                    } else {
+                      displayText = 'In ${snapshot.data ?? 'Unknown location'}';
+                      leadingIcon = Container(
+                        width: 11,
+                        height: 11,
+                        decoration: const BoxDecoration(
+                          color: AppColors.primaryBlue,
+                          shape: BoxShape.circle,
+                        ),
+                      );
+                    }
+                    return Row(
+                      children: [
+                        leadingIcon,
+                        const SizedBox(width: 13),
+                        Expanded(
+                          child: Text(
+                            displayText,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14.7,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 6),
+                Padding(
+                  padding: const EdgeInsets.only(left: 24),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.access_time,
+                        size: 14,
+                        color: AppColors.textSecondary,
                       ),
-                    ),
-                  );
-                } else if (snapshot.hasError) {
-                  displayText =
-                      'In ${entry.latitude.toStringAsFixed(6)}, ${entry.longitude.toStringAsFixed(6)}';
-                  leadingIcon = Container(
-                    width: 11,
-                    height: 11,
-                    decoration: BoxDecoration(
-                      color: AppColors.warning,
-                      shape: BoxShape.circle,
-                    ),
-                  );
-                } else {
-                  displayText = 'In ${snapshot.data ?? 'Unknown location'}';
-                  leadingIcon = Container(
-                    width: 11,
-                    height: 11,
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryBlue,
-                      shape: BoxShape.circle,
-                    ),
-                  );
-                }
-
-                return Row(
-                  children: [
-                    leadingIcon,
-                    const SizedBox(width: 13),
-                    Expanded(
-                      child: Text(
-                        displayText,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14.7,
-                          color: AppColors.textPrimary,
+                      const SizedBox(width: 6),
+                      Text(
+                        _formatDateTime(entry.createdAt),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontSize: 12.5,
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                    ),
-                  ],
-                );
-              },
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         );

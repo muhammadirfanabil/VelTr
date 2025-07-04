@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:gps_app/services/history/history_service.dart';
 import '../../services/vehicle/vehicleService.dart';
 import '../../models/vehicle/vehicle.dart';
 import 'history.dart';
+import 'dart:async';
 
 class DrivingHistorySelector extends StatefulWidget {
   const DrivingHistorySelector({super.key});
@@ -13,8 +15,10 @@ class DrivingHistorySelector extends StatefulWidget {
 class _DrivingHistorySelectorState extends State<DrivingHistorySelector> {
   final VehicleService _vehicleService = VehicleService();
   vehicle? _selectedVehicle;
+  DateTime? _selectedDate; // Fixed: Use DateTime instead of HistoryEntry
   bool _isLoading = true;
   List<vehicle> _vehicles = [];
+  StreamSubscription<List<vehicle>>? _vehiclesSubscription;
 
   @override
   void initState() {
@@ -22,23 +26,42 @@ class _DrivingHistorySelectorState extends State<DrivingHistorySelector> {
     _loadVehicles();
   }
 
+  @override
+  void dispose() {
+    _vehiclesSubscription?.cancel();
+    super.dispose();
+  }
+
   Future<void> _loadVehicles() async {
     setState(() => _isLoading = true);
 
     try {
-      // Listen to vehicles stream and take the first emission
-      _vehicleService.getVehiclesStream().listen((vehicles) {
-        if (mounted) {
-          setState(() {
-            _vehicles = vehicles;
-            _isLoading = false;
-            // Auto-select first vehicle if available and none selected
-            if (_selectedVehicle == null && vehicles.isNotEmpty) {
-              _selectedVehicle = vehicles.first;
-            }
-          });
-        }
-      });
+      // Listen to vehicles stream and properly manage subscription
+      _vehiclesSubscription = _vehicleService.getVehiclesStream().listen(
+        (vehicles) {
+          if (mounted) {
+            setState(() {
+              _vehicles = vehicles;
+              _isLoading = false;
+              // Auto-select first vehicle if available and none selected
+              if (_selectedVehicle == null && vehicles.isNotEmpty) {
+                _selectedVehicle = vehicles.first;
+              }
+            });
+          }
+        },
+        onError: (error) {
+          if (mounted) {
+            setState(() => _isLoading = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error loading vehicles: $error'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        },
+      );
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -50,6 +73,35 @@ class _DrivingHistorySelectorState extends State<DrivingHistorySelector> {
         );
       }
     }
+  }
+
+  Future<void> _selectDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? DateTime.now(),
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(primary: Colors.blue[600]!),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
+  }
+
+  void _clearDateFilter() {
+    setState(() {
+      _selectedDate = null;
+    });
   }
 
   @override
@@ -70,8 +122,79 @@ class _DrivingHistorySelectorState extends State<DrivingHistorySelector> {
         backgroundColor: Colors.blue[600],
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          if (_selectedVehicle != null)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.filter_list),
+              onSelected: (value) {
+                switch (value) {
+                  case 'select_date':
+                    _selectDate();
+                    break;
+                  case 'clear_filter':
+                    _clearDateFilter();
+                    break;
+                }
+              },
+              itemBuilder:
+                  (context) => [
+                    const PopupMenuItem(
+                      value: 'select_date',
+                      child: Row(
+                        children: [
+                          Icon(Icons.date_range, size: 20),
+                          SizedBox(width: 8),
+                          Text('Filter by Date'),
+                        ],
+                      ),
+                    ),
+                    if (_selectedDate != null)
+                      const PopupMenuItem(
+                        value: 'clear_filter',
+                        child: Row(
+                          children: [
+                            Icon(Icons.clear, size: 20),
+                            SizedBox(width: 8),
+                            Text('Clear Filter'),
+                          ],
+                        ),
+                      ),
+                  ],
+            ),
+        ],
       ),
-      body: _buildBody(),
+      body: Column(
+        children: [
+          // Date filter indicator
+          if (_selectedDate != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              color: Colors.blue[50],
+              child: Row(
+                children: [
+                  Icon(Icons.filter_list, color: Colors.blue[600], size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Filtered by: ${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
+                    style: TextStyle(
+                      color: Colors.blue[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: _clearDateFilter,
+                    icon: Icon(Icons.close, color: Colors.blue[600], size: 20),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
+          Expanded(child: _buildBody()),
+        ],
+      ),
     );
   }
 
@@ -79,9 +202,9 @@ class _DrivingHistorySelectorState extends State<DrivingHistorySelector> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
+        color: Colors.white.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withOpacity(0.3)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<vehicle>(
@@ -96,6 +219,8 @@ class _DrivingHistorySelectorState extends State<DrivingHistorySelector> {
           onChanged: (vehicle? newVehicle) {
             setState(() {
               _selectedVehicle = newVehicle;
+              // Clear date filter when switching vehicles
+              _selectedDate = null;
             });
           },
           items:
@@ -210,10 +335,13 @@ class _DrivingHistorySelectorState extends State<DrivingHistorySelector> {
           ],
         ),
       );
-    } // Show the actual driving history for the selected vehicle
+    }
+
+    // Show the actual driving history for the selected vehicle
     return DrivingHistory(
       vehicleId: _selectedVehicle!.id,
       vehicleName: _selectedVehicle!.name,
+      createdAt: _selectedDate, // Pass the selected date filter
     );
   }
 }

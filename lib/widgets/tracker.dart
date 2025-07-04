@@ -5,7 +5,7 @@ import 'package:firebase_database/firebase_database.dart'; // Add Firebase impor
 import 'dart:async'; // Add for StreamSubscription
 import '../../theme/app_colors.dart';
 
-import '../widgets/tracker/info_gird.dart';
+import '../widgets/tracker/info_grid.dart';
 import '../widgets/tracker/locationdetail_dialog.dart';
 import '../widgets/tracker/remote.dart';
 
@@ -239,13 +239,14 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
   }
 
   String get connectionQuality {
-    if (!isOnline) return 'Poor';
+    if (!isOnline) return 'No Signal';
 
     final satellites = widget.satellites ?? 0;
     if (satellites >= 8) return 'Excellent';
     if (satellites >= 6) return 'Good';
     if (satellites >= 4) return 'Fair';
-    return 'Poor';
+    if (satellites >= 2) return 'Poor';
+    return 'No Signal';
   }
 
   Color get connectionQualityColor {
@@ -257,8 +258,10 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
       case 'Fair':
         return Colors.orange;
       case 'Poor':
-      default:
         return AppColors.error;
+      case 'No Signal':
+      default:
+        return Colors.black;
     }
   }
 
@@ -424,12 +427,12 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: 20,
               offset: const Offset(0, -2),
             ),
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 8,
               offset: const Offset(0, -1),
             ),
@@ -447,9 +450,9 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
                 theme: theme,
                 lastUpdate: lastActiveText,
                 connectionQuality:
-                    "Good", // Replace with actual connection quality
+                    connectionQuality, // This is now fixed with a dynamic value
                 connectionQualityColor:
-                    Colors.green, // Replace with actual color logic
+                    connectionQualityColor, // so is this one
                 hasValidCoordinates:
                     widget.latitude != null && widget.longitude != null,
                 coordinatesText: coordinatesText,
@@ -471,7 +474,7 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
 
   Widget _buildHeader(ThemeData theme) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
           child: GestureDetector(
@@ -552,13 +555,13 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
       decoration: BoxDecoration(
         color:
             online
-                ? AppColors.success.withOpacity(0.12)
-                : AppColors.error.withOpacity(0.10),
+                ? AppColors.success.withValues(alpha: 0.12)
+                : AppColors.error.withValues(alpha: 0.10),
         border: Border.all(
           color:
               online
-                  ? AppColors.success.withOpacity(0.35)
-                  : AppColors.error.withOpacity(0.25),
+                  ? AppColors.success.withValues(alpha: 0.35)
+                  : AppColors.error.withValues(alpha: 0.25),
           width: 1,
         ),
         borderRadius: BorderRadius.circular(20),
@@ -577,7 +580,7 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
                   online
                       ? [
                         BoxShadow(
-                          color: AppColors.success.withOpacity(0.4),
+                          color: AppColors.success.withValues(alpha: 0.4),
                           blurRadius: 4,
                           spreadRadius: 1,
                         ),
@@ -593,7 +596,7 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
               style: theme.textTheme.bodySmall?.copyWith(
                 color: online ? AppColors.success : AppColors.error,
                 fontWeight: FontWeight.w600,
-                fontSize: 12,
+                fontSize: 10,
               ),
               textAlign: TextAlign.center, // Center align the text
               overflow: TextOverflow.ellipsis, // Handle potential overflow

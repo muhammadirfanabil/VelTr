@@ -21,6 +21,8 @@ class DeviceManagerScreen extends StatefulWidget {
 
 class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
   final DeviceService _deviceService = DeviceService();
+  final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
+      GlobalKey<RefreshIndicatorState>();
 
   @override
   Widget build(BuildContext context) {
@@ -56,14 +58,22 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
       ),
       centerTitle: true,
       actions: [
-        IconButton(
-          icon: Icon(AppIcons.add, color: AppColors.primaryBlue),
-          onPressed: _showAddDeviceDialog,
-          tooltip: 'Add Device',
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.primaryBlue.withValues(
+              alpha: 0.05,
+            ), // Subtle background
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: IconButton(
+            icon: Icon(AppIcons.add, color: AppColors.primaryBlue),
+            onPressed: _showAddDeviceDialog,
+            tooltip: 'Add Device',
+          ),
         ),
         IconButton(
           icon: Icon(Icons.refresh, color: AppColors.primaryBlue),
-          onPressed: () => setState(() {}),
+          onPressed: _triggerRefresh,
           tooltip: 'Refresh',
         ),
         const SizedBox(width: 4),
@@ -79,13 +89,21 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
           end: Alignment.bottomCenter,
           colors: [
             AppColors.backgroundPrimary,
-            AppColors.backgroundSecondary.withOpacity(0.98),
+            AppColors.backgroundSecondary.withValues(alpha: 0.98),
           ],
         ),
       ),
-      child: StreamBuilder<List<Device>>(
-        stream: _deviceService.getDevicesStream(),
-        builder: _buildStreamBuilder,
+      child: RefreshIndicator(
+        key: _refreshIndicatorKey,
+        onRefresh: _handleRefresh,
+        color: AppColors.primaryBlue,
+        backgroundColor: Colors.white,
+        strokeWidth: 2.5,
+        displacement: 40,
+        child: StreamBuilder<List<Device>>(
+          stream: _deviceService.getDevicesStream(),
+          builder: _buildStreamBuilder,
+        ),
       ),
     );
   }
@@ -98,85 +116,115 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     if (snapshot.hasError) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: ErrorCard(
-            message: 'Failed to load devices: ${snapshot.error}',
-            onRetry: () => setState(() {}),
-          ),
-        ),
-      );
+      return _buildScrollableErrorCard(snapshot.error);
     }
 
     final devices = snapshot.data ?? [];
     if (devices.isEmpty) {
-      return _buildEmptyState();
+      return _buildScrollableEmptyState();
     }
     return _buildDeviceList(devices);
   }
 
-  Widget _buildEmptyState() {
+  // Make error card scrollable for pull-to-refresh
+  Widget _buildScrollableErrorCard(dynamic error) {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverFillRemaining(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: ErrorCard(
+                message: 'Failed to load devices: $error',
+                onRetry: _triggerRefresh,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Make empty state scrollable for pull-to-refresh
+  Widget _buildScrollableEmptyState() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.devices_other,
-              size: 64,
-              color: AppColors.primaryBlue.withOpacity(0.15),
-            ),
-            const SizedBox(height: 22),
-            Text(
-              'No GPS devices found',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: colorScheme.onSurface,
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverFillRemaining(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.devices_other,
+                    size: 64,
+                    color: AppColors.primaryBlue.withValues(alpha: 0.15),
+                  ),
+                  const SizedBox(height: 22),
+                  Text(
+                    'No GPS devices found',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Add your first device to get started',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Pull down to refresh',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppColors.primaryBlue.withValues(alpha: 0.7),
+                      fontStyle: FontStyle.italic,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 32),
+                  FilledButton.icon(
+                    onPressed: _showAddDeviceDialog,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Device'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primaryBlue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 30,
+                        vertical: 16,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      textStyle: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2,
+                      ),
+                      elevation: 2,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Add your first device to get started',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurface.withOpacity(0.6),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            FilledButton.icon(
-              onPressed: _showAddDeviceDialog,
-              icon: const Icon(Icons.add),
-              label: const Text('Add Device'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primaryBlue,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 30,
-                  vertical: 16,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                textStyle: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.2,
-                ),
-                elevation: 2,
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
   Widget _buildDeviceList(List<Device> devices) {
     return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 22, 16, 36),
       itemCount: devices.length,
       separatorBuilder: (context, index) => const SizedBox(height: 12),
@@ -231,6 +279,30 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
         ],
       ),
     );
+  }
+
+  // Handle pull-to-refresh
+  Future<void> _handleRefresh() async {
+    try {
+      // Force refresh the device stream
+      _triggerRefresh;
+
+      // Add a small delay for better UX
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      if (mounted) {
+        _showSuccessSnackbar('Devices refreshed');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorSnackbar('Failed to refresh devices: $e');
+      }
+    }
+  }
+
+  // Trigger refresh programmatically (for refresh button)
+  void _triggerRefresh() {
+    _refreshIndicatorKey.currentState?.show();
   }
 
   Future<bool> _showDeleteConfirmation(Device device) async {
