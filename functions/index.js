@@ -486,7 +486,7 @@ exports.querydrivinghistory = onCall(
         .collection("history")
         .where("vehicleId", "==", vehicleId)
         .where("createdAt", ">=", startDate)
-        .orderBy("createdAt", "asc")
+        .orderBy("createdAt", "desc")
         .limit(1000) // Reasonable limit
         .get();
 
