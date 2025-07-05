@@ -10,6 +10,8 @@ import '../../theme/app_colors.dart';
 import '../../widgets/Common/error_card.dart';
 import '../../widgets/Vehicle/vehicle_card.dart';
 import '../../widgets/Common/confirmation_dialog.dart';
+import '../../widgets/common/device_attachment_selector.dart';
+import '../../widgets/common/enhanced_update_button.dart';
 import '../../utils/snackbar.dart';
 
 class ManageVehicle extends StatefulWidget {
@@ -674,6 +676,8 @@ class _ManageVehicleState extends State<ManageVehicle> {
   }) {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      contentPadding: EdgeInsets.zero,
       title: Row(
         children: [
           Container(
@@ -691,39 +695,84 @@ class _ManageVehicleState extends State<ManageVehicle> {
           ),
         ],
       ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildTextField(
-              controllers[0],
-              'Vehicle Name',
-              'e.g., Toyota Camry 2023',
-              Icons.directions_car_rounded,
-              true,
-            ),
-            const SizedBox(height: 16),
-            _buildTextField(
-              controllers[1],
-              'Vehicle Type',
-              'e.g., Sedan, SUV, Truck',
-              Icons.category_rounded,
-              false,
-            ),
-            const SizedBox(height: 16),
-            _buildTextField(
-              controllers[2],
-              'License Plate',
-              'e.g., ABC-1234',
-              Icons.confirmation_number_rounded,
-              false,
-            ),
-            const SizedBox(height: 16),
-            _buildDeviceSection(
-              currentValue: currentDeviceId,
-              currentVehicleId: currentVehicleId,
-            ),
-          ],
+      content: Container(
+        width: double.maxFinite,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Device Information Title
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.only(bottom: 20),
+                child: Text(
+                  'Device Information',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+              ),
+              _buildTextField(
+                controllers[0],
+                'Vehicle Name',
+                'e.g., Toyota Camry 2023',
+                Icons.directions_car_rounded,
+                true,
+              ),
+              const SizedBox(height: 16),
+              _buildTextField(
+                controllers[1],
+                'Vehicle Type',
+                'e.g., Sedan, SUV, Truck',
+                Icons.category_rounded,
+                false,
+              ),
+              const SizedBox(height: 16),
+              _buildTextField(
+                controllers[2],
+                'License Plate',
+                'e.g., ABC-1234',
+                Icons.confirmation_number_rounded,
+                false,
+              ),
+              const SizedBox(height: 16),
+              const SizedBox(height: 16),
+              DeviceAttachmentSelector(
+                currentDeviceId: currentDeviceId,
+                currentVehicleId: currentVehicleId,
+                onDeviceSelected: (deviceId) {
+                  setState(() {
+                    _selectedDeviceId = deviceId;
+                  });
+                  _showSnackBar(
+                    'Device selected for attachment. Click "Update" to save changes.',
+                    Colors.blue,
+                    Icons.info_rounded,
+                  );
+                },
+                onDeviceUnselected: () {
+                  setState(() {
+                    _selectedDeviceId = '';
+                  });
+                  _showSnackBar(
+                    'Device unselected. Click "Update" to save changes.',
+                    Colors.blue,
+                    Icons.info_rounded,
+                  );
+                },
+                deviceService: _deviceService,
+                showHeader: true,
+                emptyStateMessage: 'No devices available',
+              ),
+            ],
+          ),
         ),
       ),
       actions: [
@@ -731,11 +780,13 @@ class _ManageVehicleState extends State<ManageVehicle> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        _buildUpdateButton(
-          onConfirm: onConfirm,
-          confirmText: confirmText,
-          confirmColor: confirmColor,
-          currentDeviceId: currentDeviceId,
+        EnhancedUpdateButton(
+          onPressed: onConfirm,
+          text: confirmText,
+          baseColor: confirmColor,
+          hasPendingChanges: _hasDeviceChanges(),
+          pendingIcon: Icons.save_rounded,
+          pendingTooltip: 'Save pending changes',
         ),
       ],
     );
@@ -1111,7 +1162,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
   // ENHANCED UI/UX: Available device with selection feedback
   Widget _buildAvailableDeviceItem(Device device) {
     final isSelected = _selectedDeviceId == device.id;
-    
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
@@ -1123,15 +1174,16 @@ class _ManageVehicleState extends State<ManageVehicle> {
           color: isSelected ? Colors.orange.shade400 : Colors.green.shade300,
           width: isSelected ? 2 : 1,
         ),
-        boxShadow: isSelected
-            ? [
-                BoxShadow(
-                  color: Colors.orange.withValues(alpha: 0.2),
-                  blurRadius: 6,
-                  spreadRadius: 1,
-                ),
-              ]
-            : null,
+        boxShadow:
+            isSelected
+                ? [
+                  BoxShadow(
+                    color: Colors.orange.withValues(alpha: 0.2),
+                    blurRadius: 6,
+                    spreadRadius: 1,
+                  ),
+                ]
+                : null,
       ),
       child: Row(
         children: [
@@ -1191,22 +1243,28 @@ class _ManageVehicleState extends State<ManageVehicle> {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: isSelected 
-                            ? Colors.orange.shade100 
-                            : Colors.green.shade100,
+                        color:
+                            isSelected
+                                ? Colors.orange.shade100
+                                : Colors.green.shade100,
                         borderRadius: BorderRadius.circular(12),
-                        border: isSelected 
-                            ? Border.all(color: Colors.orange.shade300, width: 1)
-                            : null,
+                        border:
+                            isSelected
+                                ? Border.all(
+                                  color: Colors.orange.shade300,
+                                  width: 1,
+                                )
+                                : null,
                       ),
                       child: Text(
                         isSelected ? 'SELECTED' : 'AVAILABLE',
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: isSelected 
-                              ? Colors.orange.shade700 
-                              : Colors.green.shade700,
+                          color:
+                              isSelected
+                                  ? Colors.orange.shade700
+                                  : Colors.green.shade700,
                         ),
                       ),
                     ),
@@ -1349,6 +1407,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
       );
     }
   }
+
   Widget _buildUpdateButton({
     required VoidCallback onConfirm,
     required String confirmText,
@@ -1357,7 +1416,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
   }) {
     final hasChanges = _hasDeviceChanges();
     final baseColor = hasChanges ? Colors.orange : confirmColor;
-    
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       child: Stack(
@@ -1374,7 +1433,9 @@ class _ManageVehicleState extends State<ManageVehicle> {
                     borderRadius: BorderRadius.circular(8),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.orange.withValues(alpha: 0.3 * (1 - value)),
+                        color: Colors.orange.withValues(
+                          alpha: 0.3 * (1 - value),
+                        ),
                         blurRadius: 15 * value,
                         spreadRadius: 3 * value,
                       ),
@@ -1395,18 +1456,19 @@ class _ManageVehicleState extends State<ManageVehicle> {
             ),
           // Main button with enhanced styling when changes are pending
           Container(
-            decoration: hasChanges
-                ? BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.orange.withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  )
-                : null,
+            decoration:
+                hasChanges
+                    ? BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.orange.withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    )
+                    : null,
             child: ElevatedButton(
               onPressed: onConfirm,
               style: ElevatedButton.styleFrom(
@@ -1415,9 +1477,13 @@ class _ManageVehicleState extends State<ManageVehicle> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 14,
+                ),
                 elevation: hasChanges ? 8 : 2,
-                shadowColor: hasChanges ? Colors.orange.withValues(alpha: 0.5) : null,
+                shadowColor:
+                    hasChanges ? Colors.orange.withValues(alpha: 0.5) : null,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -1440,7 +1506,8 @@ class _ManageVehicleState extends State<ManageVehicle> {
                   Text(
                     confirmText,
                     style: TextStyle(
-                      fontWeight: hasChanges ? FontWeight.bold : FontWeight.w600,
+                      fontWeight:
+                          hasChanges ? FontWeight.bold : FontWeight.w600,
                       fontSize: hasChanges ? 16 : 14,
                       letterSpacing: hasChanges ? 0.5 : 0,
                     ),
@@ -1489,7 +1556,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
 
   Widget _buildDeviceAssignmentHeader() {
     final hasChanges = _hasDeviceChanges();
-    
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       child: Row(
@@ -1498,19 +1565,21 @@ class _ManageVehicleState extends State<ManageVehicle> {
           AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             padding: const EdgeInsets.all(4),
-            decoration: hasChanges
-                ? BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: Colors.orange.withValues(alpha: 0.3),
-                      width: 1,
-                    ),
-                  )
-                : null,
+            decoration:
+                hasChanges
+                    ? BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: Colors.orange.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    )
+                    : null,
             child: Icon(
               hasChanges
-                  ? Icons.device_hub_outlined  // Different icon when changes pending
+                  ? Icons
+                      .device_hub_outlined // Different icon when changes pending
                   : Icons.device_hub_rounded,
               color: hasChanges ? Colors.orange.shade600 : Colors.blue.shade600,
               size: 20,
@@ -1566,7 +1635,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
 
   Widget _buildSelectButton(Device device) {
     final willAttach = _selectedDeviceId == device.id;
-    
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       child: ElevatedButton.icon(
@@ -1587,9 +1656,8 @@ class _ManageVehicleState extends State<ManageVehicle> {
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: willAttach 
-              ? Colors.orange.shade600 
-              : Colors.green.shade600,
+          backgroundColor:
+              willAttach ? Colors.orange.shade600 : Colors.green.shade600,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -1600,9 +1668,10 @@ class _ManageVehicleState extends State<ManageVehicle> {
             fontWeight: willAttach ? FontWeight.bold : FontWeight.w600,
           ),
           elevation: willAttach ? 6 : 2,
-          shadowColor: willAttach 
-              ? Colors.orange.withValues(alpha: 0.5)
-              : Colors.green.withValues(alpha: 0.3),
+          shadowColor:
+              willAttach
+                  ? Colors.orange.withValues(alpha: 0.5)
+                  : Colors.green.withValues(alpha: 0.3),
         ),
       ),
     );
