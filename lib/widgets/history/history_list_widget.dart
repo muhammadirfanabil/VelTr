@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../../services/history/history_service.dart';
 import '../../theme/app_colors.dart';
 
+enum SortOrder { newest, oldest }
+
 class HistoryListWidget extends StatefulWidget {
   final List<HistoryEntry> historyEntries;
   final bool isLoading;
@@ -477,19 +479,38 @@ class _HistoryListWidgetState extends State<HistoryListWidget> {
     final theme = Theme.of(context);
 
     if (widget.isLoading) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(color: AppColors.primaryBlue),
-            SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppColors.primaryBlue.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const CircularProgressIndicator(
+                color: AppColors.primaryBlue,
+                strokeWidth: 3,
+              ),
+            ),
+            const SizedBox(height: 24),
             Text(
               'Loading driving history...',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Please wait while we fetch your location data',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontSize: 14,
                 color: AppColors.textSecondary,
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -498,53 +519,153 @@ class _HistoryListWidgetState extends State<HistoryListWidget> {
 
     if (widget.error != null) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 46, color: AppColors.error),
-            const SizedBox(height: 14),
-            Text(
-              'Error loading history',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppColors.error,
-              ),
+        child: Container(
+          margin: const EdgeInsets.all(32),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppColors.error.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppColors.error.withOpacity(0.2),
+              width: 1,
             ),
-            const SizedBox(height: 7),
-            Text(
-              widget.error!,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondary,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.error_outline_rounded,
+                  size: 48,
+                  color: AppColors.error,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 20),
+              Text(
+                'Error loading history',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.error,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                widget.error!,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textSecondary,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: () {
+                  // Trigger refresh - this would need to be passed from parent
+                  setState(() {});
+                },
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Try Again'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.error,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
 
     if (widget.historyEntries.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.history, size: 46, color: AppColors.textTertiary),
-            const SizedBox(height: 14),
-            Text(
-              'No driving history found',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
-              ),
+        child: Container(
+          margin: const EdgeInsets.all(32),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppColors.primaryBlue.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppColors.primaryBlue.withOpacity(0.1),
+              width: 1,
             ),
-            const SizedBox(height: 7),
-            Text(
-              'Start driving to see your history here',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondary,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryBlue.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.history_rounded,
+                  size: 56,
+                  color: AppColors.primaryBlue,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 24),
+              Text(
+                'No driving history found',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Start driving to see your location history here.\nYour driving patterns will be recorded automatically.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textSecondary,
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryBlue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      size: 16,
+                      color: AppColors.primaryBlue,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Location updates every 15 minutes',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppColors.primaryBlue,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }

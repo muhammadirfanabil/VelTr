@@ -53,7 +53,7 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
         style: theme.textTheme.headlineSmall?.copyWith(
           fontWeight: FontWeight.bold,
           color: AppColors.textPrimary,
-          fontSize: 21,
+          fontSize: 22,
         ),
       ),
       centerTitle: true,

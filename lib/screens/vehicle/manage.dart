@@ -1008,6 +1008,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
     );
   }
 
+  // ENHANCED UI/UX: No device assigned with visual feedback
   Widget _buildNoDeviceAssigned() {
     final hasChanges = _hasDeviceChanges();
 
@@ -1107,6 +1108,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
     );
   }
 
+  // ENHANCED UI/UX: Available device with selection feedback
   Widget _buildAvailableDeviceItem(Device device) {
     final isSelected = _selectedDeviceId == device.id;
     
