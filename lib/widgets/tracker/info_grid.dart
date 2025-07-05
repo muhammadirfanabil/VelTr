@@ -170,22 +170,38 @@ class BuildInfoGrid extends StatelessWidget {
 
   // Formats the last update time
   String _formatLastUpdate(String lastUpdate) {
+    // Handle special status messages
+    if (lastUpdate == 'No recent data' ||
+        lastUpdate == 'Invalid timestamp' ||
+        lastUpdate == 'No GPS data') {
+      return lastUpdate;
+    }
+
+    // If it's already a formatted time string (like "14:35" or "Jul 5, 14:35"), return as-is
+    if (lastUpdate.contains(':') && !lastUpdate.contains('ago')) {
+      return lastUpdate;
+    }
+
+    // Otherwise, try to parse it as a DateTime and format as actual time
     try {
       final updatedTime = DateTime.parse(lastUpdate);
       final now = DateTime.now();
-      final difference = now.difference(updatedTime);
-
-      if (difference.inMinutes < 1) {
-        return 'Just now';
-      } else if (difference.inMinutes < 60) {
-        return '${difference.inMinutes}m ago';
-      } else if (difference.inHours < 24) {
-        return '${difference.inHours}h ago';
+      
+      // Format as time based on how recent it is
+      if (updatedTime.year == now.year && 
+          updatedTime.month == now.month && 
+          updatedTime.day == now.day) {
+        // Same day - show only time (24-hour format)
+        return '${updatedTime.hour.toString().padLeft(2, '0')}:${updatedTime.minute.toString().padLeft(2, '0')}';
       } else {
-        return '${difference.inDays}d ago';
+        // Different day - show date and time
+        final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return '${months[updatedTime.month - 1]} ${updatedTime.day}, ${updatedTime.hour.toString().padLeft(2, '0')}:${updatedTime.minute.toString().padLeft(2, '0')}';
       }
     } catch (_) {
-      return 'Invalid date';
+      // If parsing fails, return the original string or a fallback
+      return lastUpdate.isNotEmpty ? lastUpdate : 'Invalid time';
     }
   }
 }

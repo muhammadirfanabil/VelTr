@@ -48,17 +48,69 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
   bool _isActionInProgress = false;
   bool _wasOnlinePreviously = false;
 
-  // Add Firebase real-time listening properties
-  StreamSubscription<DatabaseEvent>? _relaySubscription;
-  bool _isOnlineFromFirebase = false;
-  bool _firebaseDataReceived = false;
+  // Add Firebase real-time listening properties for GPS timestamp
+  StreamSubscription<DatabaseEvent>? _gpsSubscription;
+  DateTime? _lastGPSUpdateTime;
+  bool _gpsDataReceived = false;
 
   // Separate relay status for the button
   bool _relayStatusFromFirebase = false;
   bool _relayDataReceived = false;
+  StreamSubscription<DatabaseEvent>? _relaySubscription;
 
-  // Add DateFormat instance for parsing
-  final DateFormat _dateFormat = DateFormat('yyyy-MM-dd HH:mm:ss');
+  /// Try to parse timestamp with multiple formats
+  DateTime? _parseTimestamp(String timestampString) {
+    final formats = [
+      DateFormat('yyyy-MM-dd HH:mm:ss'),
+      DateFormat('dd-MM-yyyy HH:mm:ss'),
+      DateFormat('yyyy-MM-ddTHH:mm:ss'),
+      DateFormat('yyyy/MM/dd HH:mm:ss'),
+      DateFormat('dd/MM/yyyy HH:mm:ss'),
+    ];
+
+    for (final format in formats) {
+      try {
+        final parsed = format.parse(timestampString);
+        debugPrint(
+          '✅ Successfully parsed with format ${format.pattern}: $timestampString -> $parsed',
+        );
+        return parsed;
+      } catch (e) {
+        // Continue to next format
+      }
+    }
+
+    debugPrint('❌ Failed to parse timestamp with any format: $timestampString');
+    return null;
+  }
+
+  /// Convert WITA (UTC+8) timestamp to UTC - Only for fallback scenarios
+  DateTime _witaToUtc(DateTime witaTime) {
+    return witaTime.subtract(const Duration(hours: 8));
+  }
+
+  /// Parse UTC timestamp from tanggal + utc_time (preferred method)
+  DateTime? _parseUtcTimestamp(String tanggal, String utcTime) {
+    try {
+      final timestampString = '$tanggal $utcTime';
+      final parsed = _parseTimestamp(timestampString);
+      if (parsed != null) {
+        // Ensure it's treated as UTC
+        return DateTime.utc(
+          parsed.year,
+          parsed.month,
+          parsed.day,
+          parsed.hour,
+          parsed.minute,
+          parsed.second,
+          parsed.millisecond,
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error parsing UTC timestamp: $e');
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -76,8 +128,8 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
     if (widget.deviceId.isEmpty) {
       debugPrint('Warning: Device ID is empty, cannot setup Firebase listener');
       setState(() {
-        _isOnlineFromFirebase = false;
-        _firebaseDataReceived = true;
+        _lastGPSUpdateTime = null;
+        _gpsDataReceived = true;
         _relayStatusFromFirebase = false;
         _relayDataReceived = true;
       });
@@ -85,43 +137,153 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
     }
 
     try {
+      // Setup GPS listener for timestamp-based status
+      final gpsRef = FirebaseDatabase.instance.ref(
+        'devices/${widget.deviceId}/gps',
+      );
+
+      debugPrint('Setting up GPS listener for device: ${widget.deviceId}');
+
+      _gpsSubscription = gpsRef.onValue.listen(
+        (DatabaseEvent event) {
+          if (mounted && event.snapshot.exists) {
+            final gpsData = event.snapshot.value as Map<dynamic, dynamic>?;
+
+            if (gpsData != null) {
+              // Debug: Print all GPS data to understand structure
+              debugPrint('🔍 Raw GPS Data: $gpsData');
+              debugPrint('🔍 GPS Data Keys: ${gpsData.keys.toList()}');
+
+              // Extract timestamp fields - prioritize tanggal + utc_time
+              final tanggal = gpsData['tanggal']?.toString();
+              final utcTime = gpsData['utc_time']?.toString();
+              final waktuWita =
+                  gpsData['waktu_wita']?.toString(); // Fallback only
+              final waktu =
+                  gpsData['waktu']?.toString(); // Alternative fallback
+              final timestamp =
+                  gpsData['timestamp']?.toString(); // Direct timestamp fallback
+
+              debugPrint('🕐 Timestamp fields found:');
+              debugPrint('  - tanggal: $tanggal');
+              debugPrint('  - utc_time: $utcTime');
+              debugPrint('  - waktu_wita: $waktuWita (fallback)');
+              debugPrint('  - waktu: $waktu (fallback)');
+              debugPrint('  - timestamp: $timestamp (fallback)');
+
+              DateTime? lastUpdateTime;
+
+              // Priority 1: Use tanggal + utc_time (preferred method)
+              if (tanggal != null && utcTime != null) {
+                lastUpdateTime = _parseUtcTimestamp(tanggal, utcTime);
+                if (lastUpdateTime != null) {
+                  debugPrint(
+                    '✅ Using tanggal + utc_time (UTC): $tanggal $utcTime -> $lastUpdateTime UTC',
+                  );
+                }
+              }
+              // Priority 2: Fallback to tanggal + waktu_wita (convert to UTC)
+              else if (tanggal != null && waktuWita != null) {
+                final timestampString = '$tanggal $waktuWita';
+                final parsedTime = _parseTimestamp(timestampString);
+                if (parsedTime != null) {
+                  // waktu_wita is WITA (UTC+8), convert to UTC
+                  lastUpdateTime = _witaToUtc(parsedTime);
+                  debugPrint(
+                    '✅ Fallback tanggal + waktu_wita (converted to UTC): $timestampString -> $lastUpdateTime UTC',
+                  );
+                }
+              }
+              // Priority 3: Fallback to tanggal + waktu
+              else if (tanggal != null && waktu != null) {
+                final timestampString = '$tanggal $waktu';
+                final parsedTime = _parseTimestamp(timestampString);
+                if (parsedTime != null) {
+                  // Assume waktu is also WITA, convert to UTC
+                  lastUpdateTime = _witaToUtc(parsedTime);
+                  debugPrint(
+                    '✅ Fallback tanggal + waktu (converted to UTC): $timestampString -> $lastUpdateTime UTC',
+                  );
+                }
+              }
+              // Priority 4: Direct timestamp fallback
+              else if (timestamp != null) {
+                final parsedTime = _parseTimestamp(timestamp);
+                if (parsedTime != null) {
+                  // Assume timestamp is already UTC
+                  lastUpdateTime = parsedTime.toUtc();
+                  debugPrint(
+                    '✅ Fallback direct timestamp (UTC): $timestamp -> $lastUpdateTime UTC',
+                  );
+                }
+              }
+
+              // If all parsing fails, try to use current time as fallback for testing
+              if (lastUpdateTime == null) {
+                debugPrint(
+                  '⚠️ Could not parse any timestamp, using current UTC time as fallback',
+                );
+                lastUpdateTime = DateTime.now().toUtc();
+              }
+
+              setState(() {
+                _lastGPSUpdateTime = lastUpdateTime;
+                _gpsDataReceived = true;
+              });
+
+              debugPrint('📍 GPS timestamp updated: $_lastGPSUpdateTime');
+            } else {
+              debugPrint('❌ GPS data is null');
+            }
+          } else if (mounted) {
+            setState(() {
+              _lastGPSUpdateTime = null;
+              _gpsDataReceived = true;
+            });
+            debugPrint('❌ GPS data not found for device: ${widget.deviceId}');
+          }
+        },
+        onError: (error) {
+          debugPrint(
+            '❌ GPS listener error for device ${widget.deviceId}: $error',
+          );
+          if (mounted) {
+            setState(() {
+              _lastGPSUpdateTime = null;
+              _gpsDataReceived = true;
+            });
+          }
+        },
+      );
+
+      // Setup relay listener for vehicle control (separate from status)
       final relayRef = FirebaseDatabase.instance.ref(
         'devices/${widget.deviceId}/relay',
       );
 
-      debugPrint('Setting up Firebase listener for device: ${widget.deviceId}');
+      debugPrint('Setting up relay listener for device: ${widget.deviceId}');
 
       _relaySubscription = relayRef.onValue.listen(
         (DatabaseEvent event) {
           if (mounted && event.snapshot.exists) {
             final relayValue = event.snapshot.value;
-            final newOnlineStatus = relayValue == true;
             final newRelayStatus = relayValue == true;
 
             setState(() {
-              _isOnlineFromFirebase = newOnlineStatus;
-              _firebaseDataReceived = true;
               _relayStatusFromFirebase = newRelayStatus;
               _relayDataReceived = true;
-
-              // Update previous status for tracking changes
-              if (_wasOnlinePreviously != newOnlineStatus) {
-                _wasOnlinePreviously = newOnlineStatus;
-              }
             });
 
             debugPrint(
-              'Firebase relay status updated: $relayValue (Online: $newOnlineStatus, Relay: $newRelayStatus)',
+              'Firebase relay status updated: $relayValue (Relay: $newRelayStatus)',
             );
           } else if (mounted) {
             setState(() {
-              _isOnlineFromFirebase = false;
-              _firebaseDataReceived = true;
               _relayStatusFromFirebase = false;
               _relayDataReceived = true;
             });
             debugPrint(
-              'Firebase relay data not found or null for device: ${widget.deviceId}',
+              'Firebase relay data not found for device: ${widget.deviceId}',
             );
           }
         },
@@ -131,8 +293,6 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
           );
           if (mounted) {
             setState(() {
-              _isOnlineFromFirebase = false;
-              _firebaseDataReceived = true;
               _relayStatusFromFirebase = false;
               _relayDataReceived = true;
             });
@@ -141,12 +301,12 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
       );
     } catch (e) {
       debugPrint(
-        'Error setting up Firebase listener for device ${widget.deviceId}: $e',
+        'Error setting up Firebase listeners for device ${widget.deviceId}: $e',
       );
       if (mounted) {
         setState(() {
-          _isOnlineFromFirebase = false;
-          _firebaseDataReceived = true;
+          _lastGPSUpdateTime = null;
+          _gpsDataReceived = true;
           _relayStatusFromFirebase = false;
           _relayDataReceived = true;
         });
@@ -183,7 +343,8 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
 
   @override
   void dispose() {
-    // Clean up the Firebase listener
+    // Clean up the Firebase listeners
+    _gpsSubscription?.cancel();
     _relaySubscription?.cancel();
     _animationController.dispose();
     super.dispose();
@@ -206,19 +367,99 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
   }
 
   String get lastActiveText {
-    if (widget.lastUpdated?.isNotEmpty == true) {
-      return widget.lastUpdated!;
+    // Priority 1: Use GPS timestamp-based logic (already in UTC)
+    if (_gpsDataReceived && _lastGPSUpdateTime != null) {
+      final lastUpdate = _lastGPSUpdateTime!; // Already in UTC
+      final now = DateTime.now().toUtc();
+      final difference = now.difference(lastUpdate);
+
+      debugPrint(
+        '✅ Last Update (GPS UTC): $lastUpdate UTC, '
+        'Difference: ${difference.inMinutes}min',
+      );
+
+      // Convert UTC to local time for display
+      final localTime = lastUpdate.toLocal();
+      
+      // Format as actual time based on how recent it is
+      if (localTime.year == now.toLocal().year && 
+          localTime.month == now.toLocal().month && 
+          localTime.day == now.toLocal().day) {
+        // Same day - show only time (24-hour format)
+        return '${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
+      } else {
+        // Different day - show date and time
+        final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return '${months[localTime.month - 1]} ${localTime.day}, ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
+      }
     }
+
+    // Priority 2: Fallback to widget lastUpdated (with timezone conversion)
+    if (widget.lastUpdated?.isNotEmpty == true && 
+        widget.lastUpdated != 'Invalid timestamp' &&
+        widget.lastUpdated != 'No GPS data' &&
+        widget.lastUpdated != '-') {
+      try {
+        final updatedTime = _parseTimestamp(widget.lastUpdated!);
+        if (updatedTime != null) {
+          // Assume fallback timestamp is WITA, convert to UTC then to local for display
+          final updatedTimeUtc = _witaToUtc(updatedTime);
+          final localTime = updatedTimeUtc.toLocal();
+          final now = DateTime.now();
+
+          debugPrint(
+            '✅ Last Update (Fallback Local): $localTime (converted from WITA via UTC)',
+          );
+
+          // Format as actual time based on how recent it is
+          if (localTime.year == now.year && 
+              localTime.month == now.month && 
+              localTime.day == now.day) {
+            // Same day - show only time (24-hour format)
+            return '${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
+          } else {
+            // Different day - show date and time
+            final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                           'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            return '${months[localTime.month - 1]} ${localTime.day}, ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
+          }
+        }
+      } catch (e) {
+        debugPrint('❌ Error parsing fallback timestamp: $e');
+      }
+    }
+
+    // Priority 3: Default fallback
     return 'No recent data';
   }
 
   bool get isOnline {
-    // Use Firebase relay data if available, otherwise fall back to timestamp logic
-    if (_firebaseDataReceived) {
-      return _isOnlineFromFirebase;
+    // Use GPS timestamp-based logic for online status (all UTC)
+    if (_gpsDataReceived && _lastGPSUpdateTime != null) {
+      // Get current UTC time
+      final now = DateTime.now().toUtc();
+      final lastUpdate =
+          _lastGPSUpdateTime!; // Already in UTC from GPS listener
+
+      // Calculate difference in minutes
+      final differenceInMinutes = now.difference(lastUpdate).inMinutes;
+
+      // Device is online if last update was less than 1 minute ago
+      final isDeviceOnline = differenceInMinutes < 1;
+
+      debugPrint(
+        'GPS Timestamp Status Check (UTC Priority): '
+        'Now: $now UTC, '
+        'Last Update: $lastUpdate UTC, '
+        'Diff: ${differenceInMinutes}min, '
+        'Online: $isDeviceOnline',
+      );
+
+      return isDeviceOnline;
     }
 
-    // Fallback to timestamp-based logic
+    // Fallback to timestamp string logic if GPS data not available (convert to UTC)
     if (widget.lastUpdated == null ||
         widget.lastUpdated!.isEmpty ||
         widget.lastUpdated == '-') {
@@ -226,11 +467,30 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
     }
 
     try {
-      final updatedTime = _dateFormat.parse(widget.lastUpdated!);
-      final now = DateTime.now();
-      final differenceInMinutes = now.difference(updatedTime).inMinutes;
+      final updatedTime = _parseTimestamp(widget.lastUpdated!);
 
-      return differenceInMinutes <= 2;
+      if (updatedTime != null) {
+        // Assume fallback timestamp is WITA, convert to UTC
+        final updatedTimeUtc = _witaToUtc(updatedTime);
+        final now = DateTime.now().toUtc();
+        final differenceInMinutes = now.difference(updatedTimeUtc).inMinutes;
+
+        // Device is online if last update was less than 1 minute ago
+        final isDeviceOnline = differenceInMinutes < 1;
+
+        debugPrint(
+          'Fallback Timestamp Status Check (UTC): '
+          'Now: $now UTC, '
+          'Updated: $updatedTimeUtc UTC (converted from WITA), '
+          'Diff: ${differenceInMinutes}min, '
+          'Online: $isDeviceOnline',
+        );
+
+        return isDeviceOnline;
+      } else {
+        debugPrint('Failed to parse fallback timestamp: ${widget.lastUpdated}');
+        return false;
+      }
     } catch (e) {
       debugPrint('Error parsing timestamp: $e');
       debugPrint('Timestamp value: ${widget.lastUpdated}');
@@ -537,16 +797,11 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
   Widget _buildStatusBadge(ThemeData theme) {
     final online = isOnline;
 
-    // Debug: Print current status source
+    // Debug: Print current status source (prioritizing UTC timestamp)
     debugPrint(
-      'Status Badge - Firebase received: $_firebaseDataReceived, '
-      'Firebase status: $_isOnlineFromFirebase, '
+      '🔴 Status Badge - GPS received: $_gpsDataReceived, '
+      'GPS timestamp (UTC): $_lastGPSUpdateTime, '
       'Final online status: $online',
-    );
-    debugPrint(
-      'Action Button - Relay received: $_relayDataReceived, '
-      'Relay status: $_relayStatusFromFirebase, '
-      'Final vehicle status: ${_getActualVehicleStatus()}',
     );
 
     return Container(
