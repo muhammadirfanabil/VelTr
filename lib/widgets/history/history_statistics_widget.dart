@@ -47,15 +47,15 @@ class HistoryStatisticsWidget extends StatelessWidget {
                     theme: theme,
                   ),
                 ),
-                Expanded(
-                  child: _buildStatItem(
-                    icon: Icons.access_time_rounded,
-                    label: 'Duration',
-                    value: _formatDuration(timeSpan),
-                    color: AppColors.success,
-                    theme: theme,
-                  ),
-                ),
+                // Expanded(
+                //   child: _buildStatItem(
+                //     icon: Icons.access_time_rounded,
+                //     label: 'Duration',
+                //     value: _formatDuration(timeSpan),
+                //     color: AppColors.success,
+                //     theme: theme,
+                //   ),
+                // ),
                 Expanded(
                   child: _buildStatItem(
                     icon: Icons.location_on_rounded,

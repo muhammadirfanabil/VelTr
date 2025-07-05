@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../../services/history/history_service.dart';
 import '../../theme/app_colors.dart';
 
+enum SortOrder { newest, oldest }
+
 class HistoryListWidget extends StatefulWidget {
   final List<HistoryEntry> historyEntries;
   final bool isLoading;
@@ -22,6 +24,7 @@ class HistoryListWidget extends StatefulWidget {
 
 class _HistoryListWidgetState extends State<HistoryListWidget> {
   final Map<String, String> _addressCache = {};
+  SortOrder _currentSortOrder = SortOrder.newest;
 
   Future<String> _getAddressFromCoordinates(
     double latitude,
@@ -92,6 +95,79 @@ class _HistoryListWidgetState extends State<HistoryListWidget> {
     } else {
       return '${dateFormat.format(dateTime)} at ${timeFormat.format(dateTime)}';
     }
+  }
+
+  List<HistoryEntry> _getSortedHistoryEntries() {
+    final sortedEntries = List<HistoryEntry>.from(widget.historyEntries);
+
+    switch (_currentSortOrder) {
+      case SortOrder.newest:
+        sortedEntries.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
+      case SortOrder.oldest:
+        sortedEntries.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        break;
+    }
+
+    return sortedEntries;
+  }
+
+  Widget _buildSortDropdown() {
+    return Container(
+      margin: const EdgeInsets.only(left: 20, right: 20, top: 10, bottom: 10),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppColors.textTertiary.withValues(alpha: 0.3),
+              ),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<SortOrder>(
+                value: _currentSortOrder,
+                icon: Icon(
+                  Icons.keyboard_arrow_down,
+                  color: AppColors.textSecondary,
+                  size: 20,
+                ),
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+                dropdownColor: AppColors.surface,
+                onChanged: (SortOrder? newValue) {
+                  if (newValue != null) {
+                    setState(() {
+                      _currentSortOrder = newValue;
+                    });
+                  }
+                },
+                items: const [
+                  DropdownMenuItem<SortOrder>(
+                    value: SortOrder.newest,
+                    child: Row(
+                      children: [Text('Newest First'), SizedBox(width: 8)],
+                    ),
+                  ),
+                  DropdownMenuItem<SortOrder>(
+                    value: SortOrder.oldest,
+                    child: Row(
+                      children: [Text('Oldest First'), SizedBox(width: 8)],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const Spacer(),
+        ],
+      ),
+    );
   }
 
   @override
@@ -170,113 +246,128 @@ class _HistoryListWidgetState extends State<HistoryListWidget> {
         ),
       );
     }
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      itemCount: widget.historyEntries.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        final entry = widget.historyEntries[index];
 
-        return Card(
-          margin: EdgeInsets.zero,
-          elevation: 0.7,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          color: AppColors.surface,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                FutureBuilder<String>(
-                  future: _getAddressFromCoordinates(
-                    entry.latitude,
-                    entry.longitude,
-                  ),
-                  builder: (context, snapshot) {
-                    String displayText;
-                    Widget leadingIcon;
+    final sortedEntries = _getSortedHistoryEntries();
 
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      displayText = 'Loading address...';
-                      leadingIcon = const SizedBox(
-                        width: 15,
-                        height: 15,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            AppColors.primaryBlue,
-                          ),
-                        ),
-                      );
-                    } else if (snapshot.hasError) {
-                      displayText =
-                          'In ${entry.latitude.toStringAsFixed(6)}, ${entry.longitude.toStringAsFixed(6)}';
-                      leadingIcon = Container(
-                        width: 11,
-                        height: 11,
-                        decoration: const BoxDecoration(
-                          color: AppColors.warning,
-                          shape: BoxShape.circle,
-                        ),
-                      );
-                    } else {
-                      displayText = 'In ${snapshot.data ?? 'Unknown location'}';
-                      leadingIcon = Container(
-                        width: 11,
-                        height: 11,
-                        decoration: const BoxDecoration(
-                          color: AppColors.primaryBlue,
-                          shape: BoxShape.circle,
-                        ),
-                      );
-                    }
-                    return Row(
-                      children: [
-                        leadingIcon,
-                        const SizedBox(width: 13),
-                        Expanded(
-                          child: Text(
-                            displayText,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14.7,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+    return Column(
+      children: [
+        _buildSortDropdown(),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            itemCount: sortedEntries.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              final entry = sortedEntries[index];
+
+              return Card(
+                margin: EdgeInsets.zero,
+                elevation: 0.7,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(height: 6),
-                Padding(
-                  padding: const EdgeInsets.only(left: 24),
-                  child: Row(
+                color: AppColors.surface,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 13,
+                    vertical: 14,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.access_time,
-                        size: 14,
-                        color: AppColors.textSecondary,
+                      FutureBuilder<String>(
+                        future: _getAddressFromCoordinates(
+                          entry.latitude,
+                          entry.longitude,
+                        ),
+                        builder: (context, snapshot) {
+                          String displayText;
+                          Widget leadingIcon;
+
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            displayText = 'Loading address...';
+                            leadingIcon = const SizedBox(
+                              width: 15,
+                              height: 15,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  AppColors.primaryBlue,
+                                ),
+                              ),
+                            );
+                          } else if (snapshot.hasError) {
+                            displayText =
+                                'In ${entry.latitude.toStringAsFixed(6)}, ${entry.longitude.toStringAsFixed(6)}';
+                            leadingIcon = Container(
+                              width: 11,
+                              height: 11,
+                              decoration: const BoxDecoration(
+                                color: AppColors.warning,
+                                shape: BoxShape.circle,
+                              ),
+                            );
+                          } else {
+                            displayText =
+                                'In ${snapshot.data ?? 'Unknown location'}';
+                            leadingIcon = Container(
+                              width: 11,
+                              height: 11,
+                              decoration: const BoxDecoration(
+                                color: AppColors.primaryBlue,
+                                shape: BoxShape.circle,
+                              ),
+                            );
+                          }
+                          return Row(
+                            children: [
+                              leadingIcon,
+                              const SizedBox(width: 13),
+                              Expanded(
+                                child: Text(
+                                  displayText,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14.7,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
-                      const SizedBox(width: 6),
-                      Text(
-                        _formatDateTime(entry.createdAt),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontSize: 12.5,
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w500,
+                      const SizedBox(height: 6),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 24),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.access_time,
+                              size: 14,
+                              color: AppColors.textSecondary,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _formatDateTime(entry.createdAt),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontSize: 12.5,
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
+              );
+            },
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 }

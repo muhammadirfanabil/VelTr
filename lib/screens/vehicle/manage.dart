@@ -205,11 +205,13 @@ class _ManageVehicleState extends State<ManageVehicle> {
           children: [
             // Current Device Assignment
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                color: AppColors.infoLight.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.blue.shade200),
+                border: Border.all(
+                  color: AppColors.info.withValues(alpha: 0.5),
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -218,7 +220,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
                     children: [
                       Icon(
                         Icons.device_hub_rounded,
-                        color: Colors.blue.shade600,
+                        color: AppColors.infoText,
                         size: 20,
                       ),
                       const SizedBox(width: 8),
@@ -226,7 +228,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
                         'Device Assignment',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: Colors.blue.shade700,
+                          color: AppColors.infoText,
                         ),
                       ),
                     ],
@@ -251,22 +253,15 @@ class _ManageVehicleState extends State<ManageVehicle> {
                 'Available Devices',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: Colors.green.shade700,
+                  color: AppColors.success,
                 ),
               ),
               const SizedBox(height: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.green.shade200),
-                ),
-                child: Column(
-                  children:
-                      unattachedDevices
-                          .map((device) => _buildAvailableDeviceItem(device))
-                          .toList(),
-                ),
+              Column(
+                children:
+                    unattachedDevices
+                        .map((device) => _buildAvailableDeviceItem(device))
+                        .toList(),
               ),
               const SizedBox(height: 16),
             ],
@@ -277,15 +272,17 @@ class _ManageVehicleState extends State<ManageVehicle> {
                 'Devices Attached to Other Vehicles',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: Colors.orange.shade700,
+                  color: AppColors.warning,
                 ),
               ),
               const SizedBox(height: 8),
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
+                  color: AppColors.warning.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.orange.shade200),
+                  border: Border.all(
+                    color: AppColors.warning.withValues(alpha: 0.5),
+                  ),
                 ),
                 child: Column(
                   children:
@@ -645,7 +642,8 @@ class _ManageVehicleState extends State<ManageVehicle> {
       content: content,
       confirmText: hasExistingDevice ? 'Replace' : 'Attach',
       cancelText: 'Cancel',
-      confirmColor: hasExistingDevice ? Colors.orange : Colors.blue,
+      confirmColor:
+          hasExistingDevice ? AppColors.warning : AppColors.primaryBlue,
     ).then((confirmed) {
       if (confirmed == true) {
         _performDeviceAttachment(deviceId, targetVehicle);
@@ -754,21 +752,21 @@ class _ManageVehicleState extends State<ManageVehicle> {
   InputDecoration _buildInputDecoration(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
-      prefixIcon: Icon(icon, color: Colors.grey.shade600),
+      prefixIcon: Icon(icon, color: AppColors.textSecondary),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade300),
+        borderSide: BorderSide(color: AppColors.border),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade300),
+        borderSide: BorderSide(color: AppColors.border),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.blue, width: 2),
+        borderSide: BorderSide(color: AppColors.primaryBlue, width: 2),
       ),
       filled: true,
-      fillColor: Colors.grey.shade50,
+      fillColor: AppColors.backgroundSecondary,
     );
   }
 
@@ -785,10 +783,10 @@ class _ManageVehicleState extends State<ManageVehicle> {
         ),
         title: Text(
           'Manage Vehicles',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
             fontSize: 22,
-            color: theme.colorScheme.onSurface,
           ),
         ),
         backgroundColor: theme.colorScheme.surface,
@@ -959,7 +957,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
             context: context,
             title: 'Add New Vehicle',
             icon: Icons.add_circle_rounded,
-            iconColor: Colors.blue,
+            iconColor: AppColors.primaryBlue,
             controllers: controllers,
             onConfirm: () {
               _addVehicle(
@@ -971,7 +969,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
               Navigator.pop(context);
             },
             confirmText: 'Add Vehicle',
-            confirmColor: Colors.blue,
+            confirmColor: AppColors.primaryBlue,
             currentDeviceId: null,
             currentVehicleId: null,
           ),
@@ -993,7 +991,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
             context: context,
             title: 'Edit Vehicle',
             icon: Icons.edit_rounded,
-            iconColor: Colors.orange,
+            iconColor: AppColors.warning,
             controllers: controllers,
             onConfirm: () {
               _updateVehicle(
@@ -1006,7 +1004,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
               Navigator.pop(context);
             },
             confirmText: 'Update',
-            confirmColor: Colors.orange,
+            confirmColor: AppColors.warning,
             currentDeviceId: vehicle.deviceId,
             currentVehicleId: vehicle.id,
           ),
@@ -1063,15 +1061,15 @@ class _ManageVehicleState extends State<ManageVehicle> {
             _buildTextField(
               controllers[0],
               'Vehicle Name',
-              'e.g., Toyota Camry 2023',
-              Icons.directions_car_rounded,
+              'e.g., Honda Scoopy 2016',
+              Icons.two_wheeler,
               true,
             ),
             const SizedBox(height: 16),
             _buildTextField(
               controllers[1],
               'Vehicle Type',
-              'e.g., Sedan, SUV, Truck',
+              'e.g., Matic',
               Icons.category_rounded,
               false,
             ),
@@ -1079,7 +1077,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
             _buildTextField(
               controllers[2],
               'License Plate',
-              'e.g., ABC-1234',
+              'e.g., DA 1234 BC',
               Icons.confirmation_number_rounded,
               false,
             ),
@@ -1169,11 +1167,11 @@ class _ManageVehicleState extends State<ManageVehicle> {
   }
 
   void _showSnackBar(String message, Color color, IconData icon) {
-    if (color == Colors.red) {
+    if (color == AppColors.error) {
       SnackbarUtils.showError(context, message);
-    } else if (color == Colors.green) {
+    } else if (color == AppColors.success) {
       SnackbarUtils.showSuccess(context, message);
-    } else if (color == Colors.orange) {
+    } else if (color == AppColors.warning) {
       SnackbarUtils.showWarning(context, message);
     } else {
       SnackbarUtils.showInfo(context, message);
@@ -1487,93 +1485,104 @@ class _ManageVehicleState extends State<ManageVehicle> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue.shade300),
+        border: Border.all(color: AppColors.info.withValues(alpha: 0.5)),
       ),
-      child: Row(
+      child: Column(
         children: [
-          Icon(
-            device.isActive ? Icons.device_hub : Icons.device_hub_outlined,
-            color:
-                device.isActive ? Colors.green.shade600 : Colors.grey.shade600,
-            size: 20,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  device.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
+          Row(
+            children: [
+              Icon(
+                device.isActive ? Icons.device_hub : Icons.device_hub_outlined,
+                color:
+                    device.isActive ? AppColors.success : Colors.grey.shade600,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                            device.isActive
-                                ? Colors.green.shade100
-                                : Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        device.isActive ? 'ACTIVE' : 'INACTIVE',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color:
-                              device.isActive
-                                  ? Colors.green.shade700
-                                  : Colors.grey.shade600,
-                        ),
+                    Text(
+                      device.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        'ASSIGNED',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade700,
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color:
+                                device.isActive
+                                    ? AppColors.successLight
+                                    : Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            device.isActive ? 'ACTIVE' : 'INACTIVE',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color:
+                                  device.isActive
+                                      ? AppColors.successText
+                                      : Colors.grey.shade600,
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.infoLight,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'ASSIGNED',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.infoText,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-          ElevatedButton.icon(
-            onPressed: () => _handleUnattachFromVehicle(deviceId, vehicleId),
-            icon: const Icon(Icons.link_off_rounded, size: 18),
-            label: const Text('Unattach'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade600,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              textStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+            ],
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: ElevatedButton.icon(
+              onPressed: () => _handleUnattachFromVehicle(deviceId, vehicleId),
+              icon: const Icon(Icons.link_off_rounded, size: 18),
+              label: const Text('Unattach'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 50,
+                  vertical: 8,
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
@@ -1611,102 +1620,205 @@ class _ManageVehicleState extends State<ManageVehicle> {
 
   Widget _buildAvailableDeviceItem(Device device) {
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.green.shade300),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            device.isActive ? Icons.device_hub : Icons.device_hub_outlined,
-            color:
-                device.isActive ? Colors.green.shade600 : Colors.grey.shade600,
-            size: 20,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  device.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                            device.isActive
-                                ? Colors.green.shade100
-                                : Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        device.isActive ? 'ACTIVE' : 'INACTIVE',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color:
-                              device.isActive
-                                  ? Colors.green.shade700
-                                  : Colors.grey.shade600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        'AVAILABLE',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green.shade700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          ElevatedButton.icon(
-            onPressed: () => _handleAttachDeviceInForm(device.id),
-            icon: const Icon(Icons.link_rounded, size: 18),
-            label: const Text('Attach'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green.shade600,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              textStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => _handleAttachDeviceInForm(device.id),
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  // Device Info Row
+                  Row(
+                    children: [
+                      // Device Icon with Status Indicator
+                      Stack(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color:
+                                  device.isActive
+                                      ? AppColors.success.withValues(alpha: 0.1)
+                                      : Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              device.isActive
+                                  ? Icons.router
+                                  : Icons.router_outlined,
+                              color:
+                                  device.isActive
+                                      ? AppColors.success
+                                      : Colors.grey.shade600,
+                              size: 24,
+                            ),
+                          ),
+                          if (device.isActive)
+                            Positioned(
+                              top: 0,
+                              right: 0,
+                              child: Container(
+                                width: 12,
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  color: Colors.green.shade400,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(width: 16),
+
+                      // Device Information
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              device.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                _buildStatusChip(
+                                  label: device.isActive ? 'ONLINE' : 'OFFLINE',
+                                  color:
+                                      device.isActive
+                                          ? AppColors.successText
+                                          : Colors.grey,
+                                  isActive: device.isActive,
+                                ),
+                                const SizedBox(width: 8),
+                                _buildStatusChip(
+                                  label: 'AVAILABLE',
+                                  color: AppColors.success,
+                                  isActive: true,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Attach Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.success,
+                            AppColors.success.withValues(alpha: 0.8),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.success.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => _handleAttachDeviceInForm(device.id),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.link_rounded,
+                                  size: 18,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Attach Device',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusChip({
+    required String label,
+    required Color color,
+    required bool isActive,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: isActive ? color.withOpacity(0.1) : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isActive ? color.withOpacity(0.3) : Colors.grey.shade300,
+          width: 1,
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: isActive ? AppColors.successText : Colors.grey.shade600,
+          letterSpacing: 0.5,
+        ),
       ),
     );
   }
@@ -1715,98 +1827,103 @@ class _ManageVehicleState extends State<ManageVehicle> {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.orange.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.orange.shade300),
-      ),
-      child: Row(
+      child: Column(
         children: [
-          Icon(
-            device.isActive ? Icons.device_hub : Icons.device_hub_outlined,
-            color:
-                device.isActive ? Colors.green.shade600 : Colors.grey.shade600,
-            size: 20,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  device.name,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                    color: Colors.grey.shade700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
+          Row(
+            children: [
+              Icon(
+                device.isActive ? Icons.device_hub : Icons.device_hub_outlined,
+                color:
+                    device.isActive
+                        ? AppColors.warningDark
+                        : Colors.grey.shade600,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                            device.isActive
-                                ? Colors.green.shade100
-                                : Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        device.isActive ? 'ACTIVE' : 'INACTIVE',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color:
-                              device.isActive
-                                  ? Colors.green.shade700
-                                  : Colors.grey.shade600,
-                        ),
+                    Text(
+                      device.name,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        color: Colors.grey.shade700,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        'ATTACHED TO OTHER',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orange.shade700,
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color:
+                                device.isActive
+                                    ? AppColors.successLight
+                                    : Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            device.isActive ? 'ACTIVE' : 'INACTIVE',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color:
+                                  device.isActive
+                                      ? AppColors.successText
+                                      : Colors.grey.shade600,
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'ATTACHED TO OTHER',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.warningText,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              'Read Only',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w500,
               ),
-            ),
+            ],
           ),
+          // const SizedBox(height: 12),
+          // Align(
+          //   alignment: Alignment.centerRight,
+          //   child: Container(
+          //     padding: const EdgeInsets.symmetric(horizontal: 70, vertical: 8),
+          //     decoration: BoxDecoration(
+          //       color: Colors.grey.shade200,
+          //       borderRadius: BorderRadius.circular(8),
+          //     ),
+          //     child: Text(
+          //       'Read Only',
+          //       style: TextStyle(
+          //         fontSize: 12,
+          //         color: Colors.grey.shade600,
+          //         fontWeight: FontWeight.w500,
+          //       ),
+          //     ),
+          //   ),
+          // ),
         ],
       ),
     );
