@@ -9,10 +9,7 @@ void main() {
         'id': 'test_entry_1',
         'createdAt': '2025-07-05T14:30:00.000Z', // UTC ISO string
         'createdAtTimestamp': 1751725800000, // Unix timestamp
-        'location': {
-          'latitude': -6.2088,
-          'longitude': 106.8456,
-        },
+        'location': {'latitude': -6.2088, 'longitude': 106.8456},
         'vehicleId': 'test_vehicle_123',
         'ownerId': 'test_owner_456',
         'deviceName': 'Test Device',
@@ -23,12 +20,15 @@ void main() {
           'timeSinceLastEntry': 900000, // 15 minutes
           'logReason': 'Time and location criteria met (15.0 min, 150m)',
           'source': 'processdrivinghistory',
-          'version': '2.0'
-        }
+          'version': '2.0',
+        },
       };
 
       // Parse using the HistoryEntry.fromMap factory
-      final historyEntry = HistoryEntry.fromMap(mockCloudFunctionResponse, 'test_entry_1');
+      final historyEntry = HistoryEntry.fromMap(
+        mockCloudFunctionResponse,
+        'test_entry_1',
+      );
 
       // Verify the entry was parsed correctly
       expect(historyEntry.id, equals('test_entry_1'));
@@ -40,17 +40,23 @@ void main() {
 
       // Verify UTC timestamp handling
       expect(historyEntry.createdAtUTC.isUtc, isTrue);
-      expect(historyEntry.createdAtUTC.toIso8601String(), equals('2025-07-05T14:30:00.000Z'));
+      expect(
+        historyEntry.createdAtUTC.toIso8601String(),
+        equals('2025-07-05T14:30:00.000Z'),
+      );
 
       // Verify local time conversion
       // Note: The exact local time will depend on the system timezone
       // but we can verify it's different from UTC (unless the system is in UTC)
       final localTime = historyEntry.createdAt;
       final utcTime = historyEntry.createdAtUTC;
-      
+
       // The local time should be the same instant as UTC, just in local timezone
-      expect(localTime.millisecondsSinceEpoch, equals(utcTime.millisecondsSinceEpoch));
-      
+      expect(
+        localTime.millisecondsSinceEpoch,
+        equals(utcTime.millisecondsSinceEpoch),
+      );
+
       // But the time zone should be different (unless system is UTC)
       if (DateTime.now().timeZoneOffset != Duration.zero) {
         expect(localTime.isUtc, isFalse);
@@ -73,7 +79,10 @@ void main() {
       };
 
       final isoEntry = HistoryEntry.fromMap(isoResponse, 'test_iso');
-      expect(isoEntry.createdAtUTC.toIso8601String(), equals('2025-07-05T14:30:00.000Z'));
+      expect(
+        isoEntry.createdAtUTC.toIso8601String(),
+        equals('2025-07-05T14:30:00.000Z'),
+      );
 
       // Test with Unix timestamp format
       final unixResponse = {
@@ -86,11 +95,16 @@ void main() {
       };
 
       final unixEntry = HistoryEntry.fromMap(unixResponse, 'test_unix');
-      expect(unixEntry.createdAtUTC.toIso8601String(), equals('2025-07-05T14:30:00.000Z'));
+      expect(
+        unixEntry.createdAtUTC.toIso8601String(),
+        equals('2025-07-05T14:30:00.000Z'),
+      );
 
       // Both should represent the same time
-      expect(isoEntry.createdAtUTC.millisecondsSinceEpoch, 
-             equals(unixEntry.createdAtUTC.millisecondsSinceEpoch));
+      expect(
+        isoEntry.createdAtUTC.millisecondsSinceEpoch,
+        equals(unixEntry.createdAtUTC.millisecondsSinceEpoch),
+      );
     });
 
     test('Should calculate driving statistics correctly', () {
@@ -129,25 +143,27 @@ void main() {
       ];
 
       final stats = HistoryService.getDrivingStatistics(entries);
-      
+
       expect(stats['totalPoints'], equals(3));
       expect(stats['firstPoint'], equals(entries.first));
       expect(stats['lastPoint'], equals(entries.last));
       expect(stats['timeSpan'], equals(const Duration(minutes: 30)));
-      
+
       // Distance should be greater than 0 (approximately 400m total)
       final totalDistance = stats['totalDistance'] as double;
       expect(totalDistance, greaterThan(300)); // At least 300m
       expect(totalDistance, lessThan(600)); // But less than 600m
 
-      print('✅ Total distance calculated: ${totalDistance.toStringAsFixed(0)}m');
+      print(
+        '✅ Total distance calculated: ${totalDistance.toStringAsFixed(0)}m',
+      );
       print('✅ Time span: ${stats['timeSpan']}');
     });
 
     test('Should demonstrate proper 15-minute interval with display times', () {
       // Simulate the backend 15-minute interval enforcement
       final now = DateTime.now().toUtc();
-      
+
       // First entry (would be logged)
       final firstEntry = HistoryEntry(
         id: 'first',
@@ -161,7 +177,7 @@ void main() {
         metadata: {
           'logReason': 'First entry for vehicle',
           'timeSinceLastEntry': 0,
-        }
+        },
       );
 
       // Second entry 5 minutes later (would be skipped by backend)
@@ -182,17 +198,23 @@ void main() {
           'logReason': 'Time and location criteria met (15.0 min, 150m)',
           'timeSinceLastEntry': 900000, // 15 minutes in ms
           'distance': 0.15, // 150m in km
-        }
+        },
       );
 
       // Verify the entries demonstrate proper 15-minute spacing
-      final timeDiff = validEntry.createdAtUTC.difference(firstEntry.createdAtUTC);
+      final timeDiff = validEntry.createdAtUTC.difference(
+        firstEntry.createdAtUTC,
+      );
       expect(timeDiff.inMinutes, equals(15));
 
       print('✅ First entry time (local): ${firstEntry.createdAt}');
-      print('✅ First entry time (UTC): ${firstEntry.createdAtUTC.toIso8601String()}');
+      print(
+        '✅ First entry time (UTC): ${firstEntry.createdAtUTC.toIso8601String()}',
+      );
       print('✅ Valid entry time (local): ${validEntry.createdAt}');
-      print('✅ Valid entry time (UTC): ${validEntry.createdAtUTC.toIso8601String()}');
+      print(
+        '✅ Valid entry time (UTC): ${validEntry.createdAtUTC.toIso8601String()}',
+      );
       print('✅ Time difference: ${timeDiff.inMinutes} minutes');
       print('✅ Log reason: ${validEntry.metadata?['logReason']}');
     });
