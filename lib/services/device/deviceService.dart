@@ -455,33 +455,9 @@ class DeviceService {
     },
   });
 
-  Future<void> assignDeviceToVehicle(String deviceId, String vehicleId) async {
-    debugPrint('🔧 [DEVICE_SERVICE] assignDeviceToVehicle called');
-    debugPrint(
-      '🔧 [DEVICE_SERVICE] deviceId: $deviceId, vehicleId: $vehicleId',
-    );
-
-    try {
-      await _updateDeviceFields(deviceId, {'vehicleId': vehicleId});
-      debugPrint('✅ [DEVICE_SERVICE] Device assigned successfully');
-    } catch (e) {
-      debugPrint('❌ [DEVICE_SERVICE] Error assigning device: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> unassignDeviceFromVehicle(String deviceId) async {
-    debugPrint('🔧 [DEVICE_SERVICE] unassignDeviceFromVehicle called');
-    debugPrint('🔧 [DEVICE_SERVICE] deviceId: $deviceId');
-
-    try {
-      await _updateDeviceFields(deviceId, {'vehicleId': null});
-      debugPrint('✅ [DEVICE_SERVICE] Device unassigned successfully');
-    } catch (e) {
-      debugPrint('❌ [DEVICE_SERVICE] Error unassigning device: $e');
-      rethrow;
-    }
-  }
+  // Note: Device assignment/unassignment is now handled by VehicleService
+  // to ensure bidirectional synchronization between devices and vehicles.
+  // Use VehicleService.assignDevice() and VehicleService.unassignDevice() instead.
 
   Future<void> toggleDeviceStatus(String deviceId, bool isActive) async {
     debugPrint('🔧 [DEVICE_SERVICE] toggleDeviceStatus called');

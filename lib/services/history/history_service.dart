@@ -6,34 +6,55 @@ import 'dart:async';
 
 class HistoryEntry {
   final String id;
-  final DateTime createdAt;
+  final DateTime createdAt; // Always stored as UTC, displayed as local
+  final DateTime createdAtUTC; // Explicit UTC timestamp for reference
   final double latitude;
   final double longitude;
   final String vehicleId;
   final String ownerId;
+  final String deviceName;
+  final Map<String, dynamic>? metadata;
 
   HistoryEntry({
     required this.id,
     required this.createdAt,
+    required this.createdAtUTC,
     required this.latitude,
     required this.longitude,
     required this.vehicleId,
     required this.ownerId,
+    required this.deviceName,
+    this.metadata,
   });
+
   factory HistoryEntry.fromMap(Map<String, dynamic> map, String id) {
     try {
       // Handle different date formats from Cloud Functions
-      DateTime createdAt;
+      DateTime createdAtUTC;
+
+      // Try multiple timestamp formats
       if (map['createdAt'] is String) {
-        createdAt = DateTime.parse(map['createdAt']);
+        // ISO string format (preferred)
+        createdAtUTC = DateTime.parse(map['createdAt']).toUtc();
+      } else if (map['createdAtTimestamp'] is int) {
+        // Unix timestamp
+        createdAtUTC =
+            DateTime.fromMillisecondsSinceEpoch(
+              map['createdAtTimestamp'],
+            ).toUtc();
       } else if (map['createdAt'] is int) {
-        createdAt = DateTime.fromMillisecondsSinceEpoch(map['createdAt']);
+        // Fallback unix timestamp
+        createdAtUTC =
+            DateTime.fromMillisecondsSinceEpoch(map['createdAt']).toUtc();
       } else {
         print(
           '⚠️ [WARNING] Unknown createdAt format: ${map['createdAt']}, using current time',
         );
-        createdAt = DateTime.now(); // Fallback
+        createdAtUTC = DateTime.now().toUtc(); // Fallback
       }
+
+      // Convert UTC to local time for display
+      final createdAtLocal = createdAtUTC.toLocal();
 
       // Safely extract location data
       final dynamic locationData = map['location'];
@@ -47,11 +68,17 @@ class HistoryEntry {
 
       return HistoryEntry(
         id: id,
-        createdAt: createdAt,
+        createdAt: createdAtLocal, // Local time for display
+        createdAtUTC: createdAtUTC, // UTC for reference/calculations
         latitude: (location['latitude'] ?? 0.0).toDouble(),
         longitude: (location['longitude'] ?? 0.0).toDouble(),
         vehicleId: map['vehicleId']?.toString() ?? '',
         ownerId: map['ownerId']?.toString() ?? '',
+        deviceName:
+            map['deviceName']?.toString() ??
+            map['firestoreDeviceId']?.toString() ??
+            'Unknown Device',
+        metadata: map['metadata'] as Map<String, dynamic>?,
       );
     } catch (e) {
       print('❌ Error parsing HistoryEntry: $e');
