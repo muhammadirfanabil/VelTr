@@ -44,7 +44,7 @@ class _DeviceManagerScreenState extends State<DeviceManagerScreen> {
         onPressed:
             () => Navigator.pushReplacementNamed(
               context,
-              AppConstants.trackVehicleRoute,
+              AppConstants.myVehicleRoute,
             ),
         tooltip: "Back",
       ),
