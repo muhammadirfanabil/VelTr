@@ -143,10 +143,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
     }
   }
 
-  Widget _buildDeviceSection({
-    String? currentValue,
-    String? currentVehicleId,
-  }) {
+  Widget _buildDeviceSection({String? currentValue, String? currentVehicleId}) {
     return StreamBuilder<List<Device>>(
       stream: _deviceService.getDevicesStream(),
       builder: (context, snapshot) {
@@ -188,12 +185,20 @@ class _ManageVehicleState extends State<ManageVehicle> {
         }
 
         // Separate devices: those with vehicles vs those without
-        final attachedDevices = devices.where((device) => 
-          device.vehicleId != null && device.vehicleId!.isNotEmpty
-        ).toList();
-        final unattachedDevices = devices.where((device) => 
-          device.vehicleId == null || device.vehicleId!.isEmpty
-        ).toList();
+        final attachedDevices =
+            devices
+                .where(
+                  (device) =>
+                      device.vehicleId != null && device.vehicleId!.isNotEmpty,
+                )
+                .toList();
+        final unattachedDevices =
+            devices
+                .where(
+                  (device) =>
+                      device.vehicleId == null || device.vehicleId!.isEmpty,
+                )
+                .toList();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -211,7 +216,11 @@ class _ManageVehicleState extends State<ManageVehicle> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.device_hub_rounded, color: Colors.blue.shade600, size: 20),
+                      Icon(
+                        Icons.device_hub_rounded,
+                        color: Colors.blue.shade600,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         'Device Assignment',
@@ -224,14 +233,18 @@ class _ManageVehicleState extends State<ManageVehicle> {
                   ),
                   const SizedBox(height: 12),
                   if (currentValue != null && currentValue.isNotEmpty)
-                    _buildCurrentDeviceInfo(currentValue, devices, currentVehicleId)
+                    _buildCurrentDeviceInfo(
+                      currentValue,
+                      devices,
+                      currentVehicleId,
+                    )
                   else
                     _buildNoDeviceAssigned(),
                 ],
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Available Devices
             if (unattachedDevices.isNotEmpty) ...[
               Text(
@@ -249,14 +262,15 @@ class _ManageVehicleState extends State<ManageVehicle> {
                   border: Border.all(color: Colors.green.shade200),
                 ),
                 child: Column(
-                  children: unattachedDevices.map((device) => 
-                    _buildAvailableDeviceItem(device)
-                  ).toList(),
+                  children:
+                      unattachedDevices
+                          .map((device) => _buildAvailableDeviceItem(device))
+                          .toList(),
                 ),
               ),
               const SizedBox(height: 16),
             ],
-            
+
             // Attached Devices (other vehicles)
             if (attachedDevices.isNotEmpty) ...[
               Text(
@@ -274,11 +288,13 @@ class _ManageVehicleState extends State<ManageVehicle> {
                   border: Border.all(color: Colors.orange.shade200),
                 ),
                 child: Column(
-                  children: attachedDevices.where((device) => 
-                    device.vehicleId != currentVehicleId
-                  ).map((device) => 
-                    _buildAttachedDeviceItem(device)
-                  ).toList(),
+                  children:
+                      attachedDevices
+                          .where(
+                            (device) => device.vehicleId != currentVehicleId,
+                          )
+                          .map((device) => _buildAttachedDeviceItem(device))
+                          .toList(),
                 ),
               ),
             ],
@@ -692,13 +708,16 @@ class _ManageVehicleState extends State<ManageVehicle> {
 
   void _handleAttachDeviceInForm(String deviceId) async {
     try {
-      print('🔧 [DEBUG] _handleAttachDeviceInForm called with deviceId: $deviceId');
-      
+      print(
+        '🔧 [DEBUG] _handleAttachDeviceInForm called with deviceId: $deviceId',
+      );
+
       // Show confirmation
       final confirmed = await ConfirmationDialog.show(
         context: context,
         title: 'Attach Device',
-        content: 'Are you sure you want to attach this device to the current vehicle?',
+        content:
+            'Are you sure you want to attach this device to the current vehicle?',
         confirmText: 'Attach',
         cancelText: 'Cancel',
         confirmColor: Colors.green,
@@ -706,14 +725,14 @@ class _ManageVehicleState extends State<ManageVehicle> {
 
       if (confirmed == true) {
         print('🔧 [DEBUG] User confirmed attach, setting device in form');
-        
+
         // Update the selected device ID in the form
         setState(() {
           _selectedDeviceId = deviceId;
         });
 
         print('🔧 [DEBUG] Device attached in form successfully');
-        
+
         _showSnackBar(
           'Device selected for attachment',
           Colors.green,
@@ -826,21 +845,19 @@ class _ManageVehicleState extends State<ManageVehicle> {
                 SliverPadding(
                   padding: const EdgeInsets.all(16),
                   sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final vehicle = vehicles[index];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: VehicleCard(
-                            vehicleModel: vehicle,
-                            onEdit: () => _showEditVehicleDialog(context, vehicle),
-                            onDelete: () => _deleteVehicle(vehicle.id),
-                            deviceService: _deviceService,
-                          ),
-                        );
-                      },
-                      childCount: vehicles.length,
-                    ),
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final vehicle = vehicles[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: VehicleCard(
+                          vehicleModel: vehicle,
+                          onEdit:
+                              () => _showEditVehicleDialog(context, vehicle),
+                          onDelete: () => _deleteVehicle(vehicle.id),
+                          deviceService: _deviceService,
+                        ),
+                      );
+                    }, childCount: vehicles.length),
                   ),
                 ),
               ],
@@ -890,48 +907,45 @@ class _ManageVehicleState extends State<ManageVehicle> {
         children: [
           // No Vehicles Section
           Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.directions_car_rounded,
-                  size: 64,
-                  color: Colors.blue.shade300,
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'No Vehicles Yet',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Add your first vehicle to start tracking',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton.icon(
-                onPressed: () => _showAddVehicleDialog(context),
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('Add Vehicle'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ],
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.directions_car_rounded,
+              size: 64,
+              color: Colors.blue.shade300,
+            ),
           ),
-        );
+          const SizedBox(height: 24),
+          const Text(
+            'No Vehicles Yet',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Add your first vehicle to start tracking',
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          ElevatedButton.icon(
+            onPressed: () => _showAddVehicleDialog(context),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Add Vehicle'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showAddVehicleDialog(BuildContext context) {
@@ -1191,9 +1205,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                Center(
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
+                Center(child: CircularProgressIndicator(strokeWidth: 2)),
               ],
             ),
           );
@@ -1230,9 +1242,13 @@ class _ManageVehicleState extends State<ManageVehicle> {
         }
 
         final devices = snapshot.data ?? [];
-        final unattachedDevices = devices.where((device) => 
-          device.vehicleId == null || device.vehicleId!.isEmpty
-        ).toList();
+        final unattachedDevices =
+            devices
+                .where(
+                  (device) =>
+                      device.vehicleId == null || device.vehicleId!.isEmpty,
+                )
+                .toList();
 
         return Padding(
           padding: const EdgeInsets.all(16),
@@ -1253,7 +1269,10 @@ class _ManageVehicleState extends State<ManageVehicle> {
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.orange.shade100,
                       borderRadius: BorderRadius.circular(12),
@@ -1273,8 +1292,8 @@ class _ManageVehicleState extends State<ManageVehicle> {
               if (unattachedDevices.isEmpty)
                 _buildNoUnattachedDevicesWidget()
               else
-                ...unattachedDevices.map((device) => 
-                  _buildUnattachedDeviceCard(device)
+                ...unattachedDevices.map(
+                  (device) => _buildUnattachedDeviceCard(device),
                 ),
             ],
           ),
@@ -1318,10 +1337,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
           const SizedBox(height: 8),
           Text(
             'All your devices are currently attached to vehicles',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.green.shade600,
-            ),
+            style: TextStyle(fontSize: 14, color: Colors.green.shade600),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
@@ -1404,7 +1420,10 @@ class _ManageVehicleState extends State<ManageVehicle> {
                     ),
                     const SizedBox(width: 12),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.orange.shade100,
                         borderRadius: BorderRadius.circular(8),
@@ -1445,17 +1464,22 @@ class _ManageVehicleState extends State<ManageVehicle> {
     );
   }
 
-  Widget _buildCurrentDeviceInfo(String deviceId, List<Device> devices, String? vehicleId) {
+  Widget _buildCurrentDeviceInfo(
+    String deviceId,
+    List<Device> devices,
+    String? vehicleId,
+  ) {
     final device = devices.firstWhere(
       (d) => d.id == deviceId,
-      orElse: () => Device(
-        id: deviceId,
-        name: 'Unknown Device',
-        ownerId: '',
-        isActive: false,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      ),
+      orElse:
+          () => Device(
+            id: deviceId,
+            name: 'Unknown Device',
+            ownerId: '',
+            isActive: false,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
     );
 
     return Container(
@@ -1469,7 +1493,8 @@ class _ManageVehicleState extends State<ManageVehicle> {
         children: [
           Icon(
             device.isActive ? Icons.device_hub : Icons.device_hub_outlined,
-            color: device.isActive ? Colors.green.shade600 : Colors.grey.shade600,
+            color:
+                device.isActive ? Colors.green.shade600 : Colors.grey.shade600,
             size: 20,
           ),
           const SizedBox(width: 12),
@@ -1488,9 +1513,15 @@ class _ManageVehicleState extends State<ManageVehicle> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
-                        color: device.isActive ? Colors.green.shade100 : Colors.grey.shade200,
+                        color:
+                            device.isActive
+                                ? Colors.green.shade100
+                                : Colors.grey.shade200,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -1498,13 +1529,19 @@ class _ManageVehicleState extends State<ManageVehicle> {
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: device.isActive ? Colors.green.shade700 : Colors.grey.shade600,
+                          color:
+                              device.isActive
+                                  ? Colors.green.shade700
+                                  : Colors.grey.shade600,
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.blue.shade100,
                         borderRadius: BorderRadius.circular(12),
@@ -1555,15 +1592,16 @@ class _ManageVehicleState extends State<ManageVehicle> {
       ),
       child: Row(
         children: [
-          Icon(Icons.device_hub_outlined, color: Colors.grey.shade600, size: 20),
+          Icon(
+            Icons.device_hub_outlined,
+            color: Colors.grey.shade600,
+            size: 20,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'No device currently assigned to this vehicle',
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
             ),
           ),
         ],
@@ -1584,7 +1622,8 @@ class _ManageVehicleState extends State<ManageVehicle> {
         children: [
           Icon(
             device.isActive ? Icons.device_hub : Icons.device_hub_outlined,
-            color: device.isActive ? Colors.green.shade600 : Colors.grey.shade600,
+            color:
+                device.isActive ? Colors.green.shade600 : Colors.grey.shade600,
             size: 20,
           ),
           const SizedBox(width: 12),
@@ -1603,9 +1642,15 @@ class _ManageVehicleState extends State<ManageVehicle> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
-                        color: device.isActive ? Colors.green.shade100 : Colors.grey.shade200,
+                        color:
+                            device.isActive
+                                ? Colors.green.shade100
+                                : Colors.grey.shade200,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -1613,13 +1658,19 @@ class _ManageVehicleState extends State<ManageVehicle> {
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: device.isActive ? Colors.green.shade700 : Colors.grey.shade600,
+                          color:
+                              device.isActive
+                                  ? Colors.green.shade700
+                                  : Colors.grey.shade600,
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.green.shade100,
                         borderRadius: BorderRadius.circular(12),
@@ -1673,7 +1724,8 @@ class _ManageVehicleState extends State<ManageVehicle> {
         children: [
           Icon(
             device.isActive ? Icons.device_hub : Icons.device_hub_outlined,
-            color: device.isActive ? Colors.green.shade600 : Colors.grey.shade600,
+            color:
+                device.isActive ? Colors.green.shade600 : Colors.grey.shade600,
             size: 20,
           ),
           const SizedBox(width: 12),
@@ -1693,9 +1745,15 @@ class _ManageVehicleState extends State<ManageVehicle> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
-                        color: device.isActive ? Colors.green.shade100 : Colors.grey.shade200,
+                        color:
+                            device.isActive
+                                ? Colors.green.shade100
+                                : Colors.grey.shade200,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -1703,13 +1761,19 @@ class _ManageVehicleState extends State<ManageVehicle> {
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: device.isActive ? Colors.green.shade700 : Colors.grey.shade600,
+                          color:
+                              device.isActive
+                                  ? Colors.green.shade700
+                                  : Colors.grey.shade600,
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.orange.shade100,
                         borderRadius: BorderRadius.circular(12),
@@ -1750,8 +1814,10 @@ class _ManageVehicleState extends State<ManageVehicle> {
 
   void _handleUnattachFromVehicle(String deviceId, String? vehicleId) async {
     try {
-      print('🔧 [DEBUG] _handleUnattachFromVehicle called with deviceId: $deviceId, vehicleId: $vehicleId');
-      
+      print(
+        '🔧 [DEBUG] _handleUnattachFromVehicle called with deviceId: $deviceId, vehicleId: $vehicleId',
+      );
+
       if (vehicleId == null || vehicleId.isEmpty) {
         print('❌ [DEBUG] Vehicle ID is null or empty, cannot unattach');
         _showSnackBar(
@@ -1761,12 +1827,13 @@ class _ManageVehicleState extends State<ManageVehicle> {
         );
         return;
       }
-      
+
       // Show confirmation dialog
       final confirmed = await ConfirmationDialog.show(
         context: context,
         title: 'Unattach Device',
-        content: 'Are you sure you want to unattach this device from the vehicle? The device will become available for other vehicles.',
+        content:
+            'Are you sure you want to unattach this device from the vehicle? The device will become available for other vehicles.',
         confirmText: 'Unattach',
         cancelText: 'Cancel',
         confirmColor: Colors.red,
@@ -1774,16 +1841,16 @@ class _ManageVehicleState extends State<ManageVehicle> {
 
       if (confirmed == true) {
         print('🔧 [DEBUG] User confirmed unattach, proceeding...');
-        
+
         await _vehicleService.unassignDevice(deviceId, vehicleId);
-        
+
         // Update the selected device ID in the form
         setState(() {
           _selectedDeviceId = '';
         });
 
         print('🔧 [DEBUG] Device unattached successfully');
-        
+
         _showSnackBar(
           'Device unattached successfully',
           Colors.green,
