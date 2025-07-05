@@ -32,6 +32,7 @@ Updated the driving history screen to provide an improved user experience with t
 ### New Methods Added
 
 #### `_getShortDisplayAddress(String fullAddress)`
+
 ```dart
 // Returns first 3 components of address with "..." if longer
 // Keeps coordinate fallbacks and status messages as-is
@@ -41,6 +42,7 @@ Updated the driving history screen to provide an improved user experience with t
 ```
 
 #### `_showLocationDetailsDialog()`
+
 ```dart
 // Shows modal with complete address information
 // Google Maps-style formatting for addresses
@@ -49,6 +51,7 @@ Updated the driving history screen to provide an improved user experience with t
 ```
 
 #### `_buildDetailRow()`
+
 ```dart
 // Helper method for consistent dialog row formatting
 // Supports monospace font for coordinates
@@ -73,11 +76,13 @@ Tap → Modal Dialog:
 ## 📱 User Experience
 
 ### Before Tap
+
 - Clean, concise list with shortened addresses
 - Easy to scan and identify locations
 - No clutter or unnecessary text prompts
 
 ### After Tap
+
 - Complete address information in familiar Google Maps format
 - Precise coordinates for technical users
 - Clear timestamp information
@@ -86,12 +91,14 @@ Tap → Modal Dialog:
 ## 🎨 Visual Design
 
 ### List Display
+
 - 2-line address limit for consistent spacing
 - Color-coded status indicators maintained
 - Subtle info icon for discoverability
 - Clean typography hierarchy
 
 ### Modal Dialog
+
 - Familiar dialog pattern consistent with tracker
 - Proper spacing and readability
 - Monospace coordinates for precision
@@ -118,6 +125,7 @@ Tap → Modal Dialog:
 ## 📈 Improvements
 
 The updated history screen provides:
+
 - **Better usability**: Quick overview with detailed access
 - **Cleaner design**: No text prompts, just intuitive interaction
 - **Complete information**: Full Google Maps-style addresses

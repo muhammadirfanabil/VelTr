@@ -150,14 +150,14 @@ class VehicleService {
     final vehicleRef = _firestore.collection('vehicles').doc(vehicleId);
     batch.update(vehicleRef, {
       'deviceId': deviceId,
-      'updatedAt': DateTime.now(),
+      'updated_at': Timestamp.fromDate(DateTime.now()),
     });
 
     // Update device with vehicle ID
     final deviceRef = _firestore.collection('devices').doc(deviceId);
     batch.update(deviceRef, {
       'vehicleId': vehicleId,
-      'updatedAt': FieldValue.serverTimestamp(),
+      'updated_at': FieldValue.serverTimestamp(),
     });
 
     // Commit the batch
@@ -170,13 +170,16 @@ class VehicleService {
 
     // Remove device ID from vehicle
     final vehicleRef = _firestore.collection('vehicles').doc(vehicleId);
-    batch.update(vehicleRef, {'deviceId': null, 'updatedAt': DateTime.now()});
+    batch.update(vehicleRef, {
+      'deviceId': null,
+      'updated_at': Timestamp.fromDate(DateTime.now()),
+    });
 
     // Remove vehicle ID from device
     final deviceRef = _firestore.collection('devices').doc(deviceId);
     batch.update(deviceRef, {
       'vehicleId': null,
-      'updatedAt': FieldValue.serverTimestamp(),
+      'updated_at': FieldValue.serverTimestamp(),
     });
 
     // Commit the batch
@@ -200,5 +203,19 @@ class VehicleService {
     return snapshot.docs
         .map((doc) => vehicle.fromMap(doc.data(), doc.id))
         .toList();
+  }
+
+  /// Updates vehicle information without modifying deviceId
+  /// This is used when device assignment is handled separately to avoid conflicts
+  Future<void> updateVehicleInfoOnly(vehicle vehicleToUpdate) async {
+    final updateData =
+        vehicleToUpdate.copyWith(updatedAt: DateTime.now()).toMap();
+    // Remove deviceId from update to avoid conflicts with separate device assignment operations
+    updateData.remove('deviceId');
+
+    await _firestore
+        .collection('vehicles')
+        .doc(vehicleToUpdate.id)
+        .update(updateData);
   }
 }

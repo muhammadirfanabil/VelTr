@@ -22,7 +22,10 @@ class ManageVehicle extends StatefulWidget {
 class _ManageVehicleState extends State<ManageVehicle> {
   final VehicleService _vehicleService = VehicleService();
   final DeviceService _deviceService = DeviceService();
+
+  // Temporary state for delayed persistence
   String _selectedDeviceId = '';
+  String? _originalDeviceId; // Track original state for comparison
 
   Future<void> _addVehicle(
     String name,
@@ -99,7 +102,11 @@ class _ManageVehicleState extends State<ManageVehicle> {
         updatedAt: DateTime.now(),
       );
 
-      if (originalVehicle.deviceId != deviceId.trim()) {
+      // Handle device assignment changes first
+      bool deviceAssignmentChanged =
+          originalVehicle.deviceId != deviceId.trim();
+
+      if (deviceAssignmentChanged) {
         debugPrint('🔧 [DEVICE_ASSIGN] Device assignment change detected');
 
         if (originalVehicle.deviceId?.isNotEmpty == true) {
@@ -120,12 +127,28 @@ class _ManageVehicleState extends State<ManageVehicle> {
           await _vehicleService.assignDevice(deviceId.trim(), id);
           debugPrint('✅ [DEVICE_ASSIGN] New device assigned successfully');
         }
-      } else {
-        debugPrint('🔧 [DEVICE_ASSIGN] No device assignment change');
       }
 
-      debugPrint('🔧 [DEVICE_ASSIGN] Updating vehicle in Firestore');
-      await _vehicleService.updateVehicle(updatedVehicle);
+      // Update vehicle information (excluding deviceId if assignment was handled above)
+      debugPrint(
+        '🔧 [DEVICE_ASSIGN] Updating vehicle information in Firestore',
+      );
+      if (deviceAssignmentChanged) {
+        // If device assignment changed, don't update deviceId again to avoid conflicts
+        // Create vehicle with updated info but preserve the deviceId that was set by assign/unassign
+        final vehicleForUpdate = originalVehicle.copyWith(
+          name: name.trim(),
+          vehicleTypes:
+              vehicleTypes.trim().isEmpty ? null : vehicleTypes.trim(),
+          plateNumber: plateNumber.trim().isEmpty ? null : plateNumber.trim(),
+          // Don't update deviceId here - it was already handled by assign/unassign methods
+          updatedAt: DateTime.now(),
+        );
+        await _vehicleService.updateVehicleInfoOnly(vehicleForUpdate);
+      } else {
+        // No device assignment change, update normally
+        await _vehicleService.updateVehicle(updatedVehicle);
+      }
       debugPrint('✅ [DEVICE_ASSIGN] Vehicle updated successfully');
 
       _showSnackBar(
@@ -196,7 +219,9 @@ class _ManageVehicleState extends State<ManageVehicle> {
             devices
                 .where(
                   (device) =>
-                      device.vehicleId == null || device.vehicleId!.isEmpty,
+                      (device.vehicleId == null || device.vehicleId!.isEmpty) &&
+                      device.id !=
+                          _selectedDeviceId, // Exclude currently selected device
                 )
                 .toList();
 
@@ -214,27 +239,11 @@ class _ManageVehicleState extends State<ManageVehicle> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.device_hub_rounded,
-                        color: Colors.blue.shade600,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Device Assignment',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: Colors.blue.shade700,
-                        ),
-                      ),
-                    ],
-                  ),
+                  _buildDeviceAssignmentHeader(),
                   const SizedBox(height: 12),
-                  if (currentValue != null && currentValue.isNotEmpty)
+                  if (_selectedDeviceId.isNotEmpty)
                     _buildCurrentDeviceInfo(
-                      currentValue,
+                      _selectedDeviceId,
                       devices,
                       currentVehicleId,
                     )
@@ -344,230 +353,9 @@ class _ManageVehicleState extends State<ManageVehicle> {
     );
   }
 
-  void _handleAttachToVehicle(String deviceId) async {
-    try {
-      print(
-        '🔧 [DEBUG] _handleAttachToVehicle called with deviceId: $deviceId',
-      );
-      final vehicleStream = _vehicleService.getVehiclesStream();
-      final vehicles = await vehicleStream.first;
-
-      if (vehicles.isEmpty) {
-        print('🔧 [DEBUG] No vehicles found, showing no vehicles dialog');
-        _showNoVehiclesDialog();
-      } else {
-        print(
-          '🔧 [DEBUG] Found ${vehicles.length} vehicles, showing selection dialog',
-        );
-        _showVehicleSelectionDialog(deviceId, vehicles);
-      }
-    } catch (e) {
-      print('🔧 [ERROR] Error in _handleAttachToVehicle: $e');
-      _showSnackBar(
-        'Error checking vehicles: $e',
-        Colors.red,
-        Icons.error_rounded,
-      );
-    }
-  }
-
-  void _showNoVehiclesDialog() {
-    ConfirmationDialog.show(
-      context: context,
-      title: 'No Vehicles Available',
-      content:
-          'You need to add a vehicle before you can attach this device. Would you like to add a vehicle now?',
-      confirmText: 'Add Vehicle',
-      cancelText: 'Cancel',
-      confirmColor: Theme.of(context).colorScheme.primary,
-    ).then((confirmed) {
-      if (confirmed == true) {
-        Navigator.pushNamed(context, '/vehicle');
-      }
-    });
-  }
-
-  void _showVehicleSelectionDialog(String deviceId, List<vehicle> vehicles) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Row(
-              children: [
-                Icon(Icons.link_rounded, color: Colors.blue, size: 24),
-                const SizedBox(width: 8),
-                const Text('Attach Device to Vehicle'),
-              ],
-            ),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Select a vehicle to attach this device to:',
-                    style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-                  ),
-                  const SizedBox(height: 16),
-                  // List of vehicles
-                  Flexible(
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: vehicles.length,
-                      itemBuilder: (context, index) {
-                        final vehicle = vehicles[index];
-                        final hasDevice =
-                            vehicle.deviceId != null &&
-                            vehicle.deviceId!.isNotEmpty;
-
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor:
-                                  hasDevice ? Colors.orange : Colors.green,
-                              child: Icon(
-                                Icons.directions_car_rounded,
-                                color: Colors.white,
-                              ),
-                            ),
-                            title: Text(
-                              vehicle.name,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (vehicle.plateNumber != null &&
-                                    vehicle.plateNumber!.isNotEmpty)
-                                  Text('Plate: ${vehicle.plateNumber}'),
-                                if (hasDevice)
-                                  Flexible(
-                                    child: Text(
-                                      'Current device: ${vehicle.deviceId}',
-                                      style: TextStyle(
-                                        color: Colors.orange[700],
-                                        fontSize: 12,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  )
-                                else
-                                  Text(
-                                    'No device attached',
-                                    style: TextStyle(
-                                      color: Colors.green[700],
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            trailing: Icon(
-                              hasDevice
-                                  ? Icons.warning_rounded
-                                  : Icons.check_circle_rounded,
-                              color: hasDevice ? Colors.orange : Colors.green,
-                            ),
-                            onTap:
-                                () =>
-                                    _confirmDeviceAttachment(deviceId, vehicle),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-            ],
-          ),
-    );
-  }
-
-  void _confirmDeviceAttachment(String deviceId, vehicle targetVehicle) {
-    final hasExistingDevice =
-        targetVehicle.deviceId != null && targetVehicle.deviceId!.isNotEmpty;
-
-    final title = hasExistingDevice ? 'Replace Device?' : 'Attach Device?';
-    final content =
-        hasExistingDevice
-            ? 'Vehicle "${targetVehicle.name}" already has device "${targetVehicle.deviceId}" attached. Do you want to replace it with this device?'
-            : 'Are you sure you want to attach this device to vehicle "${targetVehicle.name}"?';
-
-    ConfirmationDialog.show(
-      context: context,
-      title: title,
-      content: content,
-      confirmText: hasExistingDevice ? 'Replace' : 'Attach',
-      cancelText: 'Cancel',
-      confirmColor: hasExistingDevice ? Colors.orange : Colors.blue,
-    ).then((confirmed) {
-      if (confirmed == true) {
-        _performDeviceAttachment(deviceId, targetVehicle);
-      }
-    });
-  }
-
-  void _performDeviceAttachment(String deviceId, vehicle targetVehicle) async {
-    try {
-      print(
-        '🔧 [DEBUG] Starting device attachment: deviceId=$deviceId, vehicleId=${targetVehicle.id}, vehicleName=${targetVehicle.name}',
-      );
-
-      // First, close the vehicle selection dialog
-      Navigator.pop(context);
-
-      // Show loading indicator
-      _showSnackBar(
-        'Attaching device to ${targetVehicle.name}...',
-        Colors.blue,
-        Icons.link_rounded,
-      );
-
-      // If target vehicle already has a device, unassign it first
-      if (targetVehicle.deviceId != null &&
-          targetVehicle.deviceId!.isNotEmpty) {
-        print(
-          '🔧 [DEBUG] Target vehicle has existing device ${targetVehicle.deviceId}, unassigning first',
-        );
-        await _vehicleService.unassignDevice(
-          targetVehicle.deviceId!,
-          targetVehicle.id,
-        );
-      }
-
-      // Assign the new device to the target vehicle
-      print(
-        '🔧 [DEBUG] Assigning device $deviceId to vehicle ${targetVehicle.id}',
-      );
-      await _vehicleService.assignDevice(deviceId, targetVehicle.id);
-
-      print('🔧 [DEBUG] Device attachment completed successfully');
-      _showSnackBar(
-        'Device successfully attached to ${targetVehicle.name}',
-        Colors.green,
-        Icons.check_circle_rounded,
-      );
-
-      // Refresh the UI
-      setState(() {});
-    } catch (e) {
-      print('🔧 [ERROR] Error during device attachment: $e');
-      _showSnackBar(
-        'Failed to attach device: $e',
-        Colors.red,
-        Icons.error_rounded,
-      );
-    }
-  }
+  // REMOVED: Direct attachment methods (_handleAttachToVehicle, _showNoVehiclesDialog,
+  // _showVehicleSelectionDialog, _confirmDeviceAttachment, _performDeviceAttachment)
+  // These have been replaced with form-based attachment that requires "Update" button confirmation
 
   void _handleAttachDeviceInForm(String deviceId) async {
     try {
@@ -575,43 +363,44 @@ class _ManageVehicleState extends State<ManageVehicle> {
         '🔧 [DEBUG] _handleAttachDeviceInForm called with deviceId: $deviceId',
       );
 
-      // Show confirmation
-      final confirmed = await ConfirmationDialog.show(
-        context: context,
-        title: 'Attach Device',
-        content:
-            'Are you sure you want to attach this device to the current vehicle?',
-        confirmText: 'Attach',
-        cancelText: 'Cancel',
-        confirmColor: Colors.green,
+      // Update UI state immediately for instant feedback
+      setState(() {
+        _selectedDeviceId = deviceId;
+      });
+
+      print('🔧 [DEBUG] Device selected in form (temporary state)');
+
+      _showSnackBar(
+        'Device selected for attachment. Click "Update" to save changes.',
+        Colors.blue,
+        Icons.info_rounded,
       );
-
-      if (confirmed == true) {
-        print('🔧 [DEBUG] User confirmed attach, setting device in form');
-
-        // Update the selected device ID in the form
-        setState(() {
-          _selectedDeviceId = deviceId;
-        });
-
-        print('🔧 [DEBUG] Device attached in form successfully');
-
-        _showSnackBar(
-          'Device selected for attachment',
-          Colors.green,
-          Icons.check_circle_rounded,
-        );
-      } else {
-        print('🔧 [DEBUG] User cancelled attach');
-      }
     } catch (e) {
       print('🔧 [ERROR] Error in _handleAttachDeviceInForm: $e');
       _showSnackBar(
-        'Error attaching device: $e',
+        'Error selecting device: $e',
         Colors.red,
         Icons.error_rounded,
       );
     }
+  }
+
+  /// Reset temporary changes back to original state
+  void _resetDeviceChanges() {
+    setState(() {
+      _selectedDeviceId = _originalDeviceId ?? '';
+    });
+
+    _showSnackBar(
+      'Changes reverted to original state.',
+      Colors.orange,
+      Icons.undo_rounded,
+    );
+  }
+
+  /// Check if the current device selection differs from original
+  bool _hasDeviceChanges() {
+    return _selectedDeviceId != (_originalDeviceId ?? '');
   }
 
   @override
@@ -792,7 +581,9 @@ class _ManageVehicleState extends State<ManageVehicle> {
 
   void _showAddVehicleDialog(BuildContext context) {
     final controllers = _createControllers();
+    // Reset temporary state for new vehicle
     _selectedDeviceId = '';
+    _originalDeviceId = null;
 
     showDialog(
       context: context,
@@ -826,7 +617,9 @@ class _ManageVehicleState extends State<ManageVehicle> {
       type: vehicle.vehicleTypes ?? '',
       plate: vehicle.plateNumber ?? '',
     );
+    // Set up temporary state for editing
     _selectedDeviceId = vehicle.deviceId ?? '';
+    _originalDeviceId = vehicle.deviceId;
 
     showDialog(
       context: context,
@@ -938,17 +731,11 @@ class _ManageVehicleState extends State<ManageVehicle> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        ElevatedButton(
-          onPressed: onConfirm,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: confirmColor,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          ),
-          child: Text(confirmText),
+        _buildUpdateButton(
+          onConfirm: onConfirm,
+          confirmText: confirmText,
+          confirmColor: confirmColor,
+          currentDeviceId: currentDeviceId,
         ),
       ],
     );
@@ -1040,141 +827,309 @@ class _ManageVehicleState extends State<ManageVehicle> {
           ),
     );
 
+    final hasChanges = _hasDeviceChanges();
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue.shade300),
+        border: Border.all(
+          color: hasChanges ? Colors.orange.shade300 : Colors.blue.shade300,
+          width: hasChanges ? 2 : 1,
+        ),
       ),
-      child: Row(
+      child: Column(
         children: [
-          Icon(
-            device.isActive ? Icons.device_hub : Icons.device_hub_outlined,
-            color:
-                device.isActive ? Colors.green.shade600 : Colors.grey.shade600,
-            size: 20,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  device.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
+          // Device Info Row
+          Row(
+            children: [
+              Icon(
+                device.isActive ? Icons.device_hub : Icons.device_hub_outlined,
+                color:
+                    device.isActive
+                        ? Colors.green.shade600
+                        : Colors.grey.shade600,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                            device.isActive
-                                ? Colors.green.shade100
-                                : Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        device.isActive ? 'ACTIVE' : 'INACTIVE',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color:
-                              device.isActive
-                                  ? Colors.green.shade700
-                                  : Colors.grey.shade600,
-                        ),
+                    Text(
+                      device.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        'ASSIGNED',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade700,
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color:
+                                device.isActive
+                                    ? Colors.green.shade100
+                                    : Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            device.isActive ? 'ACTIVE' : 'INACTIVE',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color:
+                                  device.isActive
+                                      ? Colors.green.shade700
+                                      : Colors.grey.shade600,
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color:
+                                hasChanges
+                                    ? Colors.orange.shade100
+                                    : Colors.blue.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            hasChanges ? 'PENDING' : 'ASSIGNED',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color:
+                                  hasChanges
+                                      ? Colors.orange.shade700
+                                      : Colors.blue.shade700,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-          ElevatedButton.icon(
-            onPressed: () => _handleUnattachFromVehicle(deviceId, vehicleId),
-            icon: const Icon(Icons.link_off_rounded, size: 18),
-            label: const Text('Unattach'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade600,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              textStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+              // Action Buttons
+              Row(
+                children: [
+                  if (hasChanges)
+                    ElevatedButton.icon(
+                      onPressed: _resetDeviceChanges,
+                      icon: const Icon(Icons.undo_rounded, size: 16),
+                      label: const Text('Undo'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange.shade600,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  if (hasChanges) const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed:
+                        () => _handleUnattachFromVehicle(deviceId, vehicleId),
+                    icon: const Icon(Icons.remove_rounded, size: 18),
+                    label: const Text('Remove'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade600,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          // Pending Changes Indicator
+          if (hasChanges) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.orange.shade600,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Device assignment changed. Click "Update" to save.',
+                      style: TextStyle(
+                        color: Colors.orange.shade700,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
+          ],
         ],
       ),
     );
   }
 
   Widget _buildNoDeviceAssigned() {
+    final hasChanges = _hasDeviceChanges();
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: hasChanges ? Colors.orange.shade50 : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(
+          color: hasChanges ? Colors.orange.shade300 : Colors.grey.shade300,
+          width: hasChanges ? 2 : 1,
+        ),
       ),
-      child: Row(
+      child: Column(
         children: [
-          Icon(
-            Icons.device_hub_outlined,
-            color: Colors.grey.shade600,
-            size: 20,
+          Row(
+            children: [
+              Icon(
+                Icons.device_hub_outlined,
+                color:
+                    hasChanges ? Colors.orange.shade600 : Colors.grey.shade600,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  hasChanges
+                      ? 'Device will be removed when you click "Update"'
+                      : 'No device currently assigned to this vehicle',
+                  style: TextStyle(
+                    color:
+                        hasChanges
+                            ? Colors.orange.shade700
+                            : Colors.grey.shade600,
+                    fontSize: 14,
+                    fontWeight:
+                        hasChanges ? FontWeight.w500 : FontWeight.normal,
+                  ),
+                ),
+              ),
+              if (hasChanges)
+                ElevatedButton.icon(
+                  onPressed: _resetDeviceChanges,
+                  icon: const Icon(Icons.undo_rounded, size: 16),
+                  label: const Text('Undo'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange.shade600,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'No device currently assigned to this vehicle',
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+          if (hasChanges) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.orange.shade600,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Device will be unassigned. Click "Update" to save changes.',
+                      style: TextStyle(
+                        color: Colors.orange.shade700,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
   }
 
   Widget _buildAvailableDeviceItem(Device device) {
-    return Container(
+    final isSelected = _selectedDeviceId == device.id;
+    
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isSelected ? Colors.orange.shade50 : Colors.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.green.shade300),
+        border: Border.all(
+          color: isSelected ? Colors.orange.shade400 : Colors.green.shade300,
+          width: isSelected ? 2 : 1,
+        ),
+        boxShadow: isSelected
+            ? [
+                BoxShadow(
+                  color: Colors.orange.withValues(alpha: 0.2),
+                  blurRadius: 6,
+                  spreadRadius: 1,
+                ),
+              ]
+            : null,
       ),
       child: Row(
         children: [
@@ -1189,12 +1144,15 @@ class _ManageVehicleState extends State<ManageVehicle> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  device.name,
-                  style: const TextStyle(
+                AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 300),
+                  style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 16,
+                    fontStyle: isSelected ? FontStyle.italic : FontStyle.normal,
+                    color: isSelected ? Colors.orange.shade800 : Colors.black,
                   ),
+                  child: Text(device.name),
                 ),
                 const SizedBox(height: 4),
                 Row(
@@ -1224,21 +1182,29 @@ class _ManageVehicleState extends State<ManageVehicle> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Container(
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.green.shade100,
+                        color: isSelected 
+                            ? Colors.orange.shade100 
+                            : Colors.green.shade100,
                         borderRadius: BorderRadius.circular(12),
+                        border: isSelected 
+                            ? Border.all(color: Colors.orange.shade300, width: 1)
+                            : null,
                       ),
                       child: Text(
-                        'AVAILABLE',
+                        isSelected ? 'SELECTED' : 'AVAILABLE',
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: Colors.green.shade700,
+                          color: isSelected 
+                              ? Colors.orange.shade700 
+                              : Colors.green.shade700,
                         ),
                       ),
                     ),
@@ -1247,23 +1213,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
               ],
             ),
           ),
-          ElevatedButton.icon(
-            onPressed: () => _handleAttachDeviceInForm(device.id),
-            icon: const Icon(Icons.link_rounded, size: 18),
-            label: const Text('Attach'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green.shade600,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              textStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
+          _buildSelectButton(device),
         ],
       ),
     );
@@ -1376,54 +1326,283 @@ class _ManageVehicleState extends State<ManageVehicle> {
         '🔧 [DEBUG] _handleUnattachFromVehicle called with deviceId: $deviceId, vehicleId: $vehicleId',
       );
 
-      if (vehicleId == null || vehicleId.isEmpty) {
-        print('❌ [DEBUG] Vehicle ID is null or empty, cannot unattach');
-        _showSnackBar(
-          'Cannot unattach device: Vehicle ID not available',
-          Colors.red,
-          Icons.error_rounded,
-        );
-        return;
-      }
+      // Update UI state immediately for instant feedback
+      setState(() {
+        _selectedDeviceId = '';
+      });
 
-      // Show confirmation dialog
-      final confirmed = await ConfirmationDialog.show(
-        context: context,
-        title: 'Unattach Device',
-        content:
-            'Are you sure you want to unattach this device from the vehicle? The device will become available for other vehicles.',
-        confirmText: 'Unattach',
-        cancelText: 'Cancel',
-        confirmColor: Colors.red,
+      print('🔧 [DEBUG] Device unselected from form (temporary state)');
+
+      _showSnackBar(
+        'Device unselected. Click "Update" to save changes.',
+        Colors.blue,
+        Icons.info_rounded,
       );
-
-      if (confirmed == true) {
-        print('🔧 [DEBUG] User confirmed unattach, proceeding...');
-
-        await _vehicleService.unassignDevice(deviceId, vehicleId);
-
-        // Update the selected device ID in the form
-        setState(() {
-          _selectedDeviceId = '';
-        });
-
-        print('🔧 [DEBUG] Device unattached successfully');
-
-        _showSnackBar(
-          'Device unattached successfully',
-          Colors.green,
-          Icons.check_circle_rounded,
-        );
-      } else {
-        print('🔧 [DEBUG] User cancelled unattach');
-      }
     } catch (e) {
       print('🔧 [ERROR] Error in _handleUnattachFromVehicle: $e');
       _showSnackBar(
-        'Error unattaching device: $e',
+        'Error unselecting device: $e',
         Colors.red,
         Icons.error_rounded,
       );
     }
+  }
+  Widget _buildUpdateButton({
+    required VoidCallback onConfirm,
+    required String confirmText,
+    required Color confirmColor,
+    required String? currentDeviceId,
+  }) {
+    final hasChanges = _hasDeviceChanges();
+    final baseColor = hasChanges ? Colors.orange : confirmColor;
+    
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Pulsing effect for pending changes
+          if (hasChanges)
+            TweenAnimationBuilder<double>(
+              duration: const Duration(milliseconds: 1500),
+              tween: Tween(begin: 0.0, end: 1.0),
+              builder: (context, value, child) {
+                return Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.orange.withValues(alpha: 0.3 * (1 - value)),
+                        blurRadius: 15 * value,
+                        spreadRadius: 3 * value,
+                      ),
+                    ],
+                  ),
+                  child: child,
+                );
+              },
+              onEnd: () {
+                // Loop the animation
+                if (mounted && hasChanges) {
+                  Future.delayed(const Duration(milliseconds: 100), () {
+                    if (mounted) setState(() {});
+                  });
+                }
+              },
+              child: Container(width: 0, height: 0), // Invisible placeholder
+            ),
+          // Main button with enhanced styling when changes are pending
+          Container(
+            decoration: hasChanges
+                ? BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.orange.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  )
+                : null,
+            child: ElevatedButton(
+              onPressed: onConfirm,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: baseColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                elevation: hasChanges ? 8 : 2,
+                shadowColor: hasChanges ? Colors.orange.withValues(alpha: 0.5) : null,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (hasChanges) ...[
+                    Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.save_rounded,
+                        size: 16,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Text(
+                    confirmText,
+                    style: TextStyle(
+                      fontWeight: hasChanges ? FontWeight.bold : FontWeight.w600,
+                      fontSize: hasChanges ? 16 : 14,
+                      letterSpacing: hasChanges ? 0.5 : 0,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Badge indicator for pending changes
+          if (hasChanges)
+            Positioned(
+              top: -6,
+              right: -6,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: Colors.red.shade600,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.red.withValues(alpha: 0.4),
+                      blurRadius: 6,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+                child: const Center(
+                  child: Text(
+                    '!',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeviceAssignmentHeader() {
+    final hasChanges = _hasDeviceChanges();
+    
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      child: Row(
+        children: [
+          // Icon with animation and color change
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            padding: const EdgeInsets.all(4),
+            decoration: hasChanges
+                ? BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: Colors.orange.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                  )
+                : null,
+            child: Icon(
+              hasChanges
+                  ? Icons.device_hub_outlined  // Different icon when changes pending
+                  : Icons.device_hub_rounded,
+              color: hasChanges ? Colors.orange.shade600 : Colors.blue.shade600,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Title with dynamic styling
+          AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 300),
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: hasChanges ? Colors.orange.shade700 : Colors.blue.shade700,
+              fontStyle: hasChanges ? FontStyle.italic : FontStyle.normal,
+            ),
+            child: const Text('Device Assignment'),
+          ),
+          // Pending changes indicator
+          if (hasChanges) ...[
+            const SizedBox(width: 8),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade100,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.orange.shade300, width: 1),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.edit_rounded,
+                    size: 12,
+                    color: Colors.orange.shade700,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'MODIFIED',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectButton(Device device) {
+    final willAttach = _selectedDeviceId == device.id;
+    
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      child: ElevatedButton.icon(
+        onPressed: () => _handleAttachDeviceInForm(device.id),
+        icon: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          child: Icon(
+            willAttach ? Icons.check_circle_rounded : Icons.add_rounded,
+            size: 18,
+            key: ValueKey(willAttach),
+          ),
+        ),
+        label: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          child: Text(
+            willAttach ? 'Selected' : 'Select',
+            key: ValueKey(willAttach),
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: willAttach 
+              ? Colors.orange.shade600 
+              : Colors.green.shade600,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          textStyle: TextStyle(
+            fontSize: 14,
+            fontWeight: willAttach ? FontWeight.bold : FontWeight.w600,
+          ),
+          elevation: willAttach ? 6 : 2,
+          shadowColor: willAttach 
+              ? Colors.orange.withValues(alpha: 0.5)
+              : Colors.green.withValues(alpha: 0.3),
+        ),
+      ),
+    );
   }
 }

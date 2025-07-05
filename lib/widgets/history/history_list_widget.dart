@@ -342,7 +342,8 @@ class _HistoryListWidgetState extends State<HistoryListWidget> {
       return fullAddress; // Keep coordinate fallbacks as-is
     }
 
-    if (fullAddress.startsWith('Loading') || fullAddress.startsWith('Unknown')) {
+    if (fullAddress.startsWith('Loading') ||
+        fullAddress.startsWith('Unknown')) {
       return fullAddress; // Keep status messages as-is
     }
 
@@ -369,7 +370,9 @@ class _HistoryListWidgetState extends State<HistoryListWidget> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: Row(
             children: [
               Icon(
@@ -413,7 +416,9 @@ class _HistoryListWidgetState extends State<HistoryListWidget> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              style: TextButton.styleFrom(foregroundColor: AppColors.textSecondary),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.textSecondary,
+              ),
               child: const Text('Close'),
             ),
           ],
@@ -666,7 +671,10 @@ class _HistoryListWidgetState extends State<HistoryListWidget> {
                               ),
                               if (snapshot.hasData && snapshot.data!.isNotEmpty)
                                 Padding(
-                                  padding: const EdgeInsets.only(left: 8, top: 1),
+                                  padding: const EdgeInsets.only(
+                                    left: 8,
+                                    top: 1,
+                                  ),
                                   child: Icon(
                                     Icons.info_outline,
                                     size: 16,
