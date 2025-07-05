@@ -340,21 +340,23 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
                 if (lastUpdateTime != null) {
                   final localTime = lastUpdateTime.toLocal();
                   final now = DateTime.now().toLocal();
-                  
+
                   // Format timestamp based on how recent it is
                   if (localTime.year == now.year &&
                       localTime.month == now.month &&
                       localTime.day == now.day) {
                     // Same day - show only time (24-hour format)
-                    _rawFirebaseTimestamp = 
+                    _rawFirebaseTimestamp =
                         '${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
                   } else {
                     // Different day - show date and time in user's local timezone
                     final formatter = DateFormat('MMM dd, HH:mm');
                     _rawFirebaseTimestamp = formatter.format(localTime);
                   }
-                  
-                  debugPrint('🌐 Converted UTC to local time for display: $lastUpdateTime UTC -> $localTime Local -> $_rawFirebaseTimestamp');
+
+                  debugPrint(
+                    '🌐 Converted UTC to local time for display: $lastUpdateTime UTC -> $localTime Local -> $_rawFirebaseTimestamp',
+                  );
                 } else if (date != null && utcTime != null) {
                   // Fallback: display raw server data if parsing failed
                   _rawFirebaseTimestamp = '$date $utcTime UTC';
@@ -521,13 +523,15 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
     // Priority 1: Use local timezone display from Firebase timestamp
     if (_gpsDataReceived && _lastGPSUpdateTime != null) {
       final lastUpdate = _lastGPSUpdateTime!; // Already in UTC
-      
+
       // Convert UTC to user's local time for display
       final localTime = lastUpdate.toLocal();
       final now = DateTime.now().toLocal();
-      
-      debugPrint('🌐 Converting GPS time for display: UTC=$lastUpdate -> Local=$localTime');
-      
+
+      debugPrint(
+        '🌐 Converting GPS time for display: UTC=$lastUpdate -> Local=$localTime',
+      );
+
       // Format based on how recent it is
       if (localTime.year == now.year &&
           localTime.month == now.month &&
@@ -543,7 +547,9 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
 
     // Priority 2: Use pre-computed raw Firebase timestamp (already in local time)
     if (_gpsDataReceived && _rawFirebaseTimestamp != null) {
-      debugPrint('✅ Using pre-computed local timestamp: $_rawFirebaseTimestamp');
+      debugPrint(
+        '✅ Using pre-computed local timestamp: $_rawFirebaseTimestamp',
+      );
       return _rawFirebaseTimestamp!;
     }
 
