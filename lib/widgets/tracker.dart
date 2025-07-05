@@ -336,24 +336,32 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
                 _lastGPSUpdateTime = lastUpdateTime;
                 _gpsDataReceived = true;
 
-                // Store raw timestamp for display (server-driven, no client manipulation)
-                if (date != null && utcTime != null) {
+                // Convert UTC timestamp to user's local timezone for display
+                if (lastUpdateTime != null) {
+                  final localTime = lastUpdateTime.toLocal();
+                  final now = DateTime.now().toLocal();
+                  
+                  // Format timestamp based on how recent it is
+                  if (localTime.year == now.year &&
+                      localTime.month == now.month &&
+                      localTime.day == now.day) {
+                    // Same day - show only time (24-hour format)
+                    _rawFirebaseTimestamp = 
+                        '${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
+                  } else {
+                    // Different day - show date and time in user's local timezone
+                    final formatter = DateFormat('MMM dd, HH:mm');
+                    _rawFirebaseTimestamp = formatter.format(localTime);
+                  }
+                  
+                  debugPrint('🌐 Converted UTC to local time for display: $lastUpdateTime UTC -> $localTime Local -> $_rawFirebaseTimestamp');
+                } else if (date != null && utcTime != null) {
+                  // Fallback: display raw server data if parsing failed
                   _rawFirebaseTimestamp = '$date $utcTime UTC';
                 } else if (tanggal != null && utcTime != null) {
                   _rawFirebaseTimestamp = '$tanggal $utcTime UTC';
-                } else if (date != null && time != null) {
-                  _rawFirebaseTimestamp = '$date $time UTC';
-                } else if (datetime != null) {
-                  _rawFirebaseTimestamp = '$datetime UTC';
-                } else if (created_at != null) {
-                  _rawFirebaseTimestamp = '$created_at UTC';
-                } else if (updated_at != null) {
-                  _rawFirebaseTimestamp = '$updated_at UTC';
-                } else if (lastUpdateTime != null) {
-                  // Format the UTC time for display
-                  final formatter = DateFormat('yyyy-MM-dd HH:mm:ss');
-                  _rawFirebaseTimestamp =
-                      '${formatter.format(lastUpdateTime)} UTC';
+                } else {
+                  _rawFirebaseTimestamp = 'Device Active';
                 }
               });
 
@@ -500,61 +508,46 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
     return '${widget.latitude!.toStringAsFixed(5)}, ${widget.longitude!.toStringAsFixed(5)}';
   }
 
-  /// Get the raw timestamp display from Firebase data (no client-side time manipulation)
+  /// Get the timestamp display adjusted to user's local timezone
   String get rawTimestampDisplay {
-    // This will be populated from Firebase data
+    // This shows the timestamp in user's local timezone for better UX
     return _rawFirebaseTimestamp ?? 'No recent data';
   }
 
-  // Store the raw timestamp from Firebase for display
+  // Store the timestamp converted to user's local timezone for display
   String? _rawFirebaseTimestamp;
 
   String get lastActiveText {
-    // Priority 1: Use raw timestamp from Firebase (no client-side time manipulation)
-    if (_gpsDataReceived && _rawFirebaseTimestamp != null) {
-      debugPrint('✅ Using raw Firebase timestamp: $_rawFirebaseTimestamp');
-      return _rawFirebaseTimestamp!;
-    }
-
-    // Priority 2: Use GPS timestamp-based logic (formatted for display)
+    // Priority 1: Use local timezone display from Firebase timestamp
     if (_gpsDataReceived && _lastGPSUpdateTime != null) {
       final lastUpdate = _lastGPSUpdateTime!; // Already in UTC
-
-      debugPrint('✅ Last Update (GPS UTC): $lastUpdate UTC');
-
-      // Convert UTC to local time for display
+      
+      // Convert UTC to user's local time for display
       final localTime = lastUpdate.toLocal();
-
-      debugPrint('📍 Displaying GPS time: UTC=$lastUpdate -> Local=$localTime');
-
-      // Format as actual time based on how recent it is
       final now = DateTime.now().toLocal();
+      
+      debugPrint('🌐 Converting GPS time for display: UTC=$lastUpdate -> Local=$localTime');
+      
+      // Format based on how recent it is
       if (localTime.year == now.year &&
           localTime.month == now.month &&
           localTime.day == now.day) {
         // Same day - show only time (24-hour format)
         return '${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
       } else {
-        // Different day - show date and time
-        final months = [
-          'Jan',
-          'Feb',
-          'Mar',
-          'Apr',
-          'May',
-          'Jun',
-          'Jul',
-          'Aug',
-          'Sep',
-          'Oct',
-          'Nov',
-          'Dec',
-        ];
-        return '${months[localTime.month - 1]} ${localTime.day}, ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
+        // Different day - show date and time in user's local timezone
+        final formatter = DateFormat('MMM dd, HH:mm');
+        return formatter.format(localTime);
       }
     }
 
-    // Priority 2: Fallback to widget lastUpdated (with timezone conversion)
+    // Priority 2: Use pre-computed raw Firebase timestamp (already in local time)
+    if (_gpsDataReceived && _rawFirebaseTimestamp != null) {
+      debugPrint('✅ Using pre-computed local timestamp: $_rawFirebaseTimestamp');
+      return _rawFirebaseTimestamp!;
+    }
+
+    // Priority 3: Fallback to widget lastUpdated (with timezone conversion)
     if (widget.lastUpdated?.isNotEmpty == true &&
         widget.lastUpdated != 'Invalid timestamp' &&
         widget.lastUpdated != 'No GPS data' &&
@@ -565,39 +558,22 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
           // Assume fallback timestamp is WITA, convert to UTC then to local for display
           final updatedTimeUtc = _witaToUtc(updatedTime);
           final localTime = updatedTimeUtc.toLocal();
-          final now = DateTime.now();
+          final now = DateTime.now().toLocal();
 
           debugPrint(
-            '✅ Last Update (Fallback Local): $localTime (converted from WITA via UTC)',
+            '🌐 Fallback conversion: WITA=$updatedTime -> UTC=$updatedTimeUtc -> Local=$localTime',
           );
 
-          debugPrint(
-            '📍 Displaying Fallback time: WITA=$updatedTime -> UTC=$updatedTimeUtc -> Local=$localTime',
-          );
-
-          // Format as actual time based on how recent it is
+          // Format based on how recent it is
           if (localTime.year == now.year &&
               localTime.month == now.month &&
               localTime.day == now.day) {
             // Same day - show only time (24-hour format)
             return '${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
           } else {
-            // Different day - show date and time
-            final months = [
-              'Jan',
-              'Feb',
-              'Mar',
-              'Apr',
-              'May',
-              'Jun',
-              'Jul',
-              'Aug',
-              'Sep',
-              'Oct',
-              'Nov',
-              'Dec',
-            ];
-            return '${months[localTime.month - 1]} ${localTime.day}, ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
+            // Different day - show date and time in user's local timezone
+            final formatter = DateFormat('MMM dd, HH:mm');
+            return formatter.format(localTime);
           }
         }
       } catch (e) {
@@ -605,7 +581,7 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
       }
     }
 
-    // Priority 3: Default fallback
+    // Priority 4: Default fallback
     return 'No recent data';
   }
 
