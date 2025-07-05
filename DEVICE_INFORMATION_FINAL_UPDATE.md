@@ -17,10 +17,11 @@
   - Added `BouncingScrollPhysics` for smooth scrolling
   - Used `double.maxFinite` width for responsive layout
 
-### 3. Badge Removal (Previously Completed)
+### 3. Badge Removal & Box-in-Box Fix (Previously Completed)
 
 - **Removed**: "AVAILABLE" badge from available device cards
-- **Result**: Cleaner UI with only "SELECTED" badge when needed
+- **Fixed**: Removed nested containers in "Devices Attached to Other Vehicles" section to avoid "box in box" design
+- **Result**: Cleaner UI with only "SELECTED" badge when needed and consistent flat design across all device sections
 
 ## Technical Implementation
 
@@ -64,7 +65,8 @@ Text(
 ✅ **Professional Design**: Left-aligned title follows standard patterns  
 ✅ **Clear Naming**: "Device Information" is more descriptive  
 ✅ **Smooth Scrolling**: Users can navigate the entire form easily  
-✅ **Responsive**: Works on all screen sizes and orientations
+✅ **Responsive**: Works on all screen sizes and orientations  
+✅ **Flat Design**: Removed "box in box" patterns for cleaner, more modern appearance
 
 ## Status
 

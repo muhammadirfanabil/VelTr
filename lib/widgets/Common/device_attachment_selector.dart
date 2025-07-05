@@ -182,19 +182,9 @@ class _DeviceAttachmentSelectorState extends State<DeviceAttachmentSelector> {
                 ),
               ),
               const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.orange.shade200),
-                ),
-                child: Column(
-                  children:
-                      devicesAttachedToOthers
-                          .map((device) => _buildAttachedDeviceItem(device))
-                          .toList(),
-                ),
+              // Clean list without outer container - consistent with available devices
+              ...devicesAttachedToOthers.map(
+                (device) => _buildAttachedDeviceItem(device),
               ),
             ],
           ],
