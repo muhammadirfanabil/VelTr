@@ -286,15 +286,15 @@ class _ManageVehicleState extends State<ManageVehicle> {
                 'Devices Attached to Other Vehicles',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: Colors.orange.shade700,
+                  color: AppColors.warningDark,
                 ),
               ),
               const SizedBox(height: 8),
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
+                  color: AppColors.warningLight,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.orange.shade200),
+                  border: Border.all(color: AppColors.warningLight),
                 ),
                 child: Column(
                   children:
@@ -1411,14 +1411,14 @@ class _ManageVehicleState extends State<ManageVehicle> {
               color: Colors.grey.shade200,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Text(
-              'Read Only',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            // child: Text(
+            //   'Read Only',
+            //   style: TextStyle(
+            //     fontSize: 12,
+            //     color: Colors.grey.shade600,
+            //     fontWeight: FontWeight.w500,
+            //   ),
+            // ),
           ),
         ],
       ),

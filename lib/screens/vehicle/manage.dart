@@ -342,7 +342,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
             icon: const Icon(Icons.add_circle_outline),
             label: const Text('Add New Device'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
+              backgroundColor: AppColors.primaryBlue,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -594,7 +594,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
             context: context,
             title: 'Add New Vehicle',
             icon: Icons.add_circle_rounded,
-            iconColor: Colors.blue,
+            iconColor: AppColors.primaryBlue,
             controllers: controllers,
             onConfirm: () {
               _addVehicle(
@@ -722,7 +722,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
               _buildTextField(
                 controllers[0],
                 'Vehicle Name',
-                'e.g., Toyota Camry 2023',
+                'e.g., Honda Scoopy 2016',
                 Icons.two_wheeler,
                 true,
               ),
@@ -730,7 +730,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
               _buildTextField(
                 controllers[1],
                 'Vehicle Type',
-                'e.g., Sedan, SUV, Truck',
+                'e.g., Matic, Sport, Manual',
                 Icons.category_rounded,
                 false,
               ),
@@ -738,7 +738,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
               _buildTextField(
                 controllers[2],
                 'License Plate',
-                'e.g., ABC-1234',
+                'e.g., DA 1711 AZ',
                 Icons.confirmation_number_rounded,
                 false,
               ),

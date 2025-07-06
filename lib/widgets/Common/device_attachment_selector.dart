@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../models/Device/device.dart';
 import '../../services/device/deviceService.dart';
 
+import '../../theme/app_colors.dart';
+
 /// Reusable widget for handling device attachment/detachment with real-time UI feedback
 /// while deferring database updates until confirmation.
 class DeviceAttachmentSelector extends StatefulWidget {
@@ -282,9 +284,9 @@ class _DeviceAttachmentSelectorState extends State<DeviceAttachmentSelector> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
+        color: AppColors.infoLight.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.shade200, width: 1.5),
+        border: Border.all(color: AppColors.infoLight, width: 1.5),
       ),
       child: Row(
         children: [
@@ -292,14 +294,10 @@ class _DeviceAttachmentSelectorState extends State<DeviceAttachmentSelector> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.blue.shade100,
+              color: AppColors.infoLight,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(
-              Icons.directions_walk,
-              color: Colors.blue.shade700,
-              size: 24,
-            ),
+            child: Icon(Icons.devices, color: AppColors.primaryBlue, size: 24),
           ),
           const SizedBox(width: 16),
 
@@ -313,7 +311,7 @@ class _DeviceAttachmentSelectorState extends State<DeviceAttachmentSelector> {
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 16,
-                    color: Colors.blue.shade900,
+                    color: AppColors.primaryBlue,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -325,7 +323,7 @@ class _DeviceAttachmentSelectorState extends State<DeviceAttachmentSelector> {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade600,
+                    color: AppColors.info,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -347,7 +345,7 @@ class _DeviceAttachmentSelectorState extends State<DeviceAttachmentSelector> {
             icon: const Icon(Icons.link_off, size: 20),
             style: IconButton.styleFrom(
               backgroundColor: Colors.white,
-              foregroundColor: Colors.grey.shade600,
+              foregroundColor: AppColors.primaryBlue,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -447,7 +445,7 @@ class _DeviceAttachmentSelectorState extends State<DeviceAttachmentSelector> {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
-              Icons.directions_walk,
+              Icons.devices,
               color: isSelected ? Colors.green.shade700 : Colors.grey.shade600,
               size: 24,
             ),
@@ -509,8 +507,8 @@ class _DeviceAttachmentSelectorState extends State<DeviceAttachmentSelector> {
     return ElevatedButton(
       onPressed: () => _handleDeviceSelection(device.id),
       style: ElevatedButton.styleFrom(
-        backgroundColor: willAttach ? Colors.green.shade600 : Colors.white,
-        foregroundColor: willAttach ? Colors.white : Colors.grey.shade700,
+        backgroundColor: willAttach ? AppColors.success : Colors.white,
+        foregroundColor: willAttach ? Colors.white : AppColors.success,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         elevation: 0,
@@ -530,9 +528,9 @@ class _DeviceAttachmentSelectorState extends State<DeviceAttachmentSelector> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.warningLight.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.orange.shade200),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.5)),
       ),
       child: Row(
         children: [
@@ -540,14 +538,10 @@ class _DeviceAttachmentSelectorState extends State<DeviceAttachmentSelector> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.orange.shade100,
+              color: AppColors.warningLight,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(
-              Icons.directions_walk,
-              color: Colors.orange.shade700,
-              size: 24,
-            ),
+            child: Icon(Icons.devices, color: AppColors.warning, size: 24),
           ),
           const SizedBox(width: 16),
 
@@ -561,7 +555,7 @@ class _DeviceAttachmentSelectorState extends State<DeviceAttachmentSelector> {
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 16,
-                    color: Colors.grey.shade800,
+                    color: AppColors.warningText,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -573,7 +567,7 @@ class _DeviceAttachmentSelectorState extends State<DeviceAttachmentSelector> {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.orange.shade600,
+                    color: AppColors.warning,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -601,15 +595,14 @@ class _DeviceAttachmentSelectorState extends State<DeviceAttachmentSelector> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.lock_outline, size: 16, color: Colors.grey.shade600),
-                const SizedBox(width: 6),
-                Text(
-                  'Read Only',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                // Text(
+                //   'Read Only',
+                //   style: TextStyle(
+                //     fontSize: 12,
+                //     color: Colors.grey.shade600,
+                //     fontWeight: FontWeight.w500,
+                //   ),
+                // ),
               ],
             ),
           ),
@@ -623,21 +616,21 @@ class _DeviceAttachmentSelectorState extends State<DeviceAttachmentSelector> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.amber.shade50,
+        color: AppColors.warningLight.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.amber.shade200),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.5)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.amber.shade100,
+              color: AppColors.warningLight,
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.edit_notifications,
-              color: Colors.amber.shade700,
+              color: AppColors.warning,
               size: 20,
             ),
           ),
@@ -649,7 +642,7 @@ class _DeviceAttachmentSelectorState extends State<DeviceAttachmentSelector> {
                 Text(
                   'Device Assignment Changed',
                   style: TextStyle(
-                    color: Colors.amber.shade900,
+                    color: AppColors.warningText,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
@@ -657,7 +650,7 @@ class _DeviceAttachmentSelectorState extends State<DeviceAttachmentSelector> {
                 const SizedBox(height: 2),
                 Text(
                   'Changes will be saved when you update the vehicle',
-                  style: TextStyle(color: Colors.amber.shade700, fontSize: 12),
+                  style: TextStyle(color: AppColors.warning, fontSize: 12),
                 ),
               ],
             ),
@@ -667,12 +660,12 @@ class _DeviceAttachmentSelectorState extends State<DeviceAttachmentSelector> {
             icon: const Icon(Icons.undo),
             style: IconButton.styleFrom(
               backgroundColor: Colors.white,
-              foregroundColor: Colors.amber.shade700,
+              foregroundColor: AppColors.warning,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
               padding: const EdgeInsets.all(8),
-              side: BorderSide(color: Colors.amber.shade300),
+              side: BorderSide(color: AppColors.warning),
             ),
             tooltip: 'Undo changes',
           ),

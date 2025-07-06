@@ -3,6 +3,7 @@ import '../../models/Device/device.dart';
 import '../../models/vehicle/vehicle.dart';
 import '../../services/device/deviceService.dart';
 import '../Common/confirmation_dialog.dart';
+import '../../theme/app_colors.dart';
 
 // --- FIXED VehicleCard class ---
 class VehicleCard extends StatelessWidget {
@@ -108,7 +109,7 @@ class VehicleCard extends StatelessWidget {
           'Are you sure you want to delete "${vehicleModel.name}"? This action cannot be undone.',
       confirmText: 'Delete',
       cancelText: 'Cancel',
-      confirmColor: Colors.red,
+      confirmColor: AppColors.error,
     );
   }
 
@@ -160,7 +161,7 @@ class VehicleCard extends StatelessWidget {
             return _buildDeviceStatusContainer(
               icon: Icons.device_hub_rounded,
               text: 'Attached to Device : ${device.name}',
-              color: Colors.green,
+              color: AppColors.success,
             );
           } else if (snapshot.connectionState == ConnectionState.waiting) {
             return _buildDeviceStatusContainer(
@@ -172,7 +173,7 @@ class VehicleCard extends StatelessWidget {
             return _buildDeviceStatusContainer(
               icon: Icons.link_off_rounded,
               text: "This vehicle isn't attached to any device yet.",
-              color: Colors.red,
+              color: AppColors.error,
             );
           }
         },
@@ -181,7 +182,7 @@ class VehicleCard extends StatelessWidget {
       return _buildDeviceStatusContainer(
         icon: Icons.link_off_rounded,
         text: "This vehicle isn't attached to any device yet.",
-        color: Colors.red,
+        color: AppColors.error,
       );
     }
   }
