@@ -455,14 +455,22 @@ class DeviceService {
     },
   });
 
-  Future<void> assignDeviceToVehicle(String deviceId, String vehicleId) =>
-      _updateDeviceFields(deviceId, {'vehicleId': vehicleId});
+  // Note: Device assignment/unassignment is now handled by VehicleService
+  // to ensure bidirectional synchronization between devices and vehicles.
+  // Use VehicleService.assignDevice() and VehicleService.unassignDevice() instead.
 
-  Future<void> unassignDeviceFromVehicle(String deviceId) =>
-      _updateDeviceFields(deviceId, {'vehicleId': null});
+  Future<void> toggleDeviceStatus(String deviceId, bool isActive) async {
+    debugPrint('🔧 [DEVICE_SERVICE] toggleDeviceStatus called');
+    debugPrint('🔧 [DEVICE_SERVICE] deviceId: $deviceId, isActive: $isActive');
 
-  Future<void> toggleDeviceStatus(String deviceId, bool isActive) =>
-      _updateDeviceFields(deviceId, {'isActive': isActive});
+    try {
+      await _updateDeviceFields(deviceId, {'isActive': isActive});
+      debugPrint('✅ [DEVICE_SERVICE] Device status toggled successfully');
+    } catch (e) {
+      debugPrint('❌ [DEVICE_SERVICE] Error toggling device status: $e');
+      rethrow;
+    }
+  }
 
   // Queries
   Future<Device?> getDeviceById(String id) async {
@@ -813,10 +821,22 @@ class DeviceService {
   Future<void> _updateDeviceFields(
     String deviceId,
     Map<String, dynamic> fields,
-  ) => _firestore.collection('devices').doc(deviceId).update({
-    ...fields,
-    'updated_at': firestore.Timestamp.fromDate(DateTime.now()),
-  });
+  ) async {
+    debugPrint(
+      '🔧 [DEVICE_UPDATE] Updating device $deviceId with fields: $fields',
+    );
+
+    try {
+      await _firestore.collection('devices').doc(deviceId).update({
+        ...fields,
+        'updated_at': firestore.Timestamp.fromDate(DateTime.now()),
+      });
+      debugPrint('✅ [DEVICE_UPDATE] Device fields updated successfully');
+    } catch (e) {
+      debugPrint('❌ [DEVICE_UPDATE] Error updating device fields: $e');
+      rethrow;
+    }
+  }
 
   Future<List<Device>> _getUserDevices() async {
     if (_currentUserId == null) throw Exception('User not authenticated');

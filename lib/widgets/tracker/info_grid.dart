@@ -170,22 +170,15 @@ class BuildInfoGrid extends StatelessWidget {
 
   // Formats the last update time
   String _formatLastUpdate(String lastUpdate) {
-    try {
-      final updatedTime = DateTime.parse(lastUpdate);
-      final now = DateTime.now();
-      final difference = now.difference(updatedTime);
-
-      if (difference.inMinutes < 1) {
-        return 'Just now';
-      } else if (difference.inMinutes < 60) {
-        return '${difference.inMinutes}m ago';
-      } else if (difference.inHours < 24) {
-        return '${difference.inHours}h ago';
-      } else {
-        return '${difference.inDays}d ago';
-      }
-    } catch (_) {
-      return 'Invalid date';
+    // Handle special status messages
+    if (lastUpdate == 'No recent data' ||
+        lastUpdate == 'Invalid timestamp' ||
+        lastUpdate == 'No GPS data') {
+      return lastUpdate;
     }
+
+    // Return the formatted time string as provided by tracker.dart
+    // tracker.dart already handles Firebase UTC timestamp conversion and formatting
+    return lastUpdate;
   }
 }

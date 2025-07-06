@@ -11,8 +11,8 @@ const db = getFirestore();
 const messaging = getMessaging();
 
 // ===========================
-// FUNCTION 1: Process Driving History - Log GPS data every 5 minutes
-// if location changed
+// FUNCTION 1: Process Driving History - Log GPS data only when location changes
+// with proper UTC timestamp handling and duplicate prevention
 // ===========================
 exports.processdrivinghistory = onValueWritten(
   {
@@ -22,7 +22,8 @@ exports.processdrivinghistory = onValueWritten(
   async (event) => {
     const gpsData = event.data.after.val();
     const { deviceId } = event.params;
-    const timestamp = new Date();
+    // Always use UTC timestamp for consistent backend storage
+    const timestamp = new Date(); // This is already in UTC when stored in Firestore
 
     console.log(`🛰️ [HISTORY] Processing GPS data for device: ${deviceId}`);
 
@@ -38,6 +39,14 @@ exports.processdrivinghistory = onValueWritten(
       }
 
       const { latitude, longitude } = gpsData;
+
+      // Validate coordinates are not zero/invalid
+      if (latitude === 0 && longitude === 0) {
+        console.log(
+          `❌ [HISTORY] Invalid coordinates (0,0) for device: ${deviceId}`
+        );
+        return { success: false, message: "Invalid coordinates" };
+      }
 
       // Get device info by querying the name field
       console.log(
@@ -150,7 +159,7 @@ exports.processdrivinghistory = onValueWritten(
           const vehicleId = newVehicleRef.id;
           const ownerId = "auto-owner";
 
-          // Check if we should log this entry
+          // Check if we should log this entry (improved duplicate detection)
           const shouldLog = await shouldLogHistoryEntry(
             vehicleId,
             latitude,
@@ -158,12 +167,12 @@ exports.processdrivinghistory = onValueWritten(
           );
           if (!shouldLog.should) {
             console.log(`⏭️ [HISTORY] Skipping entry: ${shouldLog.reason}`);
-            return { success: true, message: shouldLog.reason };
+            return { success: true, message: shouldLog.reason, skipped: true };
           }
 
-          // Create history entry
+          // Create history entry with UTC timestamp and enhanced metadata
           const historyData = {
-            createdAt: timestamp,
+            createdAt: timestamp, // Firestore automatically stores this in UTC
             updatedAt: timestamp,
             vehicleId: vehicleId,
             ownerId: ownerId,
@@ -172,6 +181,17 @@ exports.processdrivinghistory = onValueWritten(
             location: {
               latitude: latitude,
               longitude: longitude,
+            },
+            // Enhanced metadata for debugging and analytics
+            metadata: {
+              autoCreated: true,
+              loggedAtUTC: timestamp.toISOString(), // Explicit UTC timestamp string
+              loggedAtTimestamp: timestamp.getTime(), // Unix timestamp for easy sorting
+              distance: shouldLog.distance || 0,
+              timeSinceLastEntry: shouldLog.timeDiff || 0,
+              logReason: shouldLog.reason,
+              source: "processdrivinghistory",
+              version: "2.0",
             },
           };
 
@@ -246,7 +266,7 @@ exports.processdrivinghistory = onValueWritten(
         return { success: false, message: "Missing ownerId" };
       }
 
-      // Check if we should log this entry (5-minute cooldown and location change)
+      // Check if we should log this entry (improved duplicate detection)
       const shouldLog = await shouldLogHistoryEntry(
         vehicleId,
         latitude,
@@ -254,12 +274,12 @@ exports.processdrivinghistory = onValueWritten(
       );
       if (!shouldLog.should) {
         console.log(`⏭️ [HISTORY] Skipping entry: ${shouldLog.reason}`);
-        return { success: true, message: shouldLog.reason };
+        return { success: true, message: shouldLog.reason, skipped: true };
       }
 
-      // Create history entry
+      // Create history entry with UTC timestamp and enhanced metadata
       const historyData = {
-        createdAt: timestamp,
+        createdAt: timestamp, // Firestore automatically stores in UTC
         updatedAt: timestamp,
         vehicleId: vehicleId,
         ownerId: ownerId,
@@ -268,6 +288,16 @@ exports.processdrivinghistory = onValueWritten(
         location: {
           latitude: latitude,
           longitude: longitude,
+        },
+        // Enhanced metadata for analytics and debugging - ensure proper structure
+        metadata: {
+          loggedAtUTC: timestamp.toISOString(), // Explicit UTC timestamp string
+          loggedAtTimestamp: timestamp.getTime(), // Unix timestamp for easy sorting
+          distance: shouldLog.distance || 0, // Distance from last point in km
+          timeSinceLastEntry: shouldLog.timeDiff || 0, // Time since last entry in ms
+          logReason: shouldLog.reason, // Why this entry was logged
+          source: "processdrivinghistory", // Source function
+          version: "2.0", // Schema version for future migrations
         },
       };
 
@@ -296,6 +326,7 @@ exports.processdrivinghistory = onValueWritten(
 );
 
 // Helper function to determine if we should log a history entry
+// Enforces 15-minute minimum interval and location change detection
 async function shouldLogHistoryEntry(vehicleId, latitude, longitude) {
   try {
     // Get the most recent history entry for this vehicle
@@ -308,24 +339,35 @@ async function shouldLogHistoryEntry(vehicleId, latitude, longitude) {
 
     if (recentQuery.empty) {
       // No previous entries, always log the first one
-      return { should: true, reason: "First entry for vehicle" };
+      return {
+        should: true,
+        reason: "First entry for vehicle",
+        timeDiff: 0,
+        distance: 0,
+      };
     }
 
     const lastEntry = recentQuery.docs[0].data();
     const lastTimestamp = lastEntry.createdAt.toDate();
     const lastLocation = lastEntry.location;
 
-    // Check time difference (5 seconds = 5,000 ms)
+    // Calculate time difference in milliseconds
     const timeDiff = Date.now() - lastTimestamp.getTime();
-    if (timeDiff < 5000) {
-      // Less than 5 seconds
+    const timeDiffMinutes = timeDiff / (1000 * 60); // Convert to minutes
+
+    // Enforce minimum 15-minute interval (900,000 ms = 15 minutes)
+    if (timeDiff < 900000) {
       return {
         should: false,
-        reason: "Too soon - less than 5 seconds since last entry",
+        reason: `Too soon - only ${timeDiffMinutes.toFixed(
+          1
+        )} minutes since last entry (minimum: 15 minutes)`,
+        timeDiff: timeDiff,
+        distance: 0,
       };
     }
 
-    // Check location difference (minimum 10 meters to avoid logging stationary vehicle)
+    // Calculate location difference in kilometers
     const distance = calculateDistance(
       lastLocation.latitude,
       lastLocation.longitude,
@@ -333,18 +375,35 @@ async function shouldLogHistoryEntry(vehicleId, latitude, longitude) {
       longitude
     );
 
-    if (distance < 0.01) {
-      // Less than 10 meters
-      return { should: false, reason: "Vehicle hasn't moved significantly" };
+    // Check if vehicle has moved significantly (minimum 50 meters = 0.05 km)
+    // This prevents logging when vehicle is stationary but still respects 15-min interval
+    if (distance < 0.05) {
+      return {
+        should: false,
+        reason: `Vehicle hasn't moved significantly (${(
+          distance * 1000
+        ).toFixed(0)}m < 50m minimum)`,
+        timeDiff: timeDiff,
+        distance: distance,
+      };
     }
 
-    return { should: true, reason: "Time and location criteria met" };
+    return {
+      should: true,
+      reason: `Time and location criteria met (${timeDiffMinutes.toFixed(
+        1
+      )} min, ${(distance * 1000).toFixed(0)}m)`,
+      timeDiff: timeDiff,
+      distance: distance,
+    };
   } catch (error) {
     console.error(`❌ [HISTORY] Error checking if should log:`, error);
     // Default to logging if we can't check
     return {
       should: true,
       reason: "Error checking criteria - defaulting to log",
+      timeDiff: 0,
+      distance: 0,
     };
   }
 }
@@ -486,40 +545,96 @@ exports.querydrivinghistory = onCall(
         .collection("history")
         .where("vehicleId", "==", vehicleId)
         .where("createdAt", ">=", startDate)
-        .orderBy("createdAt", "asc")
+        .orderBy("createdAt", "desc")
         .limit(1000) // Reasonable limit
         .get();
 
       const historyEntries = [];
       historyQuery.docs.forEach((doc) => {
-        const data = doc.data();
-        historyEntries.push({
-          id: doc.id,
-          createdAt: data.createdAt.toDate().toISOString(),
-          location: {
-            latitude: Number(data.location.latitude),
-            longitude: Number(data.location.longitude),
-          },
-          vehicleId: data.vehicleId,
-          ownerId: data.ownerId || userId, // Include ownerId field
-        });
+        try {
+          const data = doc.data();
+          
+          // Handle Firestore timestamp conversion
+          let createdAtDate;
+          if (data.createdAt && typeof data.createdAt.toDate === 'function') {
+            createdAtDate = data.createdAt.toDate();
+          } else if (data.createdAt instanceof Date) {
+            createdAtDate = data.createdAt;
+          } else if (typeof data.createdAt === 'string') {
+            createdAtDate = new Date(data.createdAt);
+          } else {
+            createdAtDate = new Date();
+          }
+
+          // Extract location data safely
+          let latitude = 0;
+          let longitude = 0;
+          if (data.location) {
+            if (typeof data.location.latitude === 'number') {
+              latitude = data.location.latitude;
+            } else if (typeof data.location.latitude === 'string') {
+              latitude = parseFloat(data.location.latitude);
+            }
+            
+            if (typeof data.location.longitude === 'number') {
+              longitude = data.location.longitude;
+            } else if (typeof data.location.longitude === 'string') {
+              longitude = parseFloat(data.location.longitude);
+            }
+          }
+
+          // Create object with location as nested object to match Flutter model expectations
+          const entry = {};
+          entry.id = doc.id + ""; // Force string
+          entry.createdAt = createdAtDate.toISOString() + ""; // Force string
+          entry.createdAtTimestamp = Number(createdAtDate.getTime());
+          // Return location as nested object as expected by Flutter model
+          entry.location = {
+            latitude: Number(latitude),
+            longitude: Number(longitude)
+          };
+          entry.vehicleId = (data.vehicleId || "") + ""; // Force string
+          entry.ownerId = (data.ownerId || userId) + ""; // Force string
+          entry.deviceName = (data.deviceName || "Unknown Device") + ""; // Force string
+          
+          // Add metadata as flat fields instead of nested object
+          if (data.metadata && typeof data.metadata === 'object') {
+            Object.keys(data.metadata).forEach(key => {
+              const value = data.metadata[key];
+              if (value !== null && value !== undefined) {
+                // Flatten metadata into the main object with prefix
+                const flatKey = "metadata_" + key;
+                if (typeof value === 'object' && typeof value.toDate === 'function') {
+                  entry[flatKey] = value.toDate().toISOString() + "";
+                } else if (typeof value === 'object') {
+                  entry[flatKey] = JSON.stringify(value) + "";
+                } else {
+                  entry[flatKey] = value + ""; // Force string
+                }
+              }
+            });
+          }
+
+          historyEntries.push(entry);
+        } catch (entryError) {
+          console.error(`❌ [QUERY] Error processing entry ${doc.id}:`, entryError);
+          // Skip malformed entries but continue processing others
+        }
       });
 
       console.log(`✅ [QUERY] Found ${historyEntries.length} history entries`);
 
-      const response = {
-        success: true,
-        entries: historyEntries,
-        totalCount: historyEntries.length,
-        vehicleId: vehicleId,
-        dateRange: {
-          from: startDate.toISOString(),
-          to: new Date().toISOString(),
-        },
-      };
+      // Create completely flat response with NO nested objects
+      const response = {};
+      response.success = true;
+      response.entries = historyEntries;
+      response.totalCount = historyEntries.length;
+      response.vehicleId = vehicleId + ""; // Force string
+      response.dateRangeFrom = startDate.toISOString() + ""; // Flat instead of nested
+      response.dateRangeTo = new Date().toISOString() + ""; // Flat instead of nested
 
       console.log(
-        `📤 [QUERY] Returning response:`,
+        `📤 [QUERY] Returning flat response:`,
         JSON.stringify(response, null, 2)
       );
       return response;
