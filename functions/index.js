@@ -289,7 +289,7 @@ exports.processdrivinghistory = onValueWritten(
           latitude: latitude,
           longitude: longitude,
         },
-        // Enhanced metadata for analytics and debugging
+        // Enhanced metadata for analytics and debugging - ensure proper structure
         metadata: {
           loggedAtUTC: timestamp.toISOString(), // Explicit UTC timestamp string
           loggedAtTimestamp: timestamp.getTime(), // Unix timestamp for easy sorting
@@ -551,43 +551,90 @@ exports.querydrivinghistory = onCall(
 
       const historyEntries = [];
       historyQuery.docs.forEach((doc) => {
-        const data = doc.data();
-        // Ensure we properly handle Firestore timestamps and convert to UTC ISO string
-        const createdAtDate = data.createdAt.toDate
-          ? data.createdAt.toDate()
-          : new Date(data.createdAt);
+        try {
+          const data = doc.data();
+          
+          // Handle Firestore timestamp conversion
+          let createdAtDate;
+          if (data.createdAt && typeof data.createdAt.toDate === 'function') {
+            createdAtDate = data.createdAt.toDate();
+          } else if (data.createdAt instanceof Date) {
+            createdAtDate = data.createdAt;
+          } else if (typeof data.createdAt === 'string') {
+            createdAtDate = new Date(data.createdAt);
+          } else {
+            createdAtDate = new Date();
+          }
 
-        historyEntries.push({
-          id: doc.id,
-          createdAt: createdAtDate.toISOString(), // Always return UTC ISO string
-          createdAtTimestamp: createdAtDate.getTime(), // Unix timestamp for client-side conversion
-          location: {
-            latitude: Number(data.location.latitude),
-            longitude: Number(data.location.longitude),
-          },
-          vehicleId: data.vehicleId,
-          ownerId: data.ownerId || userId, // Include ownerId field
-          deviceName: data.deviceName || "Unknown Device",
-          // Include metadata if available
-          metadata: data.metadata || {},
-        });
+          // Extract location data safely
+          let latitude = 0;
+          let longitude = 0;
+          if (data.location) {
+            if (typeof data.location.latitude === 'number') {
+              latitude = data.location.latitude;
+            } else if (typeof data.location.latitude === 'string') {
+              latitude = parseFloat(data.location.latitude);
+            }
+            
+            if (typeof data.location.longitude === 'number') {
+              longitude = data.location.longitude;
+            } else if (typeof data.location.longitude === 'string') {
+              longitude = parseFloat(data.location.longitude);
+            }
+          }
+
+          // Create object with location as nested object to match Flutter model expectations
+          const entry = {};
+          entry.id = doc.id + ""; // Force string
+          entry.createdAt = createdAtDate.toISOString() + ""; // Force string
+          entry.createdAtTimestamp = Number(createdAtDate.getTime());
+          // Return location as nested object as expected by Flutter model
+          entry.location = {
+            latitude: Number(latitude),
+            longitude: Number(longitude)
+          };
+          entry.vehicleId = (data.vehicleId || "") + ""; // Force string
+          entry.ownerId = (data.ownerId || userId) + ""; // Force string
+          entry.deviceName = (data.deviceName || "Unknown Device") + ""; // Force string
+          
+          // Add metadata as flat fields instead of nested object
+          if (data.metadata && typeof data.metadata === 'object') {
+            Object.keys(data.metadata).forEach(key => {
+              const value = data.metadata[key];
+              if (value !== null && value !== undefined) {
+                // Flatten metadata into the main object with prefix
+                const flatKey = "metadata_" + key;
+                if (typeof value === 'object' && typeof value.toDate === 'function') {
+                  entry[flatKey] = value.toDate().toISOString() + "";
+                } else if (typeof value === 'object') {
+                  entry[flatKey] = JSON.stringify(value) + "";
+                } else {
+                  entry[flatKey] = value + ""; // Force string
+                }
+              }
+            });
+          }
+
+          historyEntries.push(entry);
+        } catch (entryError) {
+          console.error(`❌ [QUERY] Error processing entry ${doc.id}:`, entryError);
+          // Skip malformed entries but continue processing others
+        }
       });
 
       console.log(`✅ [QUERY] Found ${historyEntries.length} history entries`);
 
-      const response = {
-        success: true,
-        entries: historyEntries,
-        totalCount: historyEntries.length,
-        vehicleId: vehicleId,
-        dateRange: {
-          from: startDate.toISOString(),
-          to: new Date().toISOString(),
-        },
-      };
+      // Create completely flat response with NO nested objects
+      const response = {};
+      response.success = true;
+      response.entries = historyEntries;
+      response.totalCount = historyEntries.length;
+      response.vehicleId = vehicleId + ""; // Force string
+      response.dateRangeFrom = startDate.toISOString() + ""; // Flat instead of nested
+      response.dateRangeTo = new Date().toISOString() + ""; // Flat instead of nested
 
       console.log(
-        `📤 [QUERY] Returning response:`,
+        `📤 [QUERY] Returning flat response:`,
         JSON.stringify(response, null, 2)
       );
       return response;
