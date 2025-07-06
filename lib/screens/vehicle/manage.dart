@@ -342,7 +342,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
             icon: const Icon(Icons.add_circle_outline),
             label: const Text('Add New Device'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
+              backgroundColor: AppColors.primaryBlue,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -546,7 +546,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.directions_car_rounded,
+              Icons.two_wheeler,
               size: 64,
               color: Colors.blue.shade300,
             ),
@@ -594,7 +594,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
             context: context,
             title: 'Add New Vehicle',
             icon: Icons.add_circle_rounded,
-            iconColor: Colors.blue,
+            iconColor: AppColors.primaryBlue,
             controllers: controllers,
             onConfirm: () {
               _addVehicle(
@@ -606,7 +606,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
               Navigator.pop(context);
             },
             confirmText: 'Add Vehicle',
-            confirmColor: Colors.blue,
+            confirmColor: AppColors.primaryBlue,
             currentDeviceId: null,
             currentVehicleId: null,
           ),
@@ -722,15 +722,15 @@ class _ManageVehicleState extends State<ManageVehicle> {
               _buildTextField(
                 controllers[0],
                 'Vehicle Name',
-                'e.g., Toyota Camry 2023',
-                Icons.directions_car_rounded,
+                'e.g., Honda Scoopy 2016',
+                Icons.two_wheeler,
                 true,
               ),
               const SizedBox(height: 16),
               _buildTextField(
                 controllers[1],
                 'Vehicle Type',
-                'e.g., Sedan, SUV, Truck',
+                'e.g., Matic, Sport, Manual',
                 Icons.category_rounded,
                 false,
               ),
@@ -738,7 +738,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
               _buildTextField(
                 controllers[2],
                 'License Plate',
-                'e.g., ABC-1234',
+                'e.g., DA 1711 AZ',
                 Icons.confirmation_number_rounded,
                 false,
               ),
@@ -951,8 +951,8 @@ class _ManageVehicleState extends State<ManageVehicle> {
                           decoration: BoxDecoration(
                             color:
                                 hasChanges
-                                    ? Colors.orange.shade100
-                                    : Colors.blue.shade100,
+                                    ? AppColors.warningLight
+                                    : AppColors.infoLight,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -962,8 +962,8 @@ class _ManageVehicleState extends State<ManageVehicle> {
                               fontWeight: FontWeight.bold,
                               color:
                                   hasChanges
-                                      ? Colors.orange.shade700
-                                      : Colors.blue.shade700,
+                                      ? AppColors.warning
+                                      : AppColors.primaryBlue,
                             ),
                           ),
                         ),
@@ -1293,7 +1293,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
           Icon(
             device.isActive ? Icons.device_hub : Icons.device_hub_outlined,
             color:
-                device.isActive ? Colors.green.shade600 : Colors.grey.shade600,
+                device.isActive ? AppColors.successText : Colors.grey.shade600,
             size: 20,
           ),
           const SizedBox(width: 12),
