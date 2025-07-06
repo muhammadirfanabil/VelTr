@@ -546,7 +546,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.directions_car_rounded,
+              Icons.two_wheeler,
               size: 64,
               color: Colors.blue.shade300,
             ),
@@ -606,7 +606,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
               Navigator.pop(context);
             },
             confirmText: 'Add Vehicle',
-            confirmColor: Colors.blue,
+            confirmColor: AppColors.primaryBlue,
             currentDeviceId: null,
             currentVehicleId: null,
           ),
@@ -723,7 +723,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
                 controllers[0],
                 'Vehicle Name',
                 'e.g., Toyota Camry 2023',
-                Icons.directions_car_rounded,
+                Icons.two_wheeler,
                 true,
               ),
               const SizedBox(height: 16),
@@ -951,8 +951,8 @@ class _ManageVehicleState extends State<ManageVehicle> {
                           decoration: BoxDecoration(
                             color:
                                 hasChanges
-                                    ? Colors.orange.shade100
-                                    : Colors.blue.shade100,
+                                    ? AppColors.warningLight
+                                    : AppColors.infoLight,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -962,8 +962,8 @@ class _ManageVehicleState extends State<ManageVehicle> {
                               fontWeight: FontWeight.bold,
                               color:
                                   hasChanges
-                                      ? Colors.orange.shade700
-                                      : Colors.blue.shade700,
+                                      ? AppColors.warning
+                                      : AppColors.primaryBlue,
                             ),
                           ),
                         ),
@@ -1293,7 +1293,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
           Icon(
             device.isActive ? Icons.device_hub : Icons.device_hub_outlined,
             color:
-                device.isActive ? Colors.green.shade600 : Colors.grey.shade600,
+                device.isActive ? AppColors.successText : Colors.grey.shade600,
             size: 20,
           ),
           const SizedBox(width: 12),
