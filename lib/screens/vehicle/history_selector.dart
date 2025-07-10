@@ -271,11 +271,7 @@ class _DrivingHistorySelectorState extends State<DrivingHistorySelector> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.directions_car_outlined,
-              size: 64,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.two_wheeler_outlined, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
               'No Vehicles Found',
