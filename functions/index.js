@@ -553,14 +553,14 @@ exports.querydrivinghistory = onCall(
       historyQuery.docs.forEach((doc) => {
         try {
           const data = doc.data();
-          
+
           // Handle Firestore timestamp conversion
           let createdAtDate;
-          if (data.createdAt && typeof data.createdAt.toDate === 'function') {
+          if (data.createdAt && typeof data.createdAt.toDate === "function") {
             createdAtDate = data.createdAt.toDate();
           } else if (data.createdAt instanceof Date) {
             createdAtDate = data.createdAt;
-          } else if (typeof data.createdAt === 'string') {
+          } else if (typeof data.createdAt === "string") {
             createdAtDate = new Date(data.createdAt);
           } else {
             createdAtDate = new Date();
@@ -570,15 +570,15 @@ exports.querydrivinghistory = onCall(
           let latitude = 0;
           let longitude = 0;
           if (data.location) {
-            if (typeof data.location.latitude === 'number') {
+            if (typeof data.location.latitude === "number") {
               latitude = data.location.latitude;
-            } else if (typeof data.location.latitude === 'string') {
+            } else if (typeof data.location.latitude === "string") {
               latitude = parseFloat(data.location.latitude);
             }
-            
-            if (typeof data.location.longitude === 'number') {
+
+            if (typeof data.location.longitude === "number") {
               longitude = data.location.longitude;
-            } else if (typeof data.location.longitude === 'string') {
+            } else if (typeof data.location.longitude === "string") {
               longitude = parseFloat(data.location.longitude);
             }
           }
@@ -591,22 +591,25 @@ exports.querydrivinghistory = onCall(
           // Return location as nested object as expected by Flutter model
           entry.location = {
             latitude: Number(latitude),
-            longitude: Number(longitude)
+            longitude: Number(longitude),
           };
           entry.vehicleId = (data.vehicleId || "") + ""; // Force string
           entry.ownerId = (data.ownerId || userId) + ""; // Force string
           entry.deviceName = (data.deviceName || "Unknown Device") + ""; // Force string
-          
+
           // Add metadata as flat fields instead of nested object
-          if (data.metadata && typeof data.metadata === 'object') {
-            Object.keys(data.metadata).forEach(key => {
+          if (data.metadata && typeof data.metadata === "object") {
+            Object.keys(data.metadata).forEach((key) => {
               const value = data.metadata[key];
               if (value !== null && value !== undefined) {
                 // Flatten metadata into the main object with prefix
                 const flatKey = "metadata_" + key;
-                if (typeof value === 'object' && typeof value.toDate === 'function') {
+                if (
+                  typeof value === "object" &&
+                  typeof value.toDate === "function"
+                ) {
                   entry[flatKey] = value.toDate().toISOString() + "";
-                } else if (typeof value === 'object') {
+                } else if (typeof value === "object") {
                   entry[flatKey] = JSON.stringify(value) + "";
                 } else {
                   entry[flatKey] = value + ""; // Force string
@@ -617,7 +620,10 @@ exports.querydrivinghistory = onCall(
 
           historyEntries.push(entry);
         } catch (entryError) {
-          console.error(`❌ [QUERY] Error processing entry ${doc.id}:`, entryError);
+          console.error(
+            `❌ [QUERY] Error processing entry ${doc.id}:`,
+            entryError
+          );
           // Skip malformed entries but continue processing others
         }
       });

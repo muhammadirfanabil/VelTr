@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../../constants/app_constants.dart';
 import '../../models/notifications/unified_notification.dart';
 import '../../models/notifications/notification_date_group.dart';
+import '../../models/vehicle/vehicle.dart';
 import '../../services/notifications/unified_notification_service.dart';
+import '../../services/vehicle/vehicleService.dart';
+import '../../services/device/deviceService.dart';
 
 import '../../widgets/notifications/notification_card.dart';
 import '../../widgets/Common/confirmation_dialog.dart';
@@ -27,9 +29,19 @@ class _EnhancedNotificationsScreenState
     extends State<EnhancedNotificationsScreen> {
   final UnifiedNotificationService _notificationService =
       UnifiedNotificationService();
+  final VehicleService _vehicleService = VehicleService();
+  final DeviceService _deviceService = DeviceService();
   final ScrollController _scrollController = ScrollController();
   bool _isScrolled = false;
   bool _isRefreshing = false;
+
+  // Vehicle filter state
+  List<vehicle> _availableVehicles = [];
+  String? _selectedVehicleId; // null means "All Vehicles"
+  bool _isLoadingVehicles = true;
+  
+  // Device name cache for filtering
+  Map<String, String> _deviceIdToNameCache = {};
 
   final Set<String> _deletingNotifications = <String>{};
 
@@ -37,6 +49,7 @@ class _EnhancedNotificationsScreenState
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _loadVehicles();
   }
 
   void _onScroll() {
@@ -45,6 +58,162 @@ class _EnhancedNotificationsScreenState
     } else if (_scrollController.offset <= 20 && _isScrolled) {
       setState(() => _isScrolled = false);
     }
+  }
+
+  /// Load available vehicles for filtering
+  Future<void> _loadVehicles() async {
+    setState(() {
+      _isLoadingVehicles = true;
+    });
+
+    try {
+      final vehicles = await _vehicleService.getVehiclesStream().first;
+      
+      // Build device cache for filtering
+      final Map<String, String> deviceCache = {};
+      for (final vehicle in vehicles) {
+        if (vehicle.deviceId != null) {
+          try {
+            final deviceName = await _deviceService.getDeviceNameById(vehicle.deviceId!);
+            if (deviceName != null) {
+              deviceCache[vehicle.deviceId!] = deviceName;
+            }
+          } catch (e) {
+            debugPrint('Error getting device name for ${vehicle.deviceId}: $e');
+          }
+        }
+      }
+      
+      setState(() {
+        _availableVehicles = vehicles;
+        _deviceIdToNameCache = deviceCache;
+        _isLoadingVehicles = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading vehicles: $e');
+      setState(() {
+        _availableVehicles = [];
+        _deviceIdToNameCache = {};
+        _isLoadingVehicles = false;
+      });
+    }
+  }
+
+  /// Filter notifications based on selected vehicle
+  List<UnifiedNotification> _filterNotificationsByVehicle(
+    List<UnifiedNotification> notifications,
+  ) {
+    if (_selectedVehicleId == null) {
+      return _enhanceNotificationsWithVehicleNames(notifications); // Show all notifications with vehicle names
+    }
+
+    // Find the selected vehicle
+    final selectedVehicle = _availableVehicles.firstWhere(
+      (vehicle) => vehicle.id == _selectedVehicleId,
+      orElse: () => vehicle(
+        id: '',
+        name: '',
+        ownerId: '',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+    );
+
+    if (selectedVehicle.name.isEmpty || selectedVehicle.deviceId == null) {
+      return []; // Vehicle not found or has no device, show no notifications
+    }
+
+    // Get the device name for this vehicle from cache
+    final vehicleDeviceName = _deviceIdToNameCache[selectedVehicle.deviceId];
+    if (vehicleDeviceName == null) {
+      return []; // Device name not found, show no notifications
+    }
+
+    // Filter notifications by matching device name
+    final filteredNotifications = notifications.where((notification) {
+      // Primary check: notification deviceName matches vehicle's device name
+      if (notification.deviceName != null) {
+        return notification.deviceName == vehicleDeviceName;
+      }
+      
+      // Secondary check: check data fields for device references
+      final data = notification.data;
+      if (data['deviceName'] != null) {
+        return data['deviceName'].toString() == vehicleDeviceName;
+      }
+      
+      // Tertiary check: check for deviceId in data
+      if (data['deviceId'] != null) {
+        return data['deviceId'].toString() == selectedVehicle.deviceId;
+      }
+      
+      // No matching device reference found
+      return false;
+    }).toList();
+
+    return _enhanceNotificationsWithVehicleNames(filteredNotifications);
+  }
+
+  /// Enhance notifications by replacing device names with vehicle names
+  /// Changes "BOA7322B2EC4 has entered Teluk Dalam Geofence" 
+  /// to "My Car(BOA7322B2EC4) has entered Teluk Dalam Geofence"
+  List<UnifiedNotification> _enhanceNotificationsWithVehicleNames(
+    List<UnifiedNotification> notifications,
+  ) {
+    return notifications.map((notification) {
+      // Find the vehicle that owns this device
+      vehicle? owningVehicle;
+      String? deviceName = notification.deviceName ?? notification.data['deviceName']?.toString();
+      
+      if (deviceName != null) {
+        // Find vehicle by matching device name in cache
+        for (final vehicle in _availableVehicles) {
+          if (vehicle.deviceId != null && 
+              _deviceIdToNameCache[vehicle.deviceId] == deviceName) {
+            owningVehicle = vehicle;
+            break;
+          }
+        }
+      }
+
+      if (owningVehicle != null && deviceName != null) {
+        // Create enhanced message with vehicle name
+        String enhancedMessage = notification.message;
+        String enhancedTitle = notification.title;
+        
+        // Replace device name with vehicle(device) format in message
+        enhancedMessage = enhancedMessage.replaceAll(
+          deviceName, 
+          '${owningVehicle.name}($deviceName)'
+        );
+        
+        // Also update title if it contains the device name
+        if (enhancedTitle.contains(deviceName)) {
+          enhancedTitle = enhancedTitle.replaceAll(
+            deviceName, 
+            '${owningVehicle.name}($deviceName)'
+          );
+        }
+        
+        // Create a new notification with the enhanced message and title
+        return UnifiedNotification(
+          id: notification.id,
+          type: notification.type,
+          title: enhancedTitle,
+          message: enhancedMessage,
+          timestamp: notification.timestamp,
+          data: notification.data,
+          isRead: notification.isRead,
+          geofenceAction: notification.geofenceAction,
+          deviceName: notification.deviceName,
+          geofenceName: notification.geofenceName,
+          latitude: notification.latitude,
+          longitude: notification.longitude,
+        );
+      }
+
+      return notification; // Return original if no vehicle found
+    }).toList();
   }
 
   @override
@@ -84,6 +253,7 @@ class _EnhancedNotificationsScreenState
           controller: _scrollController,
           slivers: [
             _buildSliverAppBar(theme, isDark),
+            _buildVehicleFilterSliver(theme, isDark),
             _buildNotificationsContent(theme, isDark),
           ],
         ),
@@ -187,6 +357,171 @@ class _EnhancedNotificationsScreenState
     );
   }
 
+  Widget _buildVehicleFilterSliver(ThemeData theme, bool isDark) {
+    return SliverToBoxAdapter(
+      child: Container(
+        height: 90,
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : AppColors.backgroundPrimary,
+          boxShadow: [
+            BoxShadow(
+              color: (isDark ? Colors.black : Colors.black).withValues(alpha: 0.05),
+              blurRadius: 2,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Filter title
+            Padding(
+              padding: const EdgeInsets.only(left: 20, right: 20, top: 12, bottom: 8),
+              child: Text(
+                'Filter by Vehicle',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: isDark ? AppColors.textSecondary : AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
+            
+            // Vehicle selector
+            Expanded(
+              child: _isLoadingVehicles
+                  ? const Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : _buildVehicleSelector(theme, isDark),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVehicleSelector(ThemeData theme, bool isDark) {
+    // Filter vehicles to only show those with devices, but still show "All Vehicles"
+    final vehiclesWithDevices = _availableVehicles.where((vehicle) => 
+        vehicle.deviceId != null && _deviceIdToNameCache.containsKey(vehicle.deviceId)
+    ).toList();
+    
+    // Create list with "All Vehicles" option first, then vehicles with devices
+    final vehicleOptions = [
+      {'id': null, 'name': 'All Vehicles', 'hasDevice': true},
+      ...vehiclesWithDevices.map((vehicle) => {
+        'id': vehicle.id,
+        'name': vehicle.name,
+        'hasDevice': true, // All filtered vehicles have devices
+      }),
+      // Show vehicles without devices at the end with different styling
+      ..._availableVehicles.where((vehicle) => 
+          vehicle.deviceId == null || !_deviceIdToNameCache.containsKey(vehicle.deviceId)
+      ).map((vehicle) => {
+        'id': vehicle.id,
+        'name': vehicle.name,
+        'hasDevice': false,
+      }),
+    ];
+
+    return ListView.builder(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: vehicleOptions.length,
+      itemBuilder: (context, index) {
+        final option = vehicleOptions[index];
+        final isSelected = option['id'] == _selectedVehicleId;
+        final hasDevice = option['hasDevice'] as bool;
+        
+        return GestureDetector(
+          onTap: () {
+            setState(() {
+              _selectedVehicleId = option['id'] as String?;
+            });
+          },
+          child: Container(
+            margin: const EdgeInsets.only(right: 8, bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected 
+                  ? AppColors.primaryBlue 
+                  : (isDark ? AppColors.darkSurfaceElevated : Colors.grey.shade100),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isSelected 
+                    ? AppColors.primaryBlue 
+                    : (isDark ? AppColors.darkBorder : Colors.grey.shade300),
+                width: 1,
+              ),
+              boxShadow: isSelected ? [
+                BoxShadow(
+                  color: AppColors.primaryBlue.withValues(alpha: 0.2),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ] : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (option['id'] == null) ...[
+                  Icon(
+                    Icons.all_inclusive_rounded,
+                    size: 16,
+                    color: isSelected 
+                        ? Colors.white 
+                        : (isDark ? AppColors.textSecondary : Colors.grey.shade600),
+                  ),
+                  const SizedBox(width: 6),
+                ] else ...[
+                  Icon(
+                    hasDevice ? Icons.directions_car_rounded : Icons.directions_car_outlined,
+                    size: 16,
+                    color: isSelected 
+                        ? Colors.white 
+                        : (hasDevice 
+                            ? (isDark ? AppColors.textSecondary : Colors.grey.shade600)
+                            : (isDark ? AppColors.textTertiary : Colors.grey.shade400)),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                Text(
+                  option['name'] as String,
+                  style: TextStyle(
+                    color: isSelected 
+                        ? Colors.white 
+                        : (hasDevice 
+                            ? (isDark ? AppColors.textPrimary : Colors.black87)
+                            : (isDark ? AppColors.textTertiary : Colors.grey.shade500)),
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
+                // Show device indicator for vehicles without devices
+                if (option['id'] != null && !hasDevice) ...[
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.warning_rounded,
+                    size: 12,
+                    color: isSelected 
+                        ? Colors.white70 
+                        : (isDark ? AppColors.textTertiary : Colors.orange.shade400),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildNotificationsContent(ThemeData theme, bool isDark) {
     return SliverFillRemaining(
       child: Container(
@@ -215,8 +550,15 @@ class _EnhancedNotificationsScreenState
                       return _buildEmptyState(theme, isDark);
                     }
 
+                    // Apply vehicle filter
+                    final filteredNotifications = _filterNotificationsByVehicle(snapshot.data!);
+                    
+                    if (filteredNotifications.isEmpty && _selectedVehicleId != null) {
+                      return _buildNoNotificationsForVehicle(theme, isDark);
+                    }
+
                     final groups = NotificationDateGroup.createGroups(
-                      snapshot.data!,
+                      filteredNotifications,
                     );
                     return _buildNotificationsList(groups, theme, isDark);
                   },
@@ -329,6 +671,81 @@ class _EnhancedNotificationsScreenState
                   const SizedBox(height: 11),
                   Text(
                     'When you get notifications about your GPS tracking, they\'ll appear here.\n\nPull down to refresh.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                      height: 1.45,
+                      fontSize: 14.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNoNotificationsForVehicle(ThemeData theme, bool isDark) {
+    final selectedVehicle = _availableVehicles.firstWhere(
+      (vehicle) => vehicle.id == _selectedVehicleId,
+      orElse: () => vehicle(
+        id: '',
+        name: 'Unknown Vehicle',
+        ownerId: '',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+    );
+
+    final hasDevice = selectedVehicle.deviceId != null && 
+                     _deviceIdToNameCache.containsKey(selectedVehicle.deviceId);
+
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(
+          height: MediaQuery.of(context).size.height * 0.6,
+          child: Center(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 86,
+                    height: 86,
+                    decoration: BoxDecoration(
+                      color:
+                          isDark
+                              ? AppColors.darkSurfaceElevated
+                              : AppColors.backgroundSecondary,
+                      borderRadius: BorderRadius.circular(43),
+                    ),
+                    child: Icon(
+                      hasDevice ? Icons.directions_car_rounded : Icons.warning_rounded,
+                      size: 40,
+                      color: hasDevice ? AppColors.textTertiary : Colors.orange,
+                    ),
+                  ),
+                  const SizedBox(height: 25),
+                  Text(
+                    hasDevice 
+                        ? 'No Notifications for ${selectedVehicle.name}'
+                        : '${selectedVehicle.name} Has No Device',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 11),
+                  Text(
+                    hasDevice 
+                        ? 'There are no notifications for this vehicle yet.\n\nTry selecting "All Vehicles" or pull down to refresh.'
+                        : 'This vehicle needs a GPS device to generate notifications.\n\nAttach a device to start receiving alerts.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: AppColors.textSecondary,
                       height: 1.45,
@@ -521,7 +938,11 @@ class _EnhancedNotificationsScreenState
       _isRefreshing = true;
     });
     try {
-      await _notificationService.refreshNotifications();
+      // Refresh both notifications and vehicles
+      await Future.wait([
+        _notificationService.refreshNotifications(),
+        _loadVehicles(),
+      ]);
       if (mounted) {
         SnackbarUtils.showSuccess(context, 'Alerts refreshed');
       }
