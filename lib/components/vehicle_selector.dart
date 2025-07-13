@@ -276,7 +276,7 @@ class VehicleSelectorBottomSheet extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.directions_car_outlined,
+                Icons.two_wheeler_outlined,
                 size: 48,
                 color: Colors.grey.shade400,
               ),

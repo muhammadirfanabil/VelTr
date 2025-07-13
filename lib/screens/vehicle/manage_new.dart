@@ -586,7 +586,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.directions_car_rounded,
+              Icons.two_wheeler_rounded,
               size: 64,
               color: Colors.blue.shade300,
             ),
@@ -741,7 +741,7 @@ class _ManageVehicleState extends State<ManageVehicle> {
               controllers[0],
               'Vehicle Name',
               'e.g., Toyota Camry 2023',
-              Icons.directions_car_rounded,
+              Icons.two_wheeler_rounded,
               true,
             ),
             const SizedBox(height: 16),

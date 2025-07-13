@@ -77,7 +77,7 @@ class VehicleSelectionModal extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.directions_car_outlined,
+            Icons.two_wheeler_outlined,
             size: 44,
             color: AppColors.textTertiary,
           ),

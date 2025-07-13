@@ -6,7 +6,8 @@ import '../../theme/app_colors.dart';
 enum NotificationType {
   geofence,
   general,
-  system;
+  system,
+  vehicleStatus;
 
   String get displayName {
     switch (this) {
@@ -16,6 +17,8 @@ enum NotificationType {
         return 'General';
       case NotificationType.system:
         return 'System';
+      case NotificationType.vehicleStatus:
+        return 'Vehicle Status';
     }
   }
 }
@@ -157,6 +160,12 @@ class UnifiedNotification {
         data: data,
         timestamp: timestamp,
       );
+    } else if (type == NotificationType.vehicleStatus) {
+      return UnifiedNotification._fromVehicleStatusData(
+        id: id,
+        data: data,
+        timestamp: timestamp,
+      );
     } else {
       return UnifiedNotification._fromGeneralData(
         id: id,
@@ -221,10 +230,42 @@ class UnifiedNotification {
     );
   }
 
+  /// Factory for vehicle status notifications
+  factory UnifiedNotification._fromVehicleStatusData({
+    required String id,
+    required Map<String, dynamic> data,
+    required DateTime timestamp,
+  }) {
+    final vehicleName =
+        data['vehicleName'] ?? data['deviceName'] ?? 'Unknown Vehicle';
+    final actionText = data['actionText'] ?? '';
+    final relayStatus =
+        data['relayStatus'] == 'true' || data['relayStatus'] == true;
+
+    // Use the message from the backend or construct it
+    final message =
+        data['message'] ??
+        '✅ Beat ($vehicleName) has been successfully $actionText.';
+
+    return UnifiedNotification(
+      id: id,
+      type: NotificationType.vehicleStatus,
+      title: 'Vehicle Status Update',
+      message: message,
+      timestamp: timestamp,
+      data: data,
+      isRead: data['isRead'] ?? data['read'] ?? false,
+      deviceName: vehicleName,
+      geofenceName: 'Status: ${relayStatus ? 'ON' : 'OFF'}',
+    );
+  }
+
   /// Get display icon based on notification type
   IconData get icon {
     if (type == NotificationType.geofence && geofenceAction != null) {
       return geofenceAction!.icon;
+    } else if (type == NotificationType.vehicleStatus) {
+      return Icons.power_settings_new_rounded;
     }
     return Icons.notifications_rounded;
   }
@@ -233,6 +274,8 @@ class UnifiedNotification {
   Color get color {
     if (type == NotificationType.geofence && geofenceAction != null) {
       return geofenceAction!.color;
+    } else if (type == NotificationType.vehicleStatus) {
+      return AppColors.success;
     }
     return AppColors.info;
   }
@@ -241,6 +284,8 @@ class UnifiedNotification {
   String get badgeText {
     if (type == NotificationType.geofence && geofenceAction != null) {
       return geofenceAction!.badgeText;
+    } else if (type == NotificationType.vehicleStatus) {
+      return 'STATUS';
     }
     return type.displayName.toUpperCase();
   }
@@ -249,6 +294,8 @@ class UnifiedNotification {
   Color get badgeColor {
     if (type == NotificationType.geofence && geofenceAction != null) {
       return geofenceAction!.badgeColor;
+    } else if (type == NotificationType.vehicleStatus) {
+      return AppColors.successLight;
     }
     return AppColors.infoLight;
   }
@@ -257,6 +304,8 @@ class UnifiedNotification {
   Color get badgeTextColor {
     if (type == NotificationType.geofence && geofenceAction != null) {
       return geofenceAction!.badgeTextColor;
+    } else if (type == NotificationType.vehicleStatus) {
+      return AppColors.successText;
     }
     return AppColors.infoText;
   }

@@ -119,23 +119,73 @@ class UnifiedNotificationService {
   /// Fetch general notifications
   Future<List<UnifiedNotification>> _fetchGeneralNotifications() async {
     try {
-      final snapshot =
-          await _firestore
-              .collection(_generalNotificationsCollection)
-              .orderBy('waktu', descending: true)
-              .limit(100)
-              .get();
+      // Try fetching with 'timestamp' field first (for newer notifications like vehicle status)
+      Query timestampQuery = _firestore
+          .collection(_generalNotificationsCollection)
+          .orderBy('timestamp', descending: true)
+          .limit(50);
 
-      return snapshot.docs.map((doc) {
-        return UnifiedNotification.fromFirestore(
-          id: doc.id,
-          data: doc.data(),
-          type: NotificationType.general,
+      // Try fetching with 'waktu' field (for legacy notifications)
+      Query waktuQuery = _firestore
+          .collection(_generalNotificationsCollection)
+          .orderBy('waktu', descending: true)
+          .limit(50);
+
+      // Fetch from both queries
+      final timestampSnapshot = await timestampQuery.get();
+      final waktuSnapshot = await waktuQuery.get();
+
+      final List<UnifiedNotification> notifications = [];
+
+      // Process timestamp-based notifications
+      for (final doc in timestampSnapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final type = _determineNotificationType(data);
+        notifications.add(
+          UnifiedNotification.fromFirestore(id: doc.id, data: data, type: type),
         );
-      }).toList();
+      }
+
+      // Process waktu-based notifications (avoid duplicates)
+      final existingIds = notifications.map((n) => n.id).toSet();
+      for (final doc in waktuSnapshot.docs) {
+        if (!existingIds.contains(doc.id)) {
+          final data = doc.data() as Map<String, dynamic>;
+          final type = _determineNotificationType(data);
+          notifications.add(
+            UnifiedNotification.fromFirestore(
+              id: doc.id,
+              data: data,
+              type: type,
+            ),
+          );
+        }
+      }
+
+      // Sort by timestamp (newest first)
+      notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+      // Return top 100 results
+      return notifications.take(100).toList();
     } catch (e) {
       debugPrint('Error fetching general notifications: $e');
       return [];
+    }
+  }
+
+  /// Determine notification type from data
+  NotificationType _determineNotificationType(Map<String, dynamic> data) {
+    final typeString = data['type'] as String?;
+
+    switch (typeString) {
+      case 'vehicle_status':
+        return NotificationType.vehicleStatus;
+      case 'geofence':
+        return NotificationType.geofence;
+      case 'system':
+        return NotificationType.system;
+      default:
+        return NotificationType.general;
     }
   }
 

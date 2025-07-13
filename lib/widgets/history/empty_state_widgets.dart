@@ -21,7 +21,7 @@ class VehicleEmptyStateWidget extends StatelessWidget {
               borderRadius: BorderRadius.circular(17),
             ),
             child: Icon(
-              Icons.directions_car_outlined,
+              Icons.two_wheeler_outlined,
               size: 40,
               color: AppColors.textTertiary,
             ),
