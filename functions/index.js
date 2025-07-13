@@ -894,6 +894,701 @@ exports.geofencechangestatus = onValueWritten(
 );
 
 // ===========================
+// FUNCTION 5: Query Geofence Logs
+// ===========================
+exports.querygeofencelogs = onCall(
+  {
+    region: "asia-southeast1",
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new Error("Authentication required");
+    }
+
+    try {
+      const { deviceId, startDate, endDate, limit = 50 } = request.data;
+      const userId = request.auth.uid;
+
+      if (!deviceId) {
+        throw new Error("Device ID is required");
+      }
+
+      console.log(`📊 Querying geofence logs for device: ${deviceId}`);
+
+      let query = db
+        .collection("geofence_logs")
+        .where("deviceId", "==", deviceId)
+        .where("ownerId", "==", userId);
+
+      // Add date filters if provided
+      if (startDate) {
+        query = query.where("timestamp", ">=", new Date(startDate));
+      }
+      if (endDate) {
+        query = query.where("timestamp", "<=", new Date(endDate));
+      }
+
+      const logsSnapshot = await query
+        .orderBy("timestamp", "desc")
+        .limit(limit)
+        .get();
+
+      const logs = logsSnapshot.docs.map((doc) => {
+        const data = doc.data();
+        const timestamp =
+          data.timestamp && data.timestamp.toDate
+            ? data.timestamp.toDate()
+            : data.createdAt;
+
+        return {
+          id: doc.id,
+          ...data,
+          timestamp: timestamp,
+        };
+      });
+
+      return {
+        success: true,
+        logs: logs,
+        count: logs.length,
+      };
+    } catch (error) {
+      console.error("❌ Error querying geofence logs:", error);
+      throw new Error(`Failed to query logs: ${error.message}`);
+    }
+  }
+);
+
+// ===========================
+// FUNCTION 6: Get Geofence Statistics
+// ===========================
+exports.getgeofencestats = onCall(
+  {
+    region: "asia-southeast1",
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new Error("Authentication required");
+    }
+
+    try {
+      const { deviceId, days = 7 } = request.data;
+      const userId = request.auth.uid;
+
+      if (!deviceId) {
+        throw new Error("Device ID is required");
+      }
+
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      console.log(`📈 Getting geofence stats for device: ${deviceId}`);
+
+      // Get logs from the specified period
+      const logsSnapshot = await db
+        .collection("geofence_logs")
+        .where("deviceId", "==", deviceId)
+        .where("ownerId", "==", userId)
+        .where("timestamp", ">=", startDate)
+        .get();
+
+      const logs = logsSnapshot.docs.map((doc) => doc.data());
+
+      // Calculate statistics
+      const stats = {
+        totalEvents: logs.length,
+        enterEvents: logs.filter((log) => log.action === "enter").length,
+        exitEvents: logs.filter((log) => log.action === "exit").length,
+        geofencesTriggered: [...new Set(logs.map((log) => log.geofenceId))]
+          .length,
+        period: days,
+        deviceId: deviceId,
+      };
+
+      // Get current status for each geofence
+      const geofencesSnapshot = await db
+        .collection("geofences")
+        .where("deviceId", "==", deviceId)
+        .where("ownerId", "==", userId)
+        .where("status", "==", true)
+        .get();
+
+      const currentStatus = [];
+      for (const geofenceDoc of geofencesSnapshot.docs) {
+        const geofence = geofenceDoc.data();
+        const lastLogSnapshot = await db
+          .collection("geofence_logs")
+          .where("deviceId", "==", deviceId)
+          .where("geofenceId", "==", geofenceDoc.id)
+          .orderBy("timestamp", "desc")
+          .limit(1)
+          .get();
+
+        const status = lastLogSnapshot.empty
+          ? "unknown"
+          : lastLogSnapshot.docs[0].data().status;
+
+        currentStatus.push({
+          geofenceId: geofenceDoc.id,
+          geofenceName: geofence.name,
+          status: status,
+        });
+      }
+
+      return {
+        success: true,
+        stats: stats,
+        currentStatus: currentStatus,
+      };
+    } catch (error) {
+      console.error("❌ Error getting geofence stats:", error);
+      throw new Error(`Failed to get stats: ${error.message}`);
+    }
+  }
+);
+
+// ===========================
+// DEBUG FUNCTION: Test FCM Notification manually
+// ===========================
+exports.testfcmnotification = onCall(
+  {
+    region: "asia-southeast1",
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new Error("Authentication required");
+    }
+
+    try {
+      const userId = request.auth.uid;
+
+      console.log(`🧪 [TEST_FCM] Testing notification for user: ${userId}`);
+
+      // Get user's FCM tokens
+      const userDoc = await db
+        .collection("users_information")
+        .doc(userId)
+        .get();
+      if (!userDoc.exists) {
+        throw new Error("User not found");
+      }
+
+      const userData = userDoc.data();
+      const fcmTokens = userData.fcmTokens || [];
+
+      if (fcmTokens.length === 0) {
+        throw new Error("No FCM tokens found for user");
+      }
+
+      console.log(`🔍 [TEST_FCM] Found ${fcmTokens.length} FCM tokens`);
+
+      // Test notification payload
+      const testMessage = {
+        data: {
+          type: "geofence_alert",
+          deviceId: "test_device",
+          deviceName: "Test Vehicle",
+          geofenceName: "Test Geofence",
+          action: "enter",
+          latitude: "-6.2088",
+          longitude: "106.8456",
+          timestamp: new Date().toISOString(),
+          title: "🧪 Test Geofence Alert",
+          body: "This is a manual test notification to verify FCM delivery",
+        },
+        android: {
+          priority: "high",
+        },
+        apns: {
+          payload: {
+            aps: {
+              contentAvailable: true,
+            },
+          },
+        },
+      };
+
+      // Send to first token
+      const testToken = fcmTokens[0];
+      console.log(
+        `📤 [TEST_FCM] Sending to token: ${testToken.substring(0, 20)}...`
+      );
+
+      await messaging.send({
+        ...testMessage,
+        token: testToken,
+      });
+
+      // Store test notification in database
+      const notificationData = {
+        ownerId: userId,
+        deviceId: "test_device",
+        deviceIdentifier: "test_device",
+        deviceName: "Test Vehicle",
+        geofenceName: "Test Geofence",
+        action: "enter",
+        message: "This is a manual test notification to verify FCM delivery",
+        location: {
+          latitude: -6.2088,
+          longitude: 106.8456,
+        },
+        timestamp: FieldValue.serverTimestamp(),
+        createdAt: new Date(),
+        read: false,
+        sentToTokens: 1,
+        totalTokens: fcmTokens.length,
+      };
+
+      const notificationRef = await db
+        .collection("notifications")
+        .add(notificationData);
+
+      console.log(
+        `✅ [TEST_FCM] Test notification sent and stored: ${notificationRef.id}`
+      );
+
+      return {
+        success: true,
+        message: "Test notification sent successfully",
+        notificationId: notificationRef.id,
+        sentToTokens: 1,
+        totalTokens: fcmTokens.length,
+      };
+    } catch (error) {
+      console.error("❌ [TEST_FCM] Error sending test notification:", error);
+      throw new Error(`Test notification failed: ${error.message}`);
+    }
+  }
+);
+
+// ===========================
+// FUNCTION 7: Vehicle Status Monitor - Relay On/Off Notification System
+// ===========================
+exports.vehiclestatusmonitor = onValueWritten(
+  {
+    ref: "/devices/{deviceId}/relay",
+    region: "asia-southeast1",
+  },
+  async (event) => {
+    const relayData = event.data.after.val();
+    const previousRelayData = event.data.before.val();
+    const { deviceId } = event.params;
+    const timestamp = new Date();
+
+    console.log(
+      `🔋 [VEHICLE_STATUS] Processing relay change for device: ${deviceId}`
+    );
+    console.log(
+      `🔋 [RELAY] Previous: ${previousRelayData}, Current: ${relayData}`
+    );
+
+    try {
+      // ===== STEP 1: Validate Relay Data =====
+      if (typeof relayData !== "boolean") {
+        console.log(
+          `❌ [VEHICLE_STATUS] Invalid relay data type: ${typeof relayData}`
+        );
+        return {
+          success: false,
+          message: "Invalid relay data - must be boolean",
+          deviceIdentifier: deviceId,
+        };
+      }
+
+      // ===== STEP 2: Check if Status Actually Changed =====
+      if (previousRelayData === relayData) {
+        console.log(
+          `⏭️ [VEHICLE_STATUS] No status change detected (${relayData})`
+        );
+        return {
+          success: true,
+          message: "No status change detected",
+          deviceIdentifier: deviceId,
+          skipped: true,
+        };
+      }
+
+      // ===== STEP 3: Get Device Information =====
+      console.log(`🔍 [VEHICLE_STATUS] Looking up device by name: ${deviceId}`);
+      const deviceQuery = await db
+        .collection("devices")
+        .where("name", "==", deviceId)
+        .limit(1)
+        .get();
+
+      if (deviceQuery.empty) {
+        console.log(
+          `❌ [VEHICLE_STATUS] Device not found with name: ${deviceId}`
+        );
+        return {
+          success: false,
+          message: `Device not found with name: ${deviceId}`,
+          deviceIdentifier: deviceId,
+        };
+      }
+
+      const deviceDoc = deviceQuery.docs[0];
+      const deviceData = deviceDoc.data();
+      const firestoreDeviceId = deviceDoc.id;
+      const deviceName = deviceData.name || deviceId;
+
+      // ===== STEP 4: Get Vehicle Information =====
+      let vehicleName = deviceName;
+      let ownerId = deviceData.ownerId;
+
+      // Try to get vehicle name if linked
+      if (deviceData.vehicleId) {
+        console.log(
+          `🚗 [VEHICLE_STATUS] Getting vehicle info for: ${deviceData.vehicleId}`
+        );
+        const vehicleDoc = await db
+          .collection("vehicles")
+          .doc(deviceData.vehicleId)
+          .get();
+        if (vehicleDoc.exists) {
+          const vehicleData = vehicleDoc.data();
+          vehicleName = vehicleData.name || deviceName;
+          ownerId = ownerId || vehicleData.ownerId;
+        }
+      }
+
+      if (!ownerId) {
+        console.log(
+          `⚠️ [VEHICLE_STATUS] No owner found for device: ${deviceId}`
+        );
+        return {
+          success: false,
+          message: "Device/vehicle has no owner",
+          deviceIdentifier: deviceId,
+        };
+      }
+
+      console.log(
+        `👤 [VEHICLE_STATUS] Owner: ${ownerId}, Vehicle: ${vehicleName}`
+      );
+
+      // ===== STEP 5: Check Notification Cooldown =====
+      const canSend = await canSendVehicleStatusNotification(
+        firestoreDeviceId,
+        1 // 1 minute cooldown
+      );
+
+      if (!canSend) {
+        console.log(`⏰ [VEHICLE_STATUS] Notification blocked by cooldown`);
+        return {
+          success: true,
+          message: "Notification blocked by cooldown",
+          deviceIdentifier: deviceId,
+          skipped: true,
+        };
+      }
+
+      // ===== STEP 6: Send Notification =====
+      const statusText = relayData ? "on" : "off";
+      const actionText = relayData ? "turned on" : "turned off";
+
+      await sendVehicleStatusNotification({
+        deviceId: firestoreDeviceId,
+        deviceIdentifier: deviceId,
+        deviceName: deviceName,
+        vehicleName: vehicleName,
+        ownerId: ownerId,
+        relayStatus: relayData,
+        statusText: statusText,
+        actionText: actionText,
+        timestamp: timestamp,
+      });
+
+      console.log(
+        `✅ [VEHICLE_STATUS] Notification sent for ${vehicleName}: ${actionText}`
+      );
+
+      return {
+        success: true,
+        message: `Vehicle status notification sent: ${actionText}`,
+        deviceId: firestoreDeviceId,
+        deviceIdentifier: deviceId,
+        vehicleName: vehicleName,
+        relayStatus: relayData,
+        statusText: statusText,
+        timestamp: timestamp.toISOString(),
+      };
+    } catch (error) {
+      console.error(
+        `❌ [VEHICLE_STATUS] Error processing relay change:`,
+        error
+      );
+      return {
+        success: false,
+        error: error.message,
+        deviceIdentifier: deviceId,
+        timestamp: timestamp.toISOString(),
+      };
+    }
+  }
+);
+
+/**
+ * Send vehicle status notification via FCM and log to database
+ * @param {Object} params - Notification parameters
+ * @param {string} params.ownerId - Owner ID
+ * @param {string} params.deviceId - Device ID
+ * @param {string} params.deviceName - Device name
+ * @param {string} params.vehicleName - Vehicle name
+ * @param {boolean} params.relayStatus - Current relay status
+ * @param {string} params.statusText - "on" or "off"
+ * @param {string} params.actionText - "turned on" or "turned off"
+ * @param {Date} params.timestamp - Event timestamp
+ */
+async function sendVehicleStatusNotification(params) {
+  try {
+    const {
+      ownerId,
+      deviceId,
+      deviceIdentifier,
+      deviceName,
+      vehicleName,
+      relayStatus,
+      statusText,
+      actionText,
+      timestamp,
+    } = params;
+
+    console.log(
+      `📱 [VEHICLE_NOTIFICATION] Sending ${statusText} notification for "${vehicleName}"`
+    );
+
+    // Get user's FCM tokens
+    const userDoc = await db.collection("users_information").doc(ownerId).get();
+    if (!userDoc.exists) {
+      console.log(`⚠️ [VEHICLE_NOTIFICATION] User not found: ${ownerId}`);
+      return;
+    }
+
+    const userData = userDoc.data();
+    const fcmTokens = userData.fcmTokens || [];
+
+    console.log(
+      `🔍 [VEHICLE_NOTIFICATION] Found ${fcmTokens.length} tokens for user ${ownerId}`
+    );
+
+    if (fcmTokens.length === 0) {
+      console.log(
+        `⚠️ [VEHICLE_NOTIFICATION] No FCM tokens found for user: ${ownerId}`
+      );
+      return;
+    }
+
+    // Prepare notification message
+    const title = `Vehicle Status Update`;
+    const body = `✅ Beat (${vehicleName}) has been successfully ${actionText}.`;
+
+    console.log(
+      `🔔 [VEHICLE_NOTIFICATION] Preparing notification: "${title}" - "${body}"`
+    );
+
+    // Prepare FCM payload (data-only message to prevent system notifications)
+    const message = {
+      data: {
+        type: "vehicle_status",
+        deviceId: deviceId,
+        deviceName: deviceName,
+        vehicleName: vehicleName,
+        relayStatus: relayStatus.toString(),
+        statusText: statusText,
+        actionText: actionText,
+        timestamp: timestamp.toISOString(),
+        // Include title and body in data for app to handle
+        title: title,
+        body: body,
+      },
+      android: {
+        priority: "high",
+      },
+      apns: {
+        payload: {
+          aps: {
+            contentAvailable: true,
+          },
+        },
+      },
+    };
+
+    // Send to all valid tokens
+    const validTokens = [];
+    const invalidTokens = [];
+
+    for (const token of fcmTokens) {
+      try {
+        await messaging.send({
+          ...message,
+          token: token,
+        });
+        validTokens.push(token);
+        console.log(
+          `✅ [VEHICLE_NOTIFICATION] Sent to token: ${token.substring(
+            0,
+            20
+          )}...`
+        );
+      } catch (error) {
+        console.log(
+          `❌ [VEHICLE_NOTIFICATION] Failed to send to token: ${token.substring(
+            0,
+            20
+          )}...`,
+          error.code
+        );
+        if (
+          error.code === "messaging/registration-token-not-registered" ||
+          error.code === "messaging/invalid-registration-token"
+        ) {
+          invalidTokens.push(token);
+        }
+      }
+    }
+
+    // Clean up invalid tokens
+    if (invalidTokens.length > 0) {
+      await cleanupInvalidFCMTokens(ownerId, invalidTokens);
+    }
+
+    // Log notification to database
+    const notificationData = {
+      ownerId: ownerId,
+      deviceId: deviceId,
+      deviceIdentifier: deviceIdentifier,
+      deviceName: deviceName,
+      vehicleName: vehicleName,
+      relayStatus: relayStatus,
+      statusText: statusText,
+      actionText: actionText,
+      message: body,
+      timestamp: FieldValue.serverTimestamp(),
+      waktu: FieldValue.serverTimestamp(), // For compatibility with existing client code
+      createdAt: timestamp,
+      read: false,
+      sentToTokens: validTokens.length,
+      totalTokens: fcmTokens.length,
+      type: "vehicle_status",
+    };
+
+    await db.collection("notifications").add(notificationData);
+
+    console.log(
+      `✅ [VEHICLE_NOTIFICATION] Sent to ${validTokens.length}/${fcmTokens.length} tokens`
+    );
+  } catch (error) {
+    console.error(
+      "❌ [VEHICLE_NOTIFICATION] Error sending notification:",
+      error
+    );
+  }
+}
+
+/**
+ * Check if enough time has passed since the last vehicle status notification
+ * @param {string} deviceId - Device ID
+ * @param {number} cooldownMinutes - Cooldown period in minutes (default 1)
+ * @return {boolean} True if enough time has passed
+ */
+async function canSendVehicleStatusNotification(deviceId, cooldownMinutes = 1) {
+  try {
+    const cooldownMs = cooldownMinutes * 60 * 1000; // Convert to milliseconds
+    const cutoffTime = new Date(Date.now() - cooldownMs);
+
+    const recentNotification = await db
+      .collection("notifications")
+      .where("deviceId", "==", deviceId)
+      .where("type", "==", "vehicle_status")
+      .where("timestamp", ">=", cutoffTime)
+      .limit(1)
+      .get();
+
+    const canSend = recentNotification.empty;
+
+    if (!canSend) {
+      console.log(
+        `🚫 [VEHICLE_STATUS_COOLDOWN] Notification blocked for ${deviceId} (cooldown: ${cooldownMinutes}min)`
+      );
+    }
+
+    return canSend;
+  } catch (error) {
+    console.error(
+      "Error checking vehicle status notification cooldown:",
+      error
+    );
+    return true; // Default to allowing notification if check fails
+  }
+}
+
+// ===========================
+// FUNCTION 8: Test Function for Manual Relay Control
+// ===========================
+exports.testmanualrelay = onCall(
+  {
+    region: "asia-southeast1",
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new Error("Authentication required");
+    }
+
+    try {
+      const userId = request.auth.uid;
+      const { deviceId, action } = request.data;
+
+      console.log(
+        `🧪 [TEST_RELAY] Manual relay control for device: ${deviceId}`
+      );
+      console.log(`🧪 [TEST_RELAY] Action: ${action}`);
+
+      // Validate action
+      if (action !== "on" && action !== "off") {
+        throw new Error("Invalid action. Use 'on' or 'off'.");
+      }
+
+      // Get device by name
+      const deviceQuery = await db
+        .collection("devices")
+        .where("name", "==", deviceId)
+        .limit(1)
+        .get();
+
+      if (deviceQuery.empty) {
+        throw new Error("Device not found");
+      }
+
+      const deviceDoc = deviceQuery.docs[0];
+      const firestoreDeviceId = deviceDoc.id;
+
+      // Update relay status
+      await db
+        .collection("devices")
+        .doc(firestoreDeviceId)
+        .update({
+          relay: action === "on",
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+
+      console.log(`✅ [TEST_RELAY] Device ${deviceId} relay turned ${action}`);
+
+      // Optionally, you can directly call the notification function here
+      // to immediately send a notification about this manual action.
+
+      return {
+        success: true,
+        message: `Device ${deviceId} relay turned ${action}`,
+      };
+    } catch (error) {
+      console.error("❌ [TEST_RELAY] Error:", error);
+      throw new Error(`Failed to control relay: ${error.message}`);
+    }
+  }
+);
+
+// ===========================
 // HELPER FUNCTIONS
 // ===========================
 
@@ -1259,9 +1954,9 @@ async function canSendNotification(deviceId, geofenceId, cooldownMinutes = 2) {
 }
 
 // ===========================
-// FUNCTION 5: Query Geofence Logs
+// FUNCTION 8: Test Function for Manual Relay Control
 // ===========================
-exports.querygeofencelogs = onCall(
+exports.testmanualrelay = onCall(
   {
     region: "asia-southeast1",
   },
@@ -1271,257 +1966,54 @@ exports.querygeofencelogs = onCall(
     }
 
     try {
-      const { deviceId, startDate, endDate, limit = 50 } = request.data;
       const userId = request.auth.uid;
+      const { deviceId, action } = request.data;
 
-      if (!deviceId) {
-        throw new Error("Device ID is required");
+      console.log(
+        `🧪 [TEST_RELAY] Manual relay control for device: ${deviceId}`
+      );
+      console.log(`🧪 [TEST_RELAY] Action: ${action}`);
+
+      // Validate action
+      if (action !== "on" && action !== "off") {
+        throw new Error("Invalid action. Use 'on' or 'off'.");
       }
 
-      console.log(`📊 Querying geofence logs for device: ${deviceId}`);
-
-      let query = db
-        .collection("geofence_logs")
-        .where("deviceId", "==", deviceId)
-        .where("ownerId", "==", userId);
-
-      // Add date filters if provided
-      if (startDate) {
-        query = query.where("timestamp", ">=", new Date(startDate));
-      }
-      if (endDate) {
-        query = query.where("timestamp", "<=", new Date(endDate));
-      }
-
-      const logsSnapshot = await query
-        .orderBy("timestamp", "desc")
-        .limit(limit)
+      // Get device by name
+      const deviceQuery = await db
+        .collection("devices")
+        .where("name", "==", deviceId)
+        .limit(1)
         .get();
 
-      const logs = logsSnapshot.docs.map((doc) => {
-        const data = doc.data();
-        const timestamp =
-          data.timestamp && data.timestamp.toDate
-            ? data.timestamp.toDate()
-            : data.createdAt;
-
-        return {
-          id: doc.id,
-          ...data,
-          timestamp: timestamp,
-        };
-      });
-
-      return {
-        success: true,
-        logs: logs,
-        count: logs.length,
-      };
-    } catch (error) {
-      console.error("❌ Error querying geofence logs:", error);
-      throw new Error(`Failed to query logs: ${error.message}`);
-    }
-  }
-);
-
-// ===========================
-// FUNCTION 6: Get Geofence Statistics
-// ===========================
-exports.getgeofencestats = onCall(
-  {
-    region: "asia-southeast1",
-  },
-  async (request) => {
-    if (!request.auth) {
-      throw new Error("Authentication required");
-    }
-
-    try {
-      const { deviceId, days = 7 } = request.data;
-      const userId = request.auth.uid;
-
-      if (!deviceId) {
-        throw new Error("Device ID is required");
+      if (deviceQuery.empty) {
+        throw new Error("Device not found");
       }
 
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - days);
+      const deviceDoc = deviceQuery.docs[0];
+      const firestoreDeviceId = deviceDoc.id;
 
-      console.log(`📈 Getting geofence stats for device: ${deviceId}`);
-
-      // Get logs from the specified period
-      const logsSnapshot = await db
-        .collection("geofence_logs")
-        .where("deviceId", "==", deviceId)
-        .where("ownerId", "==", userId)
-        .where("timestamp", ">=", startDate)
-        .get();
-
-      const logs = logsSnapshot.docs.map((doc) => doc.data());
-
-      // Calculate statistics
-      const stats = {
-        totalEvents: logs.length,
-        enterEvents: logs.filter((log) => log.action === "enter").length,
-        exitEvents: logs.filter((log) => log.action === "exit").length,
-        geofencesTriggered: [...new Set(logs.map((log) => log.geofenceId))]
-          .length,
-        period: days,
-        deviceId: deviceId,
-      };
-
-      // Get current status for each geofence
-      const geofencesSnapshot = await db
-        .collection("geofences")
-        .where("deviceId", "==", deviceId)
-        .where("ownerId", "==", userId)
-        .where("status", "==", true)
-        .get();
-
-      const currentStatus = [];
-      for (const geofenceDoc of geofencesSnapshot.docs) {
-        const geofence = geofenceDoc.data();
-        const lastLogSnapshot = await db
-          .collection("geofence_logs")
-          .where("deviceId", "==", deviceId)
-          .where("geofenceId", "==", geofenceDoc.id)
-          .orderBy("timestamp", "desc")
-          .limit(1)
-          .get();
-
-        const status = lastLogSnapshot.empty
-          ? "unknown"
-          : lastLogSnapshot.docs[0].data().status;
-
-        currentStatus.push({
-          geofenceId: geofenceDoc.id,
-          geofenceName: geofence.name,
-          status: status,
+      // Update relay status
+      await db
+        .collection("devices")
+        .doc(firestoreDeviceId)
+        .update({
+          relay: action === "on",
+          updatedAt: FieldValue.serverTimestamp(),
         });
-      }
+
+      console.log(`✅ [TEST_RELAY] Device ${deviceId} relay turned ${action}`);
+
+      // Optionally, you can directly call the notification function here
+      // to immediately send a notification about this manual action.
 
       return {
         success: true,
-        stats: stats,
-        currentStatus: currentStatus,
+        message: `Device ${deviceId} relay turned ${action}`,
       };
     } catch (error) {
-      console.error("❌ Error getting geofence stats:", error);
-      throw new Error(`Failed to get stats: ${error.message}`);
-    }
-  }
-);
-
-// ===========================
-// DEBUG FUNCTION: Test FCM Notification manually
-// ===========================
-exports.testfcmnotification = onCall(
-  {
-    region: "asia-southeast1",
-  },
-  async (request) => {
-    if (!request.auth) {
-      throw new Error("Authentication required");
-    }
-
-    try {
-      const userId = request.auth.uid;
-
-      console.log(`🧪 [TEST_FCM] Testing notification for user: ${userId}`);
-
-      // Get user's FCM tokens
-      const userDoc = await db
-        .collection("users_information")
-        .doc(userId)
-        .get();
-      if (!userDoc.exists) {
-        throw new Error("User not found");
-      }
-
-      const userData = userDoc.data();
-      const fcmTokens = userData.fcmTokens || [];
-
-      if (fcmTokens.length === 0) {
-        throw new Error("No FCM tokens found for user");
-      }
-
-      console.log(`🔍 [TEST_FCM] Found ${fcmTokens.length} FCM tokens`);
-
-      // Test notification payload
-      const testMessage = {
-        data: {
-          type: "geofence_alert",
-          deviceId: "test_device",
-          deviceName: "Test Vehicle",
-          geofenceName: "Test Geofence",
-          action: "enter",
-          latitude: "-6.2088",
-          longitude: "106.8456",
-          timestamp: new Date().toISOString(),
-          title: "🧪 Test Geofence Alert",
-          body: "This is a manual test notification to verify FCM delivery",
-        },
-        android: {
-          priority: "high",
-        },
-        apns: {
-          payload: {
-            aps: {
-              contentAvailable: true,
-            },
-          },
-        },
-      };
-
-      // Send to first token
-      const testToken = fcmTokens[0];
-      console.log(
-        `📤 [TEST_FCM] Sending to token: ${testToken.substring(0, 20)}...`
-      );
-
-      await messaging.send({
-        ...testMessage,
-        token: testToken,
-      });
-
-      // Store test notification in database
-      const notificationData = {
-        ownerId: userId,
-        deviceId: "test_device",
-        deviceIdentifier: "test_device",
-        deviceName: "Test Vehicle",
-        geofenceName: "Test Geofence",
-        action: "enter",
-        message: "This is a manual test notification to verify FCM delivery",
-        location: {
-          latitude: -6.2088,
-          longitude: 106.8456,
-        },
-        timestamp: FieldValue.serverTimestamp(),
-        createdAt: new Date(),
-        read: false,
-        sentToTokens: 1,
-        totalTokens: fcmTokens.length,
-      };
-
-      const notificationRef = await db
-        .collection("notifications")
-        .add(notificationData);
-
-      console.log(
-        `✅ [TEST_FCM] Test notification sent and stored: ${notificationRef.id}`
-      );
-
-      return {
-        success: true,
-        message: "Test notification sent successfully",
-        notificationId: notificationRef.id,
-        sentToTokens: 1,
-        totalTokens: fcmTokens.length,
-      };
-    } catch (error) {
-      console.error("❌ [TEST_FCM] Error sending test notification:", error);
-      throw new Error(`Test notification failed: ${error.message}`);
+      console.error("❌ [TEST_RELAY] Error:", error);
+      throw new Error(`Failed to control relay: ${error.message}`);
     }
   }
 );
