@@ -1084,6 +1084,10 @@ exports.testfcmnotification = onCall(
 
       // Test notification payload
       const testMessage = {
+        notification: {
+          title: "🧪 Test Geofence Alert",
+          body: "This is a manual test notification to verify FCM delivery",
+        },
         data: {
           type: "geofence_alert",
           deviceId: "test_device",
@@ -1098,10 +1102,23 @@ exports.testfcmnotification = onCall(
         },
         android: {
           priority: "high",
+          notification: {
+            icon: "ic_notification",
+            color: "#2196F3",
+            channelId: "geofence_alerts_channel",
+            defaultSound: true,
+            defaultVibrateTimings: true,
+          },
         },
         apns: {
           payload: {
             aps: {
+              alert: {
+                title: "🧪 Test Geofence Alert",
+                body: "This is a manual test notification to verify FCM delivery",
+              },
+              sound: "default",
+              badge: 1,
               contentAvailable: true,
             },
           },
@@ -1387,8 +1404,12 @@ async function sendVehicleStatusNotification(params) {
       `🔔 [VEHICLE_NOTIFICATION] Preparing notification: "${title}" - "${body}"`
     );
 
-    // Prepare FCM payload (data-only message to prevent system notifications)
+    // Prepare FCM payload with both notification and data for visible phone notifications
     const message = {
+      notification: {
+        title: title,
+        body: body,
+      },
       data: {
         type: "vehicle_status",
         deviceId: deviceId,
@@ -1404,10 +1425,23 @@ async function sendVehicleStatusNotification(params) {
       },
       android: {
         priority: "high",
+        notification: {
+          icon: "ic_notification",
+          color: relayStatus ? "#4CAF50" : "#F44336", // Green for ON, Red for OFF
+          channelId: "vehicle_status_channel",
+          defaultSound: true,
+          defaultVibrateTimings: true,
+        },
       },
       apns: {
         payload: {
           aps: {
+            alert: {
+              title: title,
+              body: body,
+            },
+            sound: "default",
+            badge: 1,
             contentAvailable: true,
           },
         },
@@ -1468,6 +1502,7 @@ async function sendVehicleStatusNotification(params) {
       waktu: FieldValue.serverTimestamp(), // For compatibility with existing client code
       createdAt: timestamp,
       read: false,
+      sent: true,
       sentToTokens: validTokens.length,
       totalTokens: fcmTokens.length,
       type: "vehicle_status",
@@ -1584,6 +1619,146 @@ exports.testmanualrelay = onCall(
     } catch (error) {
       console.error("❌ [TEST_RELAY] Error:", error);
       throw new Error(`Failed to control relay: ${error.message}`);
+    }
+  }
+);
+
+// ===========================
+// DEBUG FUNCTION: Test Vehicle Status Notification manually
+// ===========================
+exports.testvehiclestatusnotification = onCall(
+  {
+    region: "asia-southeast1",
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new Error("Authentication required");
+    }
+
+    try {
+      const userId = request.auth.uid;
+      const { deviceId, action = "on" } = request.data;
+
+      console.log(`🧪 [TEST_VEHICLE_STATUS] Testing vehicle status notification for user: ${userId}`);
+      console.log(`🧪 [TEST_VEHICLE_STATUS] Device: ${deviceId}, Action: ${action}`);
+
+      // Get user's FCM tokens
+      const userDoc = await db
+        .collection("users_information")
+        .doc(userId)
+        .get();
+      if (!userDoc.exists) {
+        throw new Error("User not found");
+      }
+
+      const userData = userDoc.data();
+      const fcmTokens = userData.fcmTokens || [];
+
+      if (fcmTokens.length === 0) {
+        throw new Error("No FCM tokens found for user");
+      }
+
+      console.log(`🔍 [TEST_VEHICLE_STATUS] Found ${fcmTokens.length} FCM tokens`);
+
+      // Test vehicle status notification payload
+      const relayStatus = action === "on";
+      const statusText = relayStatus ? "on" : "off";
+      const actionText = relayStatus ? "turned on" : "turned off";
+      const title = `Vehicle Status Update`;
+      const body = `Test Vehicle (${deviceId || 'TEST_DEVICE'}) has been successfully ${actionText}.`;
+
+      const testMessage = {
+        notification: {
+          title: title,
+          body: body,
+        },
+        data: {
+          type: "vehicle_status",
+          deviceId: deviceId || "test_device",
+          deviceName: deviceId || "TEST_DEVICE",
+          vehicleName: "Test Vehicle",
+          relayStatus: relayStatus.toString(),
+          statusText: statusText,
+          actionText: actionText,
+          timestamp: new Date().toISOString(),
+          title: title,
+          body: body,
+        },
+        android: {
+          priority: "high",
+          notification: {
+            icon: "ic_notification",
+            color: relayStatus ? "#4CAF50" : "#F44336", // Green for ON, Red for OFF
+            channelId: "vehicle_status_channel",
+            defaultSound: true,
+            defaultVibrateTimings: true,
+          },
+        },
+        apns: {
+          payload: {
+            aps: {
+              alert: {
+                title: title,
+                body: body,
+              },
+              sound: "default",
+              badge: 1,
+              contentAvailable: true,
+            },
+          },
+        },
+      };
+
+      // Send to first token
+      const testToken = fcmTokens[0];
+      console.log(
+        `📤 [TEST_VEHICLE_STATUS] Sending to token: ${testToken.substring(0, 20)}...`
+      );
+
+      await messaging.send({
+        ...testMessage,
+        token: testToken,
+      });
+
+      // Store test notification in database
+      const notificationData = {
+        ownerId: userId,
+        deviceId: deviceId || "test_device",
+        deviceIdentifier: deviceId || "test_device",
+        deviceName: deviceId || "TEST_DEVICE",
+        vehicleName: "Test Vehicle",
+        relayStatus: relayStatus,
+        statusText: statusText,
+        actionText: actionText,
+        message: body,
+        timestamp: FieldValue.serverTimestamp(),
+        createdAt: new Date(),
+        read: false,
+        sentToTokens: 1,
+        totalTokens: fcmTokens.length,
+        type: "vehicle_status",
+      };
+
+      const notificationRef = await db
+        .collection("notifications")
+        .add(notificationData);
+
+      console.log(
+        `✅ [TEST_VEHICLE_STATUS] Test vehicle status notification sent and stored: ${notificationRef.id}`
+      );
+
+      return {
+        success: true,
+        message: `Test vehicle status notification sent successfully (${actionText})`,
+        notificationId: notificationRef.id,
+        sentToTokens: 1,
+        totalTokens: fcmTokens.length,
+        action: actionText,
+        deviceId: deviceId || "test_device",
+      };
+    } catch (error) {
+      console.error("❌ [TEST_VEHICLE_STATUS] Error sending test notification:", error);
+      throw new Error(`Test vehicle status notification failed: ${error.message}`);
     }
   }
 );
@@ -1798,8 +1973,12 @@ async function sendGeofenceNotification(params) {
       `🔔 [FCM] Preparing to send notification: "${title}" - "${body}"`
     );
 
-    // Prepare FCM payload (data-only message to prevent system notifications)
+    // Prepare FCM payload with both notification and data for visible phone notifications
     const message = {
+      notification: {
+        title: title,
+        body: body,
+      },
       data: {
         type: "geofence_alert",
         deviceId: deviceId,
@@ -1815,10 +1994,23 @@ async function sendGeofenceNotification(params) {
       },
       android: {
         priority: "high",
+        notification: {
+          icon: "ic_notification",
+          color: action === "ENTER" ? "#2196F3" : "#FF9800", // Blue for ENTER, Orange for EXIT
+          channelId: "geofence_alerts_channel",
+          defaultSound: true,
+          defaultVibrateTimings: true,
+        },
       },
       apns: {
         payload: {
           aps: {
+            alert: {
+              title: title,
+              body: body,
+            },
+            sound: "default",
+            badge: 1,
             contentAvailable: true,
           },
         },
