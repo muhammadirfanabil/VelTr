@@ -137,11 +137,16 @@ class EnhancedNotificationService {
       debugPrint('🎯 Routing geofence alert to GeofenceAlertService');
       // Delegate to GeofenceAlertService instead of handling locally
       final geofenceService = GeofenceAlertService();
-      // await geofenceService.handleFCMMessage(message); // We'll create this method
       geofenceService.handleFCMMessage(message);
-    } else {
-      // Show local notification for non-geofence messages
+    } else if (message.data['type'] == 'vehicle_status') {
+      debugPrint('🔋 Routing vehicle status notification to local display');
+      // Show local notification for vehicle status
       _showLocalNotification(message);
+    } else {
+      // Skip other notification types to prevent unwanted general notifications
+      debugPrint(
+        '⏭️ Skipping unknown notification type: ${message.data['type']}',
+      );
     }
   }
 
@@ -151,10 +156,18 @@ class EnhancedNotificationService {
       '🚀 App opened from notification: ${message.notification?.title}',
     );
 
-    if (message.data['type'] == 'geofence_alert') {
+    final notificationType = message.data['type'];
+
+    if (notificationType == 'geofence_alert') {
       // Delegate navigation handling to GeofenceAlertService
       final geofenceService = GeofenceAlertService();
       geofenceService.handleNotificationTap(message);
+    } else if (notificationType == 'vehicle_status') {
+      // Handle vehicle status notification tap - could navigate to vehicle details
+      debugPrint('🔋 Vehicle status notification tapped');
+      // Add navigation logic here if needed
+    } else {
+      debugPrint('⏭️ Unknown notification type tapped: $notificationType');
     }
   }
 
@@ -172,36 +185,34 @@ class EnhancedNotificationService {
     }
   }
 
-  /// Show local notification for foreground messages (excludes geofence alerts)
+  /// Show local notification for foreground messages (only for specific types)
   Future<void> _showLocalNotification(RemoteMessage message) async {
     final notification = message.notification;
     if (notification == null) return;
 
     final data = message.data;
-    final isGeofenceAlert = data['type'] == 'geofence_alert';
+    final notificationType = data['type'];
 
-    // Skip geofence alerts - they're handled by GeofenceAlertService
-    if (isGeofenceAlert) {
-      debugPrint(
-        '🎯 Skipping local notification for geofence alert - handled by GeofenceAlertService',
-      );
+    // Only show local notifications for specific types
+    if (notificationType != 'vehicle_status') {
+      debugPrint('⏭️ Skipping local notification for type: $notificationType');
       return;
     }
 
-    // Handle other notification types
-    String title = notification.title ?? 'GPS App';
+    // Handle vehicle status notifications
+    String title = notification.title ?? 'Vehicle Status';
     String body = notification.body ?? '';
     String payload = jsonEncode(data);
 
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
-          'general_notifications',
-          'General Notifications',
-          channelDescription: 'General app notifications',
+          'vehicle_status',
+          'Vehicle Status',
+          channelDescription: 'Vehicle power status notifications',
           importance: Importance.high,
           priority: Priority.high,
           icon: '@mipmap/ic_launcher',
-          color: Color(0xFF2196F3),
+          color: Color(0xFF4CAF50), // Green for vehicle notifications
           playSound: true,
           enableVibration: true,
         );

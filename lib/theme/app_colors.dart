@@ -96,6 +96,48 @@ class AppColors {
   static const Color notificationInfo = Color(0xFFF1F5F9);
   static const Color notificationSuccess = Color(0xFFD1FAE5);
   static const Color notificationWarning = Color(0xFFFEF3C7);
+  // ============================================================================
+  // NOTIFICATION BORDER STYLING
+  // ============================================================================
+
+  /// Standard notification border styling constants for ALL notification types
+  static const double notificationBorderWidthUnread = 1.5;
+  static const double notificationBorderWidthRead = 1.0;
+
+  static const double notificationBorderOpacityUnread = 0.8;
+  static const double notificationBorderOpacityRead = 0.5;
+
+  /// Get notification border style based on notification state
+  static Map<String, dynamic> getNotificationBorderStyle({
+    required bool isRead,
+    Color? borderColor,
+    Color? fallbackColor,
+  }) {
+    Color effectiveBorderColor;
+    double borderWidth;
+    double opacity;
+
+    if (borderColor != null) {
+      // Custom border color (e.g., vehicle status notifications)
+      effectiveBorderColor = borderColor;
+    } else {
+      // Default border color (e.g., geofence notifications)
+      effectiveBorderColor = fallbackColor ?? border;
+    }
+
+    // Use CONSISTENT border styling for ALL notification types
+    borderWidth =
+        isRead ? notificationBorderWidthRead : notificationBorderWidthUnread;
+    opacity =
+        isRead
+            ? notificationBorderOpacityRead
+            : notificationBorderOpacityUnread;
+
+    return {
+      'color': effectiveBorderColor.withValues(alpha: opacity),
+      'width': borderWidth,
+    };
+  }
 
   // ============================================================================
   // MAP & GEOFENCE COLORS
@@ -134,12 +176,10 @@ class AppColors {
         primary: primaryBlue,
         secondary: accentRed,
         surface: darkSurface,
-        background: darkBackground,
         error: error,
         onPrimary: darkTextPrimary,
         onSecondary: darkTextPrimary,
         onSurface: darkTextPrimary,
-        onBackground: darkTextPrimary,
         onError: darkTextPrimary,
       );
     } else {
@@ -147,12 +187,10 @@ class AppColors {
         primary: primaryBlue,
         secondary: accentRed,
         surface: surface,
-        background: backgroundPrimary,
         error: error,
         onPrimary: backgroundPrimary,
         onSecondary: backgroundPrimary,
         onSurface: textPrimary,
-        onBackground: textPrimary,
         onError: backgroundPrimary,
       );
     }

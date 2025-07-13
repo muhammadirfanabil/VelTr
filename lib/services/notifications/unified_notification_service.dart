@@ -141,6 +141,13 @@ class UnifiedNotificationService {
       for (final doc in timestampSnapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
         final type = _determineNotificationType(data);
+
+        // Skip unwanted general notifications (empty or meaningless ones)
+        if (type == NotificationType.general &&
+            !_isValidGeneralNotification(data)) {
+          continue;
+        }
+
         notifications.add(
           UnifiedNotification.fromFirestore(id: doc.id, data: data, type: type),
         );
@@ -152,6 +159,13 @@ class UnifiedNotificationService {
         if (!existingIds.contains(doc.id)) {
           final data = doc.data() as Map<String, dynamic>;
           final type = _determineNotificationType(data);
+
+          // Skip unwanted general notifications (empty or meaningless ones)
+          if (type == NotificationType.general &&
+              !_isValidGeneralNotification(data)) {
+            continue;
+          }
+
           notifications.add(
             UnifiedNotification.fromFirestore(
               id: doc.id,
@@ -180,6 +194,7 @@ class UnifiedNotificationService {
     switch (typeString) {
       case 'vehicle_status':
         return NotificationType.vehicleStatus;
+      case 'geofence_alert':
       case 'geofence':
         return NotificationType.geofence;
       case 'system':
@@ -420,5 +435,31 @@ class UnifiedNotificationService {
   void dispose() {
     _periodicTimer?.cancel();
     _notificationsController.close();
+  }
+
+  /// Check if a general notification is valid and should be shown
+  bool _isValidGeneralNotification(Map<String, dynamic> data) {
+    // Skip notifications without meaningful content
+    final status = data['status'] as String?;
+    final message = data['message'] as String?;
+    final geofenceName = data['geofenceName'] as String?;
+
+    // Skip empty or meaningless notifications
+    if (status == null || status.isEmpty) return false;
+    if (message == null || message.isEmpty) return false;
+
+    // Skip notifications that are just movement without geofence context
+    if (geofenceName == null || geofenceName.isEmpty) return false;
+
+    // Skip generic "moving" notifications without specific geofence action
+    if (status.toLowerCase().contains('masuk area') ||
+        status.toLowerCase().contains('enter') ||
+        status.toLowerCase().contains('exit') ||
+        status.toLowerCase().contains('keluar')) {
+      return true; // These are valid geofence-related notifications
+    }
+
+    // Skip everything else that's just movement tracking
+    return false;
   }
 }

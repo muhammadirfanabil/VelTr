@@ -1381,7 +1381,7 @@ async function sendVehicleStatusNotification(params) {
 
     // Prepare notification message
     const title = `Vehicle Status Update`;
-    const body = `${vehicleName} has been successfully ${actionText}.`;
+    const body = `${vehicleName} (${deviceName}) has been successfully ${actionText}.`;
 
     console.log(
       `🔔 [VEHICLE_NOTIFICATION] Preparing notification: "${title}" - "${body}"`
@@ -1873,6 +1873,7 @@ async function sendGeofenceNotification(params) {
       read: false,
       sentToTokens: validTokens.length,
       totalTokens: fcmTokens.length,
+      type: "geofence_alert", // Add proper type for geofence notifications
     };
 
     await db.collection("notifications").add(notificationData);
