@@ -128,27 +128,37 @@ class _EnhancedNotificationsScreenState
     );
 
     if (selectedVehicle.name.isEmpty || selectedVehicle.deviceId == null) {
-      print('⚠️ [FILTER] Vehicle has no name or deviceId: ${selectedVehicle.name}, ${selectedVehicle.deviceId}');
+      print(
+        '⚠️ [FILTER] Vehicle has no name or deviceId: ${selectedVehicle.name}, ${selectedVehicle.deviceId}',
+      );
       return []; // Vehicle not found or has no device, show no notifications
     }
 
     // Get the device name for this vehicle from cache
     final vehicleDeviceName = _deviceIdToNameCache[selectedVehicle.deviceId];
     if (vehicleDeviceName == null) {
-      print('⚠️ [FILTER] Device name not found in cache for deviceId: ${selectedVehicle.deviceId}');
+      print(
+        '⚠️ [FILTER] Device name not found in cache for deviceId: ${selectedVehicle.deviceId}',
+      );
       print('🔍 [FILTER] Available device cache: $_deviceIdToNameCache');
       return []; // Device name not found, show no notifications
     }
 
-    print('🔍 [FILTER] Filtering for vehicle: ${selectedVehicle.name}, deviceId: ${selectedVehicle.deviceId}, deviceName: $vehicleDeviceName');
+    print(
+      '🔍 [FILTER] Filtering for vehicle: ${selectedVehicle.name}, deviceId: ${selectedVehicle.deviceId}, deviceName: $vehicleDeviceName',
+    );
 
     // Filter notifications by matching device name
     final filteredNotifications =
         notifications.where((notification) {
-          print('🔎 [FILTER] Checking notification: ${notification.type}, id: ${notification.id}');
-          print('🔎 [FILTER] - notification.deviceName: ${notification.deviceName}');
+          print(
+            '🔎 [FILTER] Checking notification: ${notification.type}, id: ${notification.id}',
+          );
+          print(
+            '🔎 [FILTER] - notification.deviceName: ${notification.deviceName}',
+          );
           print('🔎 [FILTER] - notification.data: ${notification.data}');
-          
+
           // Primary check: notification deviceName matches vehicle's device name
           if (notification.deviceName != null) {
             final matches = notification.deviceName == vehicleDeviceName;
@@ -160,39 +170,50 @@ class _EnhancedNotificationsScreenState
           final data = notification.data;
           if (data['deviceName'] != null) {
             final matches = data['deviceName'].toString() == vehicleDeviceName;
-            print('🔎 [FILTER] Secondary check - data deviceName match: $matches');
+            print(
+              '🔎 [FILTER] Secondary check - data deviceName match: $matches',
+            );
             if (matches) return true;
           }
 
           // Tertiary check: check for deviceId in data (Firestore device ID)
           if (data['deviceId'] != null) {
-            final matches = data['deviceId'].toString() == selectedVehicle.deviceId;
+            final matches =
+                data['deviceId'].toString() == selectedVehicle.deviceId;
             print('🔎 [FILTER] Tertiary check - deviceId match: $matches');
             if (matches) return true;
           }
 
           // Quaternary check: for vehicle status notifications, check vehicleName
-          if (notification.type == NotificationType.vehicleStatus && 
+          if (notification.type == NotificationType.vehicleStatus &&
               data['vehicleName'] != null) {
             // If the vehicle name in notification matches selected vehicle name
-            final matches = data['vehicleName'].toString() == selectedVehicle.name;
+            final matches =
+                data['vehicleName'].toString() == selectedVehicle.name;
             print('🔎 [FILTER] Quaternary check - vehicleName match: $matches');
             if (matches) return true;
           }
 
           // Quinary check: check if deviceIdentifier matches (from Cloud Function)
           if (data['deviceIdentifier'] != null) {
-            final matches = data['deviceIdentifier'].toString() == vehicleDeviceName;
-            print('🔎 [FILTER] Quinary check - deviceIdentifier match: $matches');
+            final matches =
+                data['deviceIdentifier'].toString() == vehicleDeviceName;
+            print(
+              '🔎 [FILTER] Quinary check - deviceIdentifier match: $matches',
+            );
             if (matches) return true;
           }
 
-          print('❌ [FILTER] No match found for notification ${notification.id}');
+          print(
+            '❌ [FILTER] No match found for notification ${notification.id}',
+          );
           // No matching device reference found
           return false;
         }).toList();
 
-    print('✅ [FILTER] Filtered ${filteredNotifications.length} notifications from ${notifications.length} total');
+    print(
+      '✅ [FILTER] Filtered ${filteredNotifications.length} notifications from ${notifications.length} total',
+    );
 
     return _enhanceNotificationsWithVehicleNames(filteredNotifications);
   }
@@ -279,13 +300,13 @@ class _EnhancedNotificationsScreenState
     List<UnifiedNotification> notifications,
   ) {
     var filtered = notifications;
-    
+
     // Apply vehicle filter
     filtered = _filterNotificationsByVehicle(filtered);
-    
+
     // Apply type filter
     filtered = _filterNotificationsByType(filtered);
-    
+
     return filtered;
   }
 
@@ -459,9 +480,7 @@ class _EnhancedNotificationsScreenState
               'Filter by Vehicle',
               style: theme.textTheme.titleSmall?.copyWith(
                 color:
-                    isDark
-                        ? AppColors.textSecondary
-                        : AppColors.textSecondary,
+                    isDark ? AppColors.textSecondary : AppColors.textSecondary,
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
                 letterSpacing: 0.3,
@@ -672,7 +691,8 @@ class _EnhancedNotificationsScreenState
             child: Text(
               'Filter by Type',
               style: theme.textTheme.titleSmall?.copyWith(
-                color: isDark ? AppColors.textSecondary : AppColors.textSecondary,
+                color:
+                    isDark ? AppColors.textSecondary : AppColors.textSecondary,
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
                 letterSpacing: 0.3,
@@ -681,9 +701,7 @@ class _EnhancedNotificationsScreenState
           ),
 
           // Type selector
-          Expanded(
-            child: _buildNotificationTypeSelector(theme, isDark),
-          ),
+          Expanded(child: _buildNotificationTypeSelector(theme, isDark)),
         ],
       ),
     );
@@ -692,60 +710,86 @@ class _EnhancedNotificationsScreenState
   Widget _buildNotificationTypeSelector(ThemeData theme, bool isDark) {
     final typeOptions = [
       {'type': null, 'name': 'All Types', 'icon': Icons.notifications_rounded},
-      {'type': NotificationType.vehicleStatus, 'name': 'Vehicle Status', 'icon': Icons.power_settings_new_rounded},
-      {'type': NotificationType.geofence, 'name': 'Geofence Alerts', 'icon': Icons.location_on_rounded},
-      {'type': NotificationType.system, 'name': 'System', 'icon': Icons.settings_rounded},
+      {
+        'type': NotificationType.vehicleStatus,
+        'name': 'Vehicle Status',
+        'icon': Icons.power_settings_new_rounded,
+      },
+      {
+        'type': NotificationType.geofence,
+        'name': 'Geofence Alerts',
+        'icon': Icons.location_on_rounded,
+      },
+      {
+        'type': NotificationType.system,
+        'name': 'System',
+        'icon': Icons.settings_rounded,
+      },
     ];
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
-        children: typeOptions.map((option) {
-          final isSelected = _selectedNotificationType == option['type'];
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: FilterChip(
-              selected: isSelected,
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    option['icon'] as IconData,
-                    size: 16,
-                    color: isSelected
-                        ? Colors.white
-                        : (isDark ? AppColors.textSecondary : AppColors.textPrimary),
+        children:
+            typeOptions.map((option) {
+              final isSelected = _selectedNotificationType == option['type'];
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: FilterChip(
+                  selected: isSelected,
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        option['icon'] as IconData,
+                        size: 16,
+                        color:
+                            isSelected
+                                ? Colors.white
+                                : (isDark
+                                    ? AppColors.textSecondary
+                                    : AppColors.textPrimary),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        option['name'] as String,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color:
+                              isSelected
+                                  ? Colors.white
+                                  : (isDark
+                                      ? AppColors.textSecondary
+                                      : AppColors.textPrimary),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 6),
-                  Text(
-                    option['name'] as String,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: isSelected
-                          ? Colors.white
-                          : (isDark ? AppColors.textSecondary : AppColors.textPrimary),
-                    ),
+                  selectedColor: AppColors.primaryBlue,
+                  backgroundColor:
+                      isDark
+                          ? AppColors.darkSurfaceElevated
+                          : AppColors.backgroundSecondary,
+                  side: BorderSide(
+                    color:
+                        isSelected
+                            ? AppColors.primaryBlue
+                            : (isDark
+                                ? AppColors.darkBorder
+                                : AppColors.border),
+                    width: 1,
                   ),
-                ],
-              ),
-              selectedColor: AppColors.primaryBlue,
-              backgroundColor: isDark ? AppColors.darkSurfaceElevated : AppColors.backgroundSecondary,
-              side: BorderSide(
-                color: isSelected
-                    ? AppColors.primaryBlue
-                    : (isDark ? AppColors.darkBorder : AppColors.border),
-                width: 1,
-              ),
-              onSelected: (selected) {
-                setState(() {
-                  _selectedNotificationType = selected ? option['type'] as NotificationType? : null;
-                });
-              },
-            ),
-          );
-        }).toList(),
+                  onSelected: (selected) {
+                    setState(() {
+                      _selectedNotificationType =
+                          selected ? option['type'] as NotificationType? : null;
+                    });
+                  },
+                ),
+              );
+            }).toList(),
       ),
     );
   }
@@ -783,9 +827,7 @@ class _EnhancedNotificationsScreenState
                         children: [
                           _buildVehicleFilter(theme, isDark),
                           _buildNotificationTypeFilter(theme, isDark),
-                          Expanded(
-                            child: _buildErrorState(theme, isDark),
-                          ),
+                          Expanded(child: _buildErrorState(theme, isDark)),
                         ],
                       );
                     }
@@ -795,24 +837,28 @@ class _EnhancedNotificationsScreenState
                         children: [
                           _buildVehicleFilter(theme, isDark),
                           _buildNotificationTypeFilter(theme, isDark),
-                          Expanded(
-                            child: _buildEmptyState(theme, isDark),
-                          ),
+                          Expanded(child: _buildEmptyState(theme, isDark)),
                         ],
                       );
                     }
 
                     // Apply both vehicle and type filters
-                    final filteredNotifications = _applyAllFilters(snapshot.data!);
+                    final filteredNotifications = _applyAllFilters(
+                      snapshot.data!,
+                    );
 
                     if (filteredNotifications.isEmpty &&
-                        (_selectedVehicleId != null || _selectedNotificationType != null)) {
+                        (_selectedVehicleId != null ||
+                            _selectedNotificationType != null)) {
                       return Column(
                         children: [
                           _buildVehicleFilter(theme, isDark),
                           _buildNotificationTypeFilter(theme, isDark),
                           Expanded(
-                            child: _buildNoNotificationsForFilters(theme, isDark),
+                            child: _buildNoNotificationsForFilters(
+                              theme,
+                              isDark,
+                            ),
                           ),
                         ],
                       );
@@ -821,7 +867,11 @@ class _EnhancedNotificationsScreenState
                     final groups = NotificationDateGroup.createGroups(
                       filteredNotifications,
                     );
-                    return _buildNotificationsListWithFilter(groups, theme, isDark);
+                    return _buildNotificationsListWithFilter(
+                      groups,
+                      theme,
+                      isDark,
+                    );
                   },
                 ),
               ),
@@ -951,15 +1001,13 @@ class _EnhancedNotificationsScreenState
   Widget _buildNoNotificationsForFilters(ThemeData theme, bool isDark) {
     String filterText = '';
     if (_selectedVehicleId != null && _selectedNotificationType != null) {
-      final vehicleName = _availableVehicles
-          .firstWhere((v) => v.id == _selectedVehicleId)
-          .name;
+      final vehicleName =
+          _availableVehicles.firstWhere((v) => v.id == _selectedVehicleId).name;
       final typeName = _selectedNotificationType!.displayName;
       filterText = 'for $vehicleName ($typeName)';
     } else if (_selectedVehicleId != null) {
-      final vehicleName = _availableVehicles
-          .firstWhere((v) => v.id == _selectedVehicleId)
-          .name;
+      final vehicleName =
+          _availableVehicles.firstWhere((v) => v.id == _selectedVehicleId).name;
       filterText = 'for $vehicleName';
     } else if (_selectedNotificationType != null) {
       filterText = 'for ${_selectedNotificationType!.displayName}';
@@ -1028,7 +1076,7 @@ class _EnhancedNotificationsScreenState
         if (index == 1) {
           return _buildNotificationTypeFilter(theme, isDark);
         }
-        
+
         // Adjust index for the actual groups
         final groupIndex = index - 2;
         final group = groups[groupIndex];

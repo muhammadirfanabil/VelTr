@@ -20,7 +20,7 @@ const messaging = admin.messaging();
 
 async function testVehicleStatusNotification(userId, deviceId = "TEST_DEVICE") {
   console.log("🧪 Testing Vehicle Status Notification...");
-  
+
   try {
     // Get user's FCM tokens
     const userDoc = await db.collection("users_information").doc(userId).get();
@@ -107,7 +107,6 @@ async function testVehicleStatusNotification(userId, deviceId = "TEST_DEVICE") {
 
     console.log("✅ Vehicle Status Notification stored in database");
     return true;
-
   } catch (error) {
     console.error("❌ Vehicle Status Notification failed:", error);
     return false;
@@ -116,7 +115,7 @@ async function testVehicleStatusNotification(userId, deviceId = "TEST_DEVICE") {
 
 async function testGeofenceNotification(userId, deviceId = "TEST_DEVICE") {
   console.log("🧪 Testing Geofence Notification...");
-  
+
   try {
     // Get user's FCM tokens
     const userDoc = await db.collection("users_information").doc(userId).get();
@@ -204,7 +203,6 @@ async function testGeofenceNotification(userId, deviceId = "TEST_DEVICE") {
 
     console.log("✅ Geofence Notification stored in database");
     return true;
-
   } catch (error) {
     console.error("❌ Geofence Notification failed:", error);
     return false;
@@ -224,20 +222,20 @@ async function runTests() {
 
   console.log(`🚀 Testing FCM Notifications for user: ${userId}`);
   console.log(`📱 Device ID: ${deviceId}`);
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
 
   try {
     // Test vehicle status notification
     const vehicleResult = await testVehicleStatusNotification(userId, deviceId);
-    
+
     // Wait 3 seconds between tests
     console.log("⏳ Waiting 3 seconds before next test...");
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+
     // Test geofence notification
     const geofenceResult = await testGeofenceNotification(userId, deviceId);
 
-    console.log("=" .repeat(60));
+    console.log("=".repeat(60));
     console.log("📊 TEST RESULTS:");
     console.log(`✅ Vehicle Status: ${vehicleResult ? "PASSED" : "FAILED"}`);
     console.log(`✅ Geofence Alert: ${geofenceResult ? "PASSED" : "FAILED"}`);
@@ -247,7 +245,6 @@ async function runTests() {
     } else {
       console.log("⚠️  Some tests failed. Check the error messages above.");
     }
-
   } catch (error) {
     console.error("❌ Test execution failed:", error);
     process.exit(1);
@@ -255,10 +252,12 @@ async function runTests() {
 }
 
 // Run the tests
-runTests().then(() => {
-  console.log("✅ Test script completed");
-  process.exit(0);
-}).catch((error) => {
-  console.error("❌ Test script failed:", error);
-  process.exit(1);
-});
+runTests()
+  .then(() => {
+    console.log("✅ Test script completed");
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error("❌ Test script failed:", error);
+    process.exit(1);
+  });

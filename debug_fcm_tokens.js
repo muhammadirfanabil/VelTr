@@ -11,7 +11,8 @@ const admin = require("firebase-admin");
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.applicationDefault(),
-    databaseURL: "https://gps-project-a5c9a-default-rtdb.asia-southeast1.firebasedatabase.app",
+    databaseURL:
+      "https://gps-project-a5c9a-default-rtdb.asia-southeast1.firebasedatabase.app",
   });
 }
 
@@ -24,12 +25,12 @@ const messaging = admin.messaging();
  */
 async function debugUserFCMTokens(userId) {
   console.log(`🔍 Debugging FCM tokens for user: ${userId}`);
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
 
   try {
     // Get user document
     const userDoc = await db.collection("users_information").doc(userId).get();
-    
+
     if (!userDoc.exists) {
       console.log("❌ User not found in users_information collection");
       return null;
@@ -37,13 +38,17 @@ async function debugUserFCMTokens(userId) {
 
     const userData = userDoc.data();
     console.log("✅ User found");
-    console.log(`📧 Email: ${userData.email || 'N/A'}`);
-    console.log(`👤 Name: ${userData.name || 'N/A'}`);
-    console.log(`📱 FCM Tokens: ${userData.fcmTokens ? userData.fcmTokens.length : 0}`);
+    console.log(`📧 Email: ${userData.email || "N/A"}`);
+    console.log(`👤 Name: ${userData.name || "N/A"}`);
+    console.log(
+      `📱 FCM Tokens: ${userData.fcmTokens ? userData.fcmTokens.length : 0}`
+    );
 
     if (!userData.fcmTokens || userData.fcmTokens.length === 0) {
       console.log("⚠️  No FCM tokens found for this user");
-      console.log("💡 Make sure the user has logged into the app and FCM tokens are properly stored");
+      console.log(
+        "💡 Make sure the user has logged into the app and FCM tokens are properly stored"
+      );
       return null;
     }
 
@@ -54,16 +59,23 @@ async function debugUserFCMTokens(userId) {
     for (let i = 0; i < userData.fcmTokens.length; i++) {
       const token = userData.fcmTokens[i];
       console.log(`\n📱 Token ${i + 1}:`);
-      console.log(`   Preview: ${token.substring(0, 20)}...${token.substring(token.length - 10)}`);
+      console.log(
+        `   Preview: ${token.substring(0, 20)}...${token.substring(
+          token.length - 10
+        )}`
+      );
       console.log(`   Length: ${token.length} characters`);
-      
+
       // Test token validity by sending a dry run
       try {
-        await messaging.send({
-          token: token,
-          data: { test: "dry_run" }
-        }, true); // dry run = true
-        
+        await messaging.send(
+          {
+            token: token,
+            data: { test: "dry_run" },
+          },
+          true
+        ); // dry run = true
+
         console.log("   ✅ Token is VALID");
         validTokens.push(token);
       } catch (error) {
@@ -80,9 +92,8 @@ async function debugUserFCMTokens(userId) {
       userId,
       validTokens,
       invalidTokens,
-      userData
+      userData,
     };
-
   } catch (error) {
     console.error("❌ Error checking FCM tokens:", error);
     return null;
@@ -186,7 +197,9 @@ async function sendTestVehicleStatusNotification(userId, action = "on") {
       testMessage: true,
     };
 
-    const notificationRef = await db.collection("notifications").add(notificationData);
+    const notificationRef = await db
+      .collection("notifications")
+      .add(notificationData);
     console.log(`📝 Notification logged to database: ${notificationRef.id}`);
 
     return true;
@@ -293,7 +306,9 @@ async function sendTestGeofenceNotification(userId, action = "enter") {
       testMessage: true,
     };
 
-    const notificationRef = await db.collection("notifications").add(notificationData);
+    const notificationRef = await db
+      .collection("notifications")
+      .add(notificationData);
     console.log(`📝 Notification logged to database: ${notificationRef.id}`);
 
     return true;
@@ -308,24 +323,28 @@ async function sendTestGeofenceNotification(userId, action = "enter") {
  */
 async function runDebugSession() {
   const TEST_USER_ID = process.argv[2]; // Get user ID from command line argument
-  
+
   if (!TEST_USER_ID) {
     console.log("❌ Please provide a user ID as argument");
     console.log("💡 Usage: node debug_fcm_tokens.js <USER_ID>");
-    console.log("🔍 You can find user IDs in Firebase Console > Firestore > users_information collection");
+    console.log(
+      "🔍 You can find user IDs in Firebase Console > Firestore > users_information collection"
+    );
     return;
   }
 
   console.log("🧪 FCM TOKENS DEBUG SESSION");
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
   console.log(`⏰ Started at: ${new Date().toISOString()}`);
 
   try {
     // 1. Debug FCM tokens
     const tokenInfo = await debugUserFCMTokens(TEST_USER_ID);
-    
+
     if (!tokenInfo || tokenInfo.validTokens.length === 0) {
-      console.log("\n❌ Cannot proceed with notification tests - no valid tokens");
+      console.log(
+        "\n❌ Cannot proceed with notification tests - no valid tokens"
+      );
       return;
     }
 
@@ -333,27 +352,28 @@ async function runDebugSession() {
     console.log("\n" + "=".repeat(60));
     console.log("🚗 TESTING VEHICLE STATUS NOTIFICATIONS");
     console.log("=".repeat(60));
-    
+
     await sendTestVehicleStatusNotification(TEST_USER_ID, "on");
-    await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
+    await new Promise((resolve) => setTimeout(resolve, 3000)); // Wait 3 seconds
     await sendTestVehicleStatusNotification(TEST_USER_ID, "off");
 
     // 3. Test geofence notifications
     console.log("\n" + "=".repeat(60));
     console.log("🎯 TESTING GEOFENCE NOTIFICATIONS");
     console.log("=".repeat(60));
-    
-    await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
+
+    await new Promise((resolve) => setTimeout(resolve, 3000)); // Wait 3 seconds
     await sendTestGeofenceNotification(TEST_USER_ID, "enter");
-    await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
+    await new Promise((resolve) => setTimeout(resolve, 3000)); // Wait 3 seconds
     await sendTestGeofenceNotification(TEST_USER_ID, "exit");
 
     console.log("\n" + "=".repeat(60));
     console.log("✅ DEBUG SESSION COMPLETED SUCCESSFULLY!");
     console.log("📱 Check your phone for the test notifications");
-    console.log("🔍 Check Firebase Console > Firestore > notifications collection for logs");
+    console.log(
+      "🔍 Check Firebase Console > Firestore > notifications collection for logs"
+    );
     console.log("=".repeat(60));
-
   } catch (error) {
     console.error("\n❌ Debug session failed:", error);
   }
@@ -363,7 +383,7 @@ async function runDebugSession() {
 module.exports = {
   debugUserFCMTokens,
   sendTestVehicleStatusNotification,
-  sendTestGeofenceNotification
+  sendTestGeofenceNotification,
 };
 
 // Run the debug session if this script is called directly

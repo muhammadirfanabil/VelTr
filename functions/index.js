@@ -1639,8 +1639,12 @@ exports.testvehiclestatusnotification = onCall(
       const userId = request.auth.uid;
       const { deviceId, action = "on" } = request.data;
 
-      console.log(`🧪 [TEST_VEHICLE_STATUS] Testing vehicle status notification for user: ${userId}`);
-      console.log(`🧪 [TEST_VEHICLE_STATUS] Device: ${deviceId}, Action: ${action}`);
+      console.log(
+        `🧪 [TEST_VEHICLE_STATUS] Testing vehicle status notification for user: ${userId}`
+      );
+      console.log(
+        `🧪 [TEST_VEHICLE_STATUS] Device: ${deviceId}, Action: ${action}`
+      );
 
       // Get user's FCM tokens
       const userDoc = await db
@@ -1658,14 +1662,18 @@ exports.testvehiclestatusnotification = onCall(
         throw new Error("No FCM tokens found for user");
       }
 
-      console.log(`🔍 [TEST_VEHICLE_STATUS] Found ${fcmTokens.length} FCM tokens`);
+      console.log(
+        `🔍 [TEST_VEHICLE_STATUS] Found ${fcmTokens.length} FCM tokens`
+      );
 
       // Test vehicle status notification payload
       const relayStatus = action === "on";
       const statusText = relayStatus ? "on" : "off";
       const actionText = relayStatus ? "turned on" : "turned off";
       const title = `Vehicle Status Update`;
-      const body = `Test Vehicle (${deviceId || 'TEST_DEVICE'}) has been successfully ${actionText}.`;
+      const body = `Test Vehicle (${
+        deviceId || "TEST_DEVICE"
+      }) has been successfully ${actionText}.`;
 
       const testMessage = {
         notification: {
@@ -1712,7 +1720,10 @@ exports.testvehiclestatusnotification = onCall(
       // Send to first token
       const testToken = fcmTokens[0];
       console.log(
-        `📤 [TEST_VEHICLE_STATUS] Sending to token: ${testToken.substring(0, 20)}...`
+        `📤 [TEST_VEHICLE_STATUS] Sending to token: ${testToken.substring(
+          0,
+          20
+        )}...`
       );
 
       await messaging.send({
@@ -1757,8 +1768,13 @@ exports.testvehiclestatusnotification = onCall(
         deviceId: deviceId || "test_device",
       };
     } catch (error) {
-      console.error("❌ [TEST_VEHICLE_STATUS] Error sending test notification:", error);
-      throw new Error(`Test vehicle status notification failed: ${error.message}`);
+      console.error(
+        "❌ [TEST_VEHICLE_STATUS] Error sending test notification:",
+        error
+      );
+      throw new Error(
+        `Test vehicle status notification failed: ${error.message}`
+      );
     }
   }
 );
