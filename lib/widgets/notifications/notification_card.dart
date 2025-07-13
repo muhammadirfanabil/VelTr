@@ -128,7 +128,7 @@ class NotificationCard extends StatelessWidget {
               _buildStatusIcon(),
               const SizedBox(width: NotificationStyles.iconContentSpacing),
               Expanded(child: _buildContent()),
-              _buildActionIndicator(),
+              // Action indicator removed - no functionality assigned
             ],
           ),
         ),
@@ -241,23 +241,6 @@ class NotificationCard extends StatelessWidget {
           style: NotificationStyles.getMetadataTextStyle(),
         ),
       ],
-    );
-  }
-
-  Widget _buildActionIndicator() {
-    return Container(
-      padding: NotificationStyles.actionIndicatorPadding,
-      decoration: BoxDecoration(
-        color: AppColors.backgroundTertiary,
-        borderRadius: BorderRadius.circular(
-          NotificationStyles.actionIndicatorBorderRadius,
-        ),
-      ),
-      child: Icon(
-        Icons.keyboard_arrow_left,
-        color: AppColors.textTertiary,
-        size: NotificationStyles.actionIndicatorIconSize,
-      ),
     );
   }
 

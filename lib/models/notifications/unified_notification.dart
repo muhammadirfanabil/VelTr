@@ -238,6 +238,7 @@ class UnifiedNotification {
   }) {
     final vehicleName =
         data['vehicleName'] ?? data['deviceName'] ?? 'Unknown Vehicle';
+    final deviceName = data['deviceName'] ?? 'Unknown Device';
     final actionText = data['actionText'] ?? '';
     final relayStatus =
         data['relayStatus'] == 'true' || data['relayStatus'] == true;
@@ -254,7 +255,7 @@ class UnifiedNotification {
       timestamp: timestamp,
       data: data,
       isRead: data['isRead'] ?? data['read'] ?? false,
-      deviceName: vehicleName,
+      deviceName: deviceName, // Use actual device name for filtering
       geofenceName: 'Status: ${relayStatus ? 'ON' : 'OFF'}',
     );
   }

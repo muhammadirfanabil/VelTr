@@ -40,6 +40,9 @@ class _EnhancedNotificationsScreenState
   String? _selectedVehicleId; // null means "All Vehicles"
   bool _isLoadingVehicles = true;
 
+  // Notification type filter state
+  NotificationType? _selectedNotificationType; // null means "All Types"
+
   // Device name cache for filtering
   Map<String, String> _deviceIdToNameCache = {};
 
@@ -125,39 +128,86 @@ class _EnhancedNotificationsScreenState
     );
 
     if (selectedVehicle.name.isEmpty || selectedVehicle.deviceId == null) {
+      print('⚠️ [FILTER] Vehicle has no name or deviceId: ${selectedVehicle.name}, ${selectedVehicle.deviceId}');
       return []; // Vehicle not found or has no device, show no notifications
     }
 
     // Get the device name for this vehicle from cache
     final vehicleDeviceName = _deviceIdToNameCache[selectedVehicle.deviceId];
     if (vehicleDeviceName == null) {
+      print('⚠️ [FILTER] Device name not found in cache for deviceId: ${selectedVehicle.deviceId}');
+      print('🔍 [FILTER] Available device cache: $_deviceIdToNameCache');
       return []; // Device name not found, show no notifications
     }
+
+    print('🔍 [FILTER] Filtering for vehicle: ${selectedVehicle.name}, deviceId: ${selectedVehicle.deviceId}, deviceName: $vehicleDeviceName');
 
     // Filter notifications by matching device name
     final filteredNotifications =
         notifications.where((notification) {
+          print('🔎 [FILTER] Checking notification: ${notification.type}, id: ${notification.id}');
+          print('🔎 [FILTER] - notification.deviceName: ${notification.deviceName}');
+          print('🔎 [FILTER] - notification.data: ${notification.data}');
+          
           // Primary check: notification deviceName matches vehicle's device name
           if (notification.deviceName != null) {
-            return notification.deviceName == vehicleDeviceName;
+            final matches = notification.deviceName == vehicleDeviceName;
+            print('🔎 [FILTER] Primary check - deviceName match: $matches');
+            if (matches) return true;
           }
 
           // Secondary check: check data fields for device references
           final data = notification.data;
           if (data['deviceName'] != null) {
-            return data['deviceName'].toString() == vehicleDeviceName;
+            final matches = data['deviceName'].toString() == vehicleDeviceName;
+            print('🔎 [FILTER] Secondary check - data deviceName match: $matches');
+            if (matches) return true;
           }
 
-          // Tertiary check: check for deviceId in data
+          // Tertiary check: check for deviceId in data (Firestore device ID)
           if (data['deviceId'] != null) {
-            return data['deviceId'].toString() == selectedVehicle.deviceId;
+            final matches = data['deviceId'].toString() == selectedVehicle.deviceId;
+            print('🔎 [FILTER] Tertiary check - deviceId match: $matches');
+            if (matches) return true;
           }
 
+          // Quaternary check: for vehicle status notifications, check vehicleName
+          if (notification.type == NotificationType.vehicleStatus && 
+              data['vehicleName'] != null) {
+            // If the vehicle name in notification matches selected vehicle name
+            final matches = data['vehicleName'].toString() == selectedVehicle.name;
+            print('🔎 [FILTER] Quaternary check - vehicleName match: $matches');
+            if (matches) return true;
+          }
+
+          // Quinary check: check if deviceIdentifier matches (from Cloud Function)
+          if (data['deviceIdentifier'] != null) {
+            final matches = data['deviceIdentifier'].toString() == vehicleDeviceName;
+            print('🔎 [FILTER] Quinary check - deviceIdentifier match: $matches');
+            if (matches) return true;
+          }
+
+          print('❌ [FILTER] No match found for notification ${notification.id}');
           // No matching device reference found
           return false;
         }).toList();
 
+    print('✅ [FILTER] Filtered ${filteredNotifications.length} notifications from ${notifications.length} total');
+
     return _enhanceNotificationsWithVehicleNames(filteredNotifications);
+  }
+
+  /// Filter notifications based on selected notification type
+  List<UnifiedNotification> _filterNotificationsByType(
+    List<UnifiedNotification> notifications,
+  ) {
+    if (_selectedNotificationType == null) {
+      return notifications; // Show all types
+    }
+
+    return notifications.where((notification) {
+      return notification.type == _selectedNotificationType;
+    }).toList();
   }
 
   /// Enhance notifications by replacing device names with vehicle names
@@ -222,6 +272,21 @@ class _EnhancedNotificationsScreenState
 
       return notification; // Return original if no vehicle found
     }).toList();
+  }
+
+  /// Apply both vehicle and type filters
+  List<UnifiedNotification> _applyAllFilters(
+    List<UnifiedNotification> notifications,
+  ) {
+    var filtered = notifications;
+    
+    // Apply vehicle filter
+    filtered = _filterNotificationsByVehicle(filtered);
+    
+    // Apply type filter
+    filtered = _filterNotificationsByType(filtered);
+    
+    return filtered;
   }
 
   @override
@@ -578,6 +643,113 @@ class _EnhancedNotificationsScreenState
     );
   }
 
+  Widget _buildNotificationTypeFilter(ThemeData theme, bool isDark) {
+    return Container(
+      height: 90,
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.backgroundPrimary,
+        boxShadow: [
+          BoxShadow(
+            color: (isDark ? Colors.black : Colors.black).withValues(
+              alpha: 0.05,
+            ),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Filter title
+          Padding(
+            padding: const EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 12,
+              bottom: 8,
+            ),
+            child: Text(
+              'Filter by Type',
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: isDark ? AppColors.textSecondary : AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+
+          // Type selector
+          Expanded(
+            child: _buildNotificationTypeSelector(theme, isDark),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotificationTypeSelector(ThemeData theme, bool isDark) {
+    final typeOptions = [
+      {'type': null, 'name': 'All Types', 'icon': Icons.notifications_rounded},
+      {'type': NotificationType.vehicleStatus, 'name': 'Vehicle Status', 'icon': Icons.power_settings_new_rounded},
+      {'type': NotificationType.geofence, 'name': 'Geofence Alerts', 'icon': Icons.location_on_rounded},
+      {'type': NotificationType.system, 'name': 'System', 'icon': Icons.settings_rounded},
+    ];
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: typeOptions.map((option) {
+          final isSelected = _selectedNotificationType == option['type'];
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              selected: isSelected,
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    option['icon'] as IconData,
+                    size: 16,
+                    color: isSelected
+                        ? Colors.white
+                        : (isDark ? AppColors.textSecondary : AppColors.textPrimary),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    option['name'] as String,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: isSelected
+                          ? Colors.white
+                          : (isDark ? AppColors.textSecondary : AppColors.textPrimary),
+                    ),
+                  ),
+                ],
+              ),
+              selectedColor: AppColors.primaryBlue,
+              backgroundColor: isDark ? AppColors.darkSurfaceElevated : AppColors.backgroundSecondary,
+              side: BorderSide(
+                color: isSelected
+                    ? AppColors.primaryBlue
+                    : (isDark ? AppColors.darkBorder : AppColors.border),
+                width: 1,
+              ),
+              onSelected: (selected) {
+                setState(() {
+                  _selectedNotificationType = selected ? option['type'] as NotificationType? : null;
+                });
+              },
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   Widget _buildNotificationsContent(ThemeData theme, bool isDark) {
     return SliverFillRemaining(
       child: Container(
@@ -598,6 +770,7 @@ class _EnhancedNotificationsScreenState
                       return Column(
                         children: [
                           _buildVehicleFilter(theme, isDark),
+                          _buildNotificationTypeFilter(theme, isDark),
                           const Expanded(
                             child: LoadingScreen(message: 'Loading alerts...'),
                           ),
@@ -609,6 +782,7 @@ class _EnhancedNotificationsScreenState
                       return Column(
                         children: [
                           _buildVehicleFilter(theme, isDark),
+                          _buildNotificationTypeFilter(theme, isDark),
                           Expanded(
                             child: _buildErrorState(theme, isDark),
                           ),
@@ -620,6 +794,7 @@ class _EnhancedNotificationsScreenState
                       return Column(
                         children: [
                           _buildVehicleFilter(theme, isDark),
+                          _buildNotificationTypeFilter(theme, isDark),
                           Expanded(
                             child: _buildEmptyState(theme, isDark),
                           ),
@@ -627,18 +802,17 @@ class _EnhancedNotificationsScreenState
                       );
                     }
 
-                    // Apply vehicle filter
-                    final filteredNotifications = _filterNotificationsByVehicle(
-                      snapshot.data!,
-                    );
+                    // Apply both vehicle and type filters
+                    final filteredNotifications = _applyAllFilters(snapshot.data!);
 
                     if (filteredNotifications.isEmpty &&
-                        _selectedVehicleId != null) {
+                        (_selectedVehicleId != null || _selectedNotificationType != null)) {
                       return Column(
                         children: [
                           _buildVehicleFilter(theme, isDark),
+                          _buildNotificationTypeFilter(theme, isDark),
                           Expanded(
-                            child: _buildNoNotificationsForVehicle(theme, isDark),
+                            child: _buildNoNotificationsForFilters(theme, isDark),
                           ),
                         ],
                       );
@@ -774,82 +948,67 @@ class _EnhancedNotificationsScreenState
     );
   }
 
-  Widget _buildNoNotificationsForVehicle(ThemeData theme, bool isDark) {
-    final selectedVehicle = _availableVehicles.firstWhere(
-      (vehicle) => vehicle.id == _selectedVehicleId,
-      orElse:
-          () => vehicle(
-            id: '',
-            name: 'Unknown Vehicle',
-            ownerId: '',
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
+  Widget _buildNoNotificationsForFilters(ThemeData theme, bool isDark) {
+    String filterText = '';
+    if (_selectedVehicleId != null && _selectedNotificationType != null) {
+      final vehicleName = _availableVehicles
+          .firstWhere((v) => v.id == _selectedVehicleId)
+          .name;
+      final typeName = _selectedNotificationType!.displayName;
+      filterText = 'for $vehicleName ($typeName)';
+    } else if (_selectedVehicleId != null) {
+      final vehicleName = _availableVehicles
+          .firstWhere((v) => v.id == _selectedVehicleId)
+          .name;
+      filterText = 'for $vehicleName';
+    } else if (_selectedNotificationType != null) {
+      filterText = 'for ${_selectedNotificationType!.displayName}';
+    }
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.filter_list_off_rounded,
+            size: 64,
+            color: isDark ? AppColors.textTertiary : AppColors.textSecondary,
           ),
-    );
-
-    final hasDevice =
-        selectedVehicle.deviceId != null &&
-        _deviceIdToNameCache.containsKey(selectedVehicle.deviceId);
-
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      children: [
-        SizedBox(
-          height: MediaQuery.of(context).size.height * 0.6,
-          child: Center(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 86,
-                    height: 86,
-                    decoration: BoxDecoration(
-                      color:
-                          isDark
-                              ? AppColors.darkSurfaceElevated
-                              : AppColors.backgroundSecondary,
-                      borderRadius: BorderRadius.circular(43),
-                    ),
-                    child: Icon(
-                      hasDevice
-                          ? Icons.two_wheeler_rounded
-                          : Icons.warning_rounded,
-                      size: 40,
-                      color: hasDevice ? AppColors.textTertiary : Colors.orange,
-                    ),
-                  ),
-                  const SizedBox(height: 25),
-                  Text(
-                    hasDevice
-                        ? 'No Notifications for ${selectedVehicle.name}'
-                        : '${selectedVehicle.name} Has No Device',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 11),
-                  Text(
-                    hasDevice
-                        ? 'There are no notifications for this vehicle yet.\n\nTry selecting "All Vehicles" or pull down to refresh.'
-                        : 'This vehicle needs a GPS device to generate notifications.\n\nAttach a device to start receiving alerts.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textSecondary,
-                      height: 1.45,
-                      fontSize: 14.5,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
+          const SizedBox(height: 16),
+          Text(
+            'No notifications $filterText',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: isDark ? AppColors.textSecondary : AppColors.textPrimary,
             ),
           ),
-        ),
-      ],
+          const SizedBox(height: 8),
+          Text(
+            'Try adjusting your filters or check back later',
+            style: TextStyle(
+              fontSize: 14,
+              color: isDark ? AppColors.textTertiary : AppColors.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          OutlinedButton.icon(
+            onPressed: () {
+              setState(() {
+                _selectedVehicleId = null;
+                _selectedNotificationType = null;
+              });
+            },
+            icon: const Icon(Icons.clear_all_rounded),
+            label: const Text('Clear Filters'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primaryBlue,
+              side: const BorderSide(color: AppColors.primaryBlue),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -860,15 +1019,18 @@ class _EnhancedNotificationsScreenState
   ) {
     return ListView.builder(
       padding: const EdgeInsets.only(top: 0, bottom: 104),
-      itemCount: groups.length + 1, // +1 for the filter at the top
+      itemCount: groups.length + 2, // +2 for the filters at the top
       itemBuilder: (context, index) {
-        // First item is the filter
+        // First two items are the filters
         if (index == 0) {
           return _buildVehicleFilter(theme, isDark);
         }
+        if (index == 1) {
+          return _buildNotificationTypeFilter(theme, isDark);
+        }
         
         // Adjust index for the actual groups
-        final groupIndex = index - 1;
+        final groupIndex = index - 2;
         final group = groups[groupIndex];
         return _buildDateGroup(group, theme, isDark, groupIndex == 0, groups);
       },
