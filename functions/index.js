@@ -1381,7 +1381,7 @@ async function sendVehicleStatusNotification(params) {
 
     // Prepare notification message
     const title = `Vehicle Status Update`;
-    const body = `✅ Beat (${vehicleName}) has been successfully ${actionText}.`;
+    const body = `${vehicleName} has been successfully ${actionText}.`;
 
     console.log(
       `🔔 [VEHICLE_NOTIFICATION] Preparing notification: "${title}" - "${body}"`

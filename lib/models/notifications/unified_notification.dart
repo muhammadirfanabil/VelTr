@@ -244,8 +244,7 @@ class UnifiedNotification {
 
     // Use the message from the backend or construct it
     final message =
-        data['message'] ??
-        '✅ Beat ($vehicleName) has been successfully $actionText.';
+        data['message'] ?? '✅ $vehicleName has been successfully $actionText.';
 
     return UnifiedNotification(
       id: id,
@@ -260,12 +259,26 @@ class UnifiedNotification {
     );
   }
 
+  /// Helper method to get vehicle relay status from notification data
+  bool _getVehicleRelayStatus() {
+    if (type == NotificationType.vehicleStatus) {
+      final relayStatus = data['relayStatus'];
+      if (relayStatus is bool) {
+        return relayStatus;
+      } else if (relayStatus is String) {
+        return relayStatus.toLowerCase() == 'true';
+      }
+    }
+    return false; // Default to OFF if status cannot be determined
+  }
+
   /// Get display icon based on notification type
   IconData get icon {
     if (type == NotificationType.geofence && geofenceAction != null) {
       return geofenceAction!.icon;
     } else if (type == NotificationType.vehicleStatus) {
-      return Icons.power_settings_new_rounded;
+      final relayStatus = _getVehicleRelayStatus();
+      return relayStatus ? Icons.power_rounded : Icons.power_off_rounded;
     }
     return Icons.notifications_rounded;
   }
@@ -275,7 +288,8 @@ class UnifiedNotification {
     if (type == NotificationType.geofence && geofenceAction != null) {
       return geofenceAction!.color;
     } else if (type == NotificationType.vehicleStatus) {
-      return AppColors.success;
+      final relayStatus = _getVehicleRelayStatus();
+      return relayStatus ? AppColors.success : AppColors.error;
     }
     return AppColors.info;
   }
@@ -285,7 +299,8 @@ class UnifiedNotification {
     if (type == NotificationType.geofence && geofenceAction != null) {
       return geofenceAction!.badgeText;
     } else if (type == NotificationType.vehicleStatus) {
-      return 'STATUS';
+      final relayStatus = _getVehicleRelayStatus();
+      return relayStatus ? 'ON' : 'OFF';
     }
     return type.displayName.toUpperCase();
   }
@@ -295,7 +310,8 @@ class UnifiedNotification {
     if (type == NotificationType.geofence && geofenceAction != null) {
       return geofenceAction!.badgeColor;
     } else if (type == NotificationType.vehicleStatus) {
-      return AppColors.successLight;
+      final relayStatus = _getVehicleRelayStatus();
+      return relayStatus ? AppColors.successLight : AppColors.errorLight;
     }
     return AppColors.infoLight;
   }
@@ -305,9 +321,19 @@ class UnifiedNotification {
     if (type == NotificationType.geofence && geofenceAction != null) {
       return geofenceAction!.badgeTextColor;
     } else if (type == NotificationType.vehicleStatus) {
-      return AppColors.successText;
+      final relayStatus = _getVehicleRelayStatus();
+      return relayStatus ? AppColors.successText : AppColors.errorText;
     }
     return AppColors.infoText;
+  }
+
+  /// Get border color for vehicle status notifications
+  Color? get borderColor {
+    if (type == NotificationType.vehicleStatus) {
+      final relayStatus = _getVehicleRelayStatus();
+      return relayStatus ? AppColors.success : AppColors.error;
+    }
+    return null; // No border for other notification types
   }
 
   /// Check if notification has location data

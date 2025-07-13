@@ -122,10 +122,17 @@ class NotificationCard extends StatelessWidget {
             ],
             border: Border.all(
               color:
-                  notification.isRead
-                      ? AppColors.border.withValues(alpha: 0.75)
-                      : notification.color.withValues(alpha: 0.26),
-              width: notification.isRead ? 0.5 : 1.0,
+                  notification.borderColor != null
+                      ? (notification.isRead
+                          ? notification.borderColor!.withValues(alpha: 0.5)
+                          : notification.borderColor!.withValues(alpha: 0.8))
+                      : (notification.isRead
+                          ? AppColors.border.withValues(alpha: 0.75)
+                          : notification.color.withValues(alpha: 0.26)),
+              width:
+                  notification.borderColor != null
+                      ? (notification.isRead ? 1.0 : 1.5)
+                      : (notification.isRead ? 0.5 : 1.0),
             ),
           ),
           child: Row(
