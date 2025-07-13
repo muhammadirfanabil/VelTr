@@ -20,14 +20,17 @@ class BuildActionButton extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       child: FilledButton.icon(
-        onPressed: isDisabled ? null : () async {
-          onPressed();
-          // Wait for the action to process and show feedback, then dismiss
-          if (onActionCompleted != null) {
-            await Future.delayed(const Duration(milliseconds: 1000));
-            onActionCompleted!();
-          }
-        },
+        onPressed:
+            isDisabled
+                ? null
+                : () async {
+                  onPressed();
+                  // Wait for the action to process and show feedback, then dismiss
+                  if (onActionCompleted != null) {
+                    await Future.delayed(const Duration(milliseconds: 1000));
+                    onActionCompleted!();
+                  }
+                },
         icon:
             isDisabled
                 ? SizedBox(
