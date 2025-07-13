@@ -17,6 +17,7 @@ class VehicleStatusPanel extends StatefulWidget {
   final String? waktuWita;
   final bool isVehicleOn;
   final VoidCallback toggleVehicleStatus;
+  final VoidCallback? onActionCompleted;
   final int? satellites;
   final bool isLoading;
   final String deviceId; // Add deviceId parameter
@@ -30,6 +31,7 @@ class VehicleStatusPanel extends StatefulWidget {
     this.waktuWita,
     required this.isVehicleOn,
     required this.toggleVehicleStatus,
+    this.onActionCompleted,
     this.satellites,
     this.isLoading = false,
     required this.deviceId, // Add required deviceId
@@ -881,6 +883,7 @@ class _VehicleStatusPanelState extends State<VehicleStatusPanel>
                 isVehicleOn: _getActualVehicleStatus(),
                 isDisabled: _isActionInProgress || widget.isLoading,
                 onPressed: _handleVehicleToggle,
+                onActionCompleted: widget.onActionCompleted,
               ),
             ],
           ),

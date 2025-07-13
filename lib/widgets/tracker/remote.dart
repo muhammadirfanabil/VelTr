@@ -5,11 +5,14 @@ class BuildActionButton extends StatelessWidget {
   final bool isVehicleOn;
   final bool isDisabled;
   final VoidCallback onPressed;
+  final VoidCallback? onActionCompleted;
 
   const BuildActionButton({
+    super.key,
     required this.isVehicleOn,
     required this.isDisabled,
     required this.onPressed,
+    this.onActionCompleted,
   });
 
   @override
@@ -17,7 +20,14 @@ class BuildActionButton extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       child: FilledButton.icon(
-        onPressed: isDisabled ? null : onPressed,
+        onPressed: isDisabled ? null : () async {
+          onPressed();
+          // Wait for the action to process and show feedback, then dismiss
+          if (onActionCompleted != null) {
+            await Future.delayed(const Duration(milliseconds: 1000));
+            onActionCompleted!();
+          }
+        },
         icon:
             isDisabled
                 ? SizedBox(
@@ -42,7 +52,8 @@ class BuildActionButton extends StatelessWidget {
           backgroundColor:
               isDisabled
                   ? AppColors.textTertiary.withValues(alpha: 0.3)
-                  : (isVehicleOn ? AppColors.success : AppColors.error),
+                  : (isVehicleOn ? AppColors.error : AppColors.success),
+          // : (isVehicleOn ? AppColors.success : AppColors.error),
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(

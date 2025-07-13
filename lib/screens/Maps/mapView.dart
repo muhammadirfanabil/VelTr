@@ -756,6 +756,7 @@ class _GPSMapScreenState extends State<GPSMapScreen> {
               lastUpdated: hasGPSData ? lastUpdated : 'No GPS data',
               isVehicleOn: isVehicleOn,
               toggleVehicleStatus: toggleVehicleStatus,
+              onActionCompleted: () => Navigator.of(context).pop(),
               satellites: satellites,
             ),
           ),
